@@ -10,7 +10,7 @@ interface Question {
 const QUESTIONS: readonly Question[] = [
   {
     q: 'Is this only for Angular?',
-    a: 'Yes. veneer is an Angular library for Angular 21.2 and newer: the directive, pipe and provideVeneer() are Angular APIs, and it supports SSR and hydration. There is no React or Vue wrapper.',
+    a: 'Yes. veneer is an Angular library for Angular 20, 21 and 22: the directive, pipe and provideVeneer() are Angular APIs, and it supports SSR and hydration. There is no React or Vue wrapper.',
   },
   {
     q: 'Does it stop AI scrapers completely?',

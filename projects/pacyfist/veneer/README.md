@@ -1,7 +1,7 @@
 # @pacyfist/veneer
 
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Angular](https://img.shields.io/badge/angular-%5E21.2-dd0031.svg)](https://angular.dev)
+[![Angular](https://img.shields.io/badge/angular-20%20%7C%2021%20%7C%2022-dd0031.svg)](https://angular.dev)
 [![SSR](https://img.shields.io/badge/SSR-supported-brightgreen.svg)](#server-side-rendering)
 
 Angular directives that keep text readable for people while scrapers, scripts
@@ -53,7 +53,7 @@ innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
 
 | Requirement | Version / notes                                                                                                                          |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Angular     | `^21.2.0` (`@angular/core`, `@angular/common`)                                                                                           |
+| Angular     | 20, 21 or 22 (`@angular/core`, `@angular/common`)                                                                                        |
 | opentype.js | `^2.0.0` - peer dependency, so you pin the version                                                                                       |
 | Base font   | A **`.ttf` or `.otf`** file you are licensed to embed                                                                                    |
 | Browser     | Anything with the [CSS Font Loading API](https://developer.mozilla.org/docs/Web/API/CSS_Font_Loading_API) (`FontFace`, `document.fonts`) |

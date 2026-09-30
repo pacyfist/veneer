@@ -1,6 +1,6 @@
 {
   "name": "@pacyfist/veneer",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Angular directives that scramble text in the DOM and render it correctly with a font generated at runtime, so scrapers, scripts and copy-paste get gibberish.",
   "keywords": [
     "angular",
@@ -21,8 +21,8 @@
     "url": "https://github.com/pacyfist/veneer/issues"
   },
   "peerDependencies": {
-    "@angular/common": "^21.2.0",
-    "@angular/core": "^21.2.0",
+    "@angular/common": "^20.0.0 || ^21.0.0 || ^22.0.0",
+    "@angular/core": "^20.0.0 || ^21.0.0 || ^22.0.0",
     "opentype.js": "^2.0.0"
   },
   "dependencies": {

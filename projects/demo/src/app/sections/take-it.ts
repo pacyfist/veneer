@@ -12,8 +12,8 @@ import { CodeBlock } from '../ui/code-block';
         Give the bots <span class="text-secondary font-mono tracking-normal">g!bb3r$h</span>.
       </h2>
       <p class="text-base-content/70 mt-4 text-lg">
-        A free, open-source Angular library. Needs Angular 21.2+, opentype.js 2, and a .ttf or .otf
-        font you're allowed to embed.
+        A free, open-source Angular library. Needs Angular 20, 21 or 22, opentype.js 2, and a .ttf
+        or .otf font you're allowed to embed.
       </p>
       <div class="mt-8 text-left">
         <app-code-block prefix="shell" [lines]="install" />

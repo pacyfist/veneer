@@ -9,6 +9,7 @@
     "watch": "ng build demo --watch --configuration development",
     "test": "npm run build:lib && ng test @pacyfist/veneer --watch=false",
     "build:pages": "npm run build:lib && ng build demo --configuration production,github-pages",
+    "use-angular": "node scripts/use-angular.mjs",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "serve:ssr:demo": "node dist/demo/server/server.mjs"
