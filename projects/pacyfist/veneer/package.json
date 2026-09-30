@@ -11,6 +11,15 @@
     "obfuscation"
   ],
   "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pacyfist/veneer.git",
+    "directory": "projects/pacyfist/veneer"
+  },
+  "homepage": "https://pacyfist.github.io/veneer/",
+  "bugs": {
+    "url": "https://github.com/pacyfist/veneer/issues"
+  },
   "peerDependencies": {
     "@angular/common": "^21.2.0",
     "@angular/core": "^21.2.0",
@@ -19,5 +28,8 @@
   "dependencies": {
     "tslib": "^2.3.0"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  }
 }

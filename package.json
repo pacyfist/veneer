@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "build:lib": "ng build @pacyfist/veneer",
+    "build:lib": "ng build @pacyfist/veneer && node -e \"require('fs').copyFileSync('LICENSE', 'dist/pacyfist/veneer/LICENSE')\"",
     "build": "npm run build:lib && ng build demo",
     "start": "npm run build:lib && ng serve demo --port 4321",
     "watch": "ng build demo --watch --configuration development",

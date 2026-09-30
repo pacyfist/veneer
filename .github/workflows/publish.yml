@@ -1,0 +1,57 @@
+name: Publish to npm
+
+# Runs when a GitHub Release is published. The release tag must match the
+# library version, e.g. tag v0.1.0 for "version": "0.1.0".
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  # Trusted publishing: npm verifies this run through GitHub's OIDC token, so
+  # no NPM_TOKEN secret is needed and the package gets provenance attached.
+  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or newer.
+      - run: npm install -g npm@latest
+
+      - run: npm ci
+
+      - name: Check the tag matches the library version
+        run: |
+          version=$(node -p "require('./projects/pacyfist/veneer/package.json').version")
+          if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::Release tag $GITHUB_REF_NAME does not match library version $version"
+            exit 1
+          fi
+
+      - run: npm test
+
+      - name: Build library
+        run: npm run build:lib
+
+      # Pre-releases (versions with a hyphen, e.g. 0.2.0-beta.1) go to the
+      # "next" dist-tag so `npm install` keeps resolving the latest stable.
+      - name: Publish
+        working-directory: dist/pacyfist/veneer
+        run: |
+          case "${GITHUB_REF_NAME#v}" in
+            *-*) npm publish --tag next ;;
+            *) npm publish ;;
+          esac
