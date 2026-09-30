@@ -29,18 +29,39 @@ const LENS = 90;
   template: `
     <div class="grid items-center gap-12 pt-16 pb-20 lg:grid-cols-[1.1fr_1fr] lg:pt-24">
       <div>
-        <p class="badge badge-outline badge-primary mb-5">Angular library · SSR ready</p>
+        <p
+          class="border-base-300 bg-base-100 mb-5 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-bold"
+        >
+          <svg viewBox="0 0 24 24" class="h-4 w-4" aria-hidden="true">
+            <path fill="currentColor" d="M12 2 3 5.2l1.4 11.9L12 22l7.6-4.9L21 5.2z" />
+            <path
+              fill="var(--color-base-100)"
+              d="M12 5.3 7.2 16h1.8l1-2.4h4l1 2.4h1.8zm-1.3 6.8L12 9l1.3 3.1z"
+            />
+          </svg>
+          An Angular library
+          <span class="text-base-content/50 font-normal">· Angular 21.2+ · SSR ready</span>
+        </p>
         <h1 class="text-5xl leading-[1.05] font-bold tracking-tight md:text-6xl">
           Readable by <span class="text-primary">people</span>.<br />
           Gibberish to <span class="text-secondary font-mono tracking-normal">b0t$</span>.
         </h1>
         <p class="text-base-content/70 mt-6 max-w-xl text-lg leading-relaxed">
-          Add one attribute to your text. Visitors read it as usual, but anything that scrapes your
-          HTML (AI crawlers, copy-paste, "summarise this page" bots) gets scrambled nonsense.
+          Add one directive to your Angular templates. Visitors read your text as usual, but
+          anything that scrapes your HTML (AI crawlers, scripts, copy-paste) gets scrambled
+          nonsense.
         </p>
         <div class="mt-8 flex flex-wrap gap-3">
-          <a class="btn btn-primary btn-lg" href="#start">Get started</a>
+          <a class="btn btn-primary btn-lg" href="#start">Add it to your Angular app</a>
           <a class="btn btn-ghost btn-lg" href="#try">Try it yourself ↓</a>
+        </div>
+        <div class="mt-8 flex flex-wrap items-center gap-2 font-mono text-sm">
+          <code class="rounded-field bg-[#16161d] px-3 py-1.5 text-[#e8e6e3]"
+            >npm i &#64;pacyfist/veneer</code
+          >
+          <code class="rounded-field bg-[#16161d] px-3 py-1.5 text-[#e8e6e3]"
+            >&lt;p <span class="text-[#2dd4bf]">veneer</span>&gt;…&lt;/p&gt;</code
+          >
         </div>
       </div>
 

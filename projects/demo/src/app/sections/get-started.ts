@@ -36,9 +36,9 @@ const USE = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [SectionHeading, CodeBlock, ApplyTabs],
   template: `
-    <app-section-heading eyebrow="Get started" title="Three steps, about two minutes">
-      No stylesheet to copy and no build plugin. If your app already uses Angular, you're most of
-      the way there.
+    <app-section-heading eyebrow="Get started" title="Add it to your Angular app in three steps">
+      Works with standalone components, signals, server-side rendering and hydration. No stylesheet
+      to copy and no build plugin.
     </app-section-heading>
 
     <ol class="flex flex-col gap-10">

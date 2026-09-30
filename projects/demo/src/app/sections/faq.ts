@@ -9,6 +9,10 @@ interface Question {
 /** Answers ground in the README; keep them in step with it. */
 const QUESTIONS: readonly Question[] = [
   {
+    q: 'Is this only for Angular?',
+    a: 'Yes. veneer is an Angular library for Angular 21.2 and newer: the directive, pipe and provideVeneer() are Angular APIs, and it supports SSR and hydration. There is no React or Vue wrapper.',
+  },
+  {
     q: 'Does it stop AI scrapers completely?',
     a: "No. It stops the cheap, bulk kind: fetching HTML, reading innerText, pasting a page into a chatbot, crawlers that don't run JavaScript. Someone determined can download the font and undo the cipher in a few lines of code. It raises the cost of scraping; it doesn't make anything secret.",
   },
@@ -37,8 +41,8 @@ const QUESTIONS: readonly Question[] = [
     a: 'Yes, and that is where it matters most. The server writes the scrambled text into the HTML, and the browser rebuilds the matching font from the same seed.',
   },
   {
-    q: 'Can I use it without Angular?',
-    a: 'The cipher and font builder are plain functions exported from the package, so a build script or another framework can use them. The Angular directives are a thin layer on top.',
+    q: 'Can I use any of it outside Angular?',
+    a: 'Only the low-level parts. The cipher and font builder are plain functions exported from the package, so a build script could pre-scramble static content. Everything else, including keeping text and font in sync, is the Angular layer.',
   },
   {
     q: 'What does the license mean for me?',
