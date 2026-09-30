@@ -1,0 +1,23 @@
+{
+  "name": "@pacyfist/no-ai",
+  "version": "0.0.1",
+  "description": "Angular directives that scramble text in the DOM and render it correctly with a font generated at runtime, so bulk scrapers extract gibberish.",
+  "keywords": [
+    "angular",
+    "scraping",
+    "anti-scraping",
+    "font",
+    "opentype",
+    "obfuscation"
+  ],
+  "license": "AGPL-3.0-only",
+  "peerDependencies": {
+    "@angular/common": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "opentype.js": "^2.0.0"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "sideEffects": false
+}

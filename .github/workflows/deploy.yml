@@ -1,0 +1,59 @@
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a newer push supersede a queued deploy, but never cancel one midway.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build library and static site
+        run: npm run build:pages
+
+      # NOTE: the end-to-end suite was deleted when the demo was cleared, so
+      # nothing currently verifies the published site is actually scrambled.
+      # Restore the Playwright install and `npm run e2e` steps here before
+      # trusting a deploy again — a build that ships readable text will now
+      # publish rather than fail.
+
+      - name: Add SPA fallback and disable Jekyll
+        run: |
+          cp dist/demo/browser/index.html dist/demo/browser/404.html
+          touch dist/demo/browser/.nojekyll
+
+      # dist/demo/browser only — `outputMode: static` still emits dist/demo/server
+      # as a prerender byproduct, and publishing it would ship the server bundles.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/demo/browser
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

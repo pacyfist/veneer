@@ -1,0 +1,78 @@
+<div class="bg-base-200 text-base-content min-h-screen">
+  <header class="navbar bg-base-100/80 border-base-300 sticky top-0 z-30 border-b backdrop-blur">
+    <div class="mx-auto flex w-full max-w-6xl items-center gap-4 px-4">
+      <a href="#top" class="flex items-center gap-1 text-lg font-bold tracking-tight">
+        <span class="text-primary">no</span><span class="text-base-content/40">-</span
+        ><span class="text-secondary font-mono">@i</span>
+      </a>
+      <nav class="ml-4 hidden gap-5 text-sm md:flex">
+        <a class="link link-hover" href="#try">Try it</a>
+        <a class="link link-hover" href="#how">How it works</a>
+        <a class="link link-hover" href="#start">Get started</a>
+        <a class="link link-hover" href="#limits">Limits</a>
+        <a class="link link-hover" href="#faq">FAQ</a>
+      </nav>
+      <div class="ml-auto flex items-center gap-4">
+        <label
+          class="flex cursor-pointer items-center gap-2 text-sm"
+          title="Turn off the decoder font everywhere on this page"
+        >
+          <span class="hidden sm:inline" [class.text-secondary]="noAi.revealed()">Bot vision</span>
+          <input
+            type="checkbox"
+            class="toggle toggle-sm checked:border-secondary checked:text-secondary"
+            [checked]="noAi.revealed()"
+            (change)="noAi.revealed.set(!noAi.revealed())"
+            aria-label="Bot vision: show the whole page as a scraper reads it"
+          />
+        </label>
+        <label class="swap swap-rotate" title="Toggle dark mode">
+          <input type="checkbox" value="dark" class="theme-controller" aria-label="Dark mode" />
+          <span class="swap-off text-lg" aria-hidden="true">☾</span>
+          <span class="swap-on text-lg" aria-hidden="true">☀</span>
+        </label>
+        <a
+          class="btn btn-sm btn-primary hidden sm:inline-flex"
+          href="https://github.com/pacyfist/no-ai"
+        >
+          GitHub
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="top" class="px-4">
+      <div class="mx-auto max-w-6xl"><app-hero /></div>
+    </section>
+    <section id="try" class="bg-base-100 px-4 py-24">
+      <div class="mx-auto max-w-5xl"><app-try-it /></div>
+    </section>
+    <section id="how" class="px-4 py-24">
+      <div class="mx-auto max-w-5xl"><app-how-it-works /></div>
+    </section>
+    <section id="start" class="bg-base-100 px-4 py-24">
+      <div class="mx-auto max-w-5xl"><app-get-started /></div>
+    </section>
+    <section id="safe" class="px-4 py-24">
+      <div class="mx-auto max-w-5xl"><app-breakage /></div>
+    </section>
+    <section id="limits" class="bg-base-100 px-4 py-24">
+      <div class="mx-auto max-w-5xl"><app-trade-offs /></div>
+    </section>
+    <section id="faq" class="px-4 py-24">
+      <div class="mx-auto max-w-5xl"><app-faq /></div>
+    </section>
+    <section id="deep-dive" class="bg-base-100 px-4 py-24">
+      <div class="mx-auto max-w-5xl"><app-deep-dive /></div>
+    </section>
+    <section id="get" class="px-4 py-28">
+      <app-take-it />
+    </section>
+  </main>
+
+  <footer class="border-base-300 text-base-content/50 border-t px-4 py-8 text-center text-sm">
+    &#64;pacyfist/no-ai · AGPL-3.0 ·
+    <a class="link" href="https://github.com/pacyfist/no-ai">github.com/pacyfist/no-ai</a>
+  </footer>
+</div>

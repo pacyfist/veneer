@@ -1,0 +1,6 @@
+/* Component-scoped rules only.
+
+   Anything applied to an element inside a child component belongs in
+   styles.css instead: this file is the App component's styleUrl, so Angular
+   rewrites every selector here to [_ngcontent-<App>] and a child's elements
+   never match. */

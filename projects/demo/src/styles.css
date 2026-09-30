@@ -1,0 +1,90 @@
+@import 'tailwindcss';
+
+/* VS Code may flag "Unknown at rule @plugin". It compiles correctly. */
+@plugin "daisyui" {
+  themes:
+    light --default,
+    dark --prefersdark;
+}
+
+/* One colour rule carries the whole page: primary (teal) is what a person
+   sees, secondary (rose) is what a machine gets. Keep it that way everywhere. */
+@plugin "daisyui/theme" {
+  name: 'light';
+  default: true;
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f6f5f1;
+  --color-base-300: #e4e2db;
+  --color-base-content: #16161d;
+  --color-primary: #0f766e;
+  --color-primary-content: #ffffff;
+  --color-secondary: #e11d48;
+  --color-secondary-content: #ffffff;
+  --color-accent: #0f766e;
+  --color-accent-content: #ffffff;
+  --color-neutral: #16161d;
+  --color-neutral-content: #f6f5f1;
+  --radius-box: 1rem;
+  --radius-field: 0.5rem;
+}
+
+@plugin "daisyui/theme" {
+  name: 'dark';
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #14161c;
+  --color-base-200: #0b0c10;
+  --color-base-300: #262a33;
+  --color-base-content: #e8e6e3;
+  --color-primary: #2dd4bf;
+  --color-primary-content: #042f2e;
+  --color-secondary: #fb7185;
+  --color-secondary-content: #4c0519;
+  --color-accent: #2dd4bf;
+  --color-accent-content: #042f2e;
+  --color-neutral: #e8e6e3;
+  --color-neutral-content: #0b0c10;
+  --radius-box: 1rem;
+  --radius-field: 0.5rem;
+}
+
+/* The very font the library reads outlines from. Protected text and normal text
+   must be the same typeface, or the swap is visible. */
+@font-face {
+  font-family: 'Roboto';
+  /* Points at the real file so the build bundles it and rewrites this URL
+     relative to the emitted stylesheet. An absolute /fonts/… would be left
+     alone and 404 under the /no-ai/ base href on GitHub Pages. */
+  src: url('../public/fonts/Roboto-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Make Roboto the sans stack Tailwind and daisyUI hand to everything, so the
+   forged font matches its surroundings without per-element overrides. */
+@theme {
+  --font-sans: 'Roboto', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The navbar is sticky, so anchor targets need to clear it. */
+section[id] {
+  scroll-margin-top: 4rem;
+}
+
+/* "Bot view" texture: faint scanlines in the machine colour. Anything wearing
+   it is showing what a scraper receives. */
+.bot-scan {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--color-secondary) 7%, transparent) 0 1px,
+    transparent 1px 3px
+  );
+}
+
+/* daisyUI lets every <p> in a card body grow to fill spare height, which pries
+   a stretched card's content apart. Keep content packed at the top. */
+.card-body :where(p) {
+  flex-grow: 0;
+}
