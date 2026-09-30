@@ -1,6 +1,6 @@
 {
   "name": "@pacyfist/veneer",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Angular directives that scramble text in the DOM and render it correctly with a font generated at runtime, so scrapers, scripts and copy-paste get gibberish.",
   "keywords": [
     "angular",
