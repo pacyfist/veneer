@@ -1,6 +1,6 @@
 # veneer
 
-[![Angular](https://img.shields.io/badge/Angular-21.2%2B-dd0031.svg?logo=angular)](https://angular.dev)
+[![Angular](https://img.shields.io/badge/Angular-20%20%7C%2021%20%7C%2022-dd0031.svg?logo=angular)](https://angular.dev)
 [![SSR](https://img.shields.io/badge/SSR-supported-brightgreen.svg)](projects/pacyfist/veneer/README.md#server-side-rendering)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
 
@@ -41,7 +41,7 @@ writes the scrambled text into the HTML, so crawlers never see the real words.
 
 ## Get started
 
-You need Angular 21.2+, opentype.js 2, and a `.ttf` or `.otf` copy of the font
+You need Angular 20, 21 or 22, opentype.js 2, and a `.ttf` or `.otf` copy of the font
 your page already uses. WOFF and WOFF2 won't work.
 
 **1. Install**

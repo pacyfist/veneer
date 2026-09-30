@@ -21,8 +21,8 @@
     "url": "https://github.com/pacyfist/veneer/issues"
   },
   "peerDependencies": {
-    "@angular/common": "^21.2.0",
-    "@angular/core": "^21.2.0",
+    "@angular/common": "^20.0.0 || ^21.0.0 || ^22.0.0",
+    "@angular/core": "^20.0.0 || ^21.0.0 || ^22.0.0",
     "opentype.js": "^2.0.0"
   },
   "dependencies": {
