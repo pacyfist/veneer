@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { NoAiFontDirective, NoAiFontService } from '@pacyfist/no-ai';
+import { VeneerFontDirective, VeneerFontService } from '@pacyfist/veneer';
 import { SectionHeading } from '../ui/section-heading';
 import { Bench } from './bench';
 import { BeyondAngular } from './beyond-angular';
@@ -12,7 +12,7 @@ import { CipherTable } from './cipher-table';
 @Component({
   selector: 'app-deep-dive',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SectionHeading, CipherTable, Bench, BeyondAngular, NoAiFontDirective],
+  imports: [SectionHeading, CipherTable, Bench, BeyondAngular, VeneerFontDirective],
   template: `
     <app-section-heading eyebrow="Under the hood" title="For the curious">
       The nuts and bolts, live. Open whichever you like.
@@ -57,7 +57,7 @@ import { CipherTable } from './cipher-table';
             </div>
             <div>
               <div class="text-base-content/50 text-xs tracking-widest uppercase">generated</div>
-              <div class="text-5xl" aria-hidden="true" noAiFont>{{ kernSample() }}</div>
+              <div class="text-5xl" aria-hidden="true" veneerFont>{{ kernSample() }}</div>
             </div>
           </div>
         </div>
@@ -77,7 +77,7 @@ import { CipherTable } from './cipher-table';
             The evidence that matters is the served HTML in "Try it yourself".
           </p>
           <p>
-            Server-scrambled elements carry a <code>data-no-ai-ssr</code> attribute. It tells the
+            Server-scrambled elements carry a <code>data-veneer-ssr</code> attribute. It tells the
             browser the text is already scrambled, so it is not scrambled a second time when the
             page hydrates.
           </p>
@@ -87,7 +87,7 @@ import { CipherTable } from './cipher-table';
   `,
 })
 export class DeepDive {
-  private readonly noAi = inject(NoAiFontService);
+  private readonly veneer = inject(VeneerFontService);
 
-  protected readonly kernSample = computed(() => this.noAi.scramble('AV To'));
+  protected readonly kernSample = computed(() => this.veneer.scramble('AV To'));
 }

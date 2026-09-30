@@ -8,7 +8,7 @@ let pending: Promise<ArrayBuffer> | undefined;
  *
  * `fetch` resolves relative strings against the document URL rather than the
  * base href, which differ the moment the app is served from a subpath such as
- * /no-ai/. Going through `document.baseURI` keeps one string correct on both.
+ * /veneer/. Going through `document.baseURI` keeps one string correct on both.
  */
 export function assetUrl(path: string): string {
   return new URL(path, document.baseURI).href;

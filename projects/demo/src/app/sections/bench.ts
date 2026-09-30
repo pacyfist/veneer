@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
-import { DEFAULT_CHARSET, NoAiConfig } from '@pacyfist/no-ai';
+import { DEFAULT_CHARSET, VeneerConfig } from '@pacyfist/veneer';
 import { IsolatedInstance } from '../ui/isolated-instance';
 
 const SAMPLE = 'Rendered with the settings on the left. Accents like cafe and naive pass through.';
@@ -11,14 +11,14 @@ const SAMPLE = 'Rendered with the settings on the left. Accents like cafe and na
   imports: [IsolatedInstance],
   template: `
     <p class="text-base-content/70 mb-4 max-w-3xl">
-      The sample on the right has its own <code>provideNoAi()</code> and its own generated font.
+      The sample on the right has its own <code>provideVeneer()</code> and its own generated font.
       Change a setting and only it changes.
     </p>
 
     <div class="grid gap-3 md:grid-cols-2">
       <div class="card bg-base-200/60">
         <div class="card-body gap-3 p-4">
-          <h3 class="card-title text-xs">provideNoAi()</h3>
+          <h3 class="card-title text-xs">provideVeneer()</h3>
 
           <label class="flex items-center gap-3 text-xs">
             <span class="w-32">charset</span>
@@ -77,7 +77,7 @@ export class Bench {
   protected readonly disabled = signal(false);
   protected readonly fallback = signal("'Roboto', sans-serif");
 
-  protected readonly config = computed<Partial<NoAiConfig>>(() => ({
+  protected readonly config = computed<Partial<VeneerConfig>>(() => ({
     charset: this.charsetCodes(),
     hideUntilReady: this.hideUntilReady(),
     disabled: this.disabled(),

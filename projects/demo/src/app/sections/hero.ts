@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { NoAiDirective, NoAiFontService } from '@pacyfist/no-ai';
+import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
 
 /**
  * Kept in sync with the element content below by hand. The specimen has to be
  * element content rather than a binding: only that form is scrambled during
- * prerender and carries the data-no-ai-ssr marker the "what a crawler
+ * prerender and carries the data-veneer-ssr marker the "what a crawler
  * downloads" panel goes looking for.
  */
 const HERO_TEXT =
@@ -25,7 +25,7 @@ const LENS = 90;
 @Component({
   selector: 'app-hero',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NoAiDirective],
+  imports: [VeneerDirective],
   template: `
     <div class="grid items-center gap-12 pt-16 pb-20 lg:grid-cols-[1.1fr_1fr] lg:pt-24">
       <div>
@@ -71,7 +71,7 @@ const LENS = 90;
             A protected sample paragraph follows. It is stored scrambled and repaired on screen by a
             generated font.
           </p>
-          <p class="text-2xl leading-snug md:text-[1.7rem]" aria-hidden="true" noAi>
+          <p class="text-2xl leading-snug md:text-[1.7rem]" aria-hidden="true" veneer>
             This paragraph looks perfectly normal to you. Copy it, search it, or feed it to a
             scraper, and all you get is gibberish.
           </p>
@@ -106,13 +106,13 @@ const LENS = 90;
   `,
 })
 export class Hero {
-  private readonly noAi = inject(NoAiFontService);
+  private readonly veneer = inject(VeneerFontService);
 
   protected readonly lens = LENS;
   protected readonly botView = signal(false);
   protected readonly pointer = signal<{ x: number; y: number } | null>(null);
 
-  protected readonly botText = computed(() => this.noAi.scramble(HERO_TEXT));
+  protected readonly botText = computed(() => this.veneer.scramble(HERO_TEXT));
 
   protected readonly clip = computed(() => {
     if (this.botView()) return 'inset(0 0 0 0)';

@@ -7,14 +7,14 @@ import { ApplyTabs } from './apply-tabs';
  * Snippets live here rather than inline in the template: an Angular template
  * would parse any `{{ }}` inside them as interpolation.
  */
-const INSTALL = ['npm install @pacyfist/no-ai opentype.js'];
+const INSTALL = ['npm install @pacyfist/veneer opentype.js'];
 
 const CONFIG = [
-  "import { provideNoAi } from '@pacyfist/no-ai';",
+  "import { provideVeneer } from '@pacyfist/veneer';",
   '',
   'export const appConfig: ApplicationConfig = {',
   '  providers: [',
-  '    provideNoAi({',
+  '    provideVeneer({',
   "      font: '/fonts/Roboto-Regular.ttf',",
   '      fallbackFontFamily: "\'Roboto\', sans-serif",',
   '    }),',
@@ -23,11 +23,11 @@ const CONFIG = [
 ];
 
 const USE = [
-  "import { NoAiDirective } from '@pacyfist/no-ai';",
+  "import { VeneerDirective } from '@pacyfist/veneer';",
   '',
   '@Component({',
-  '  imports: [NoAiDirective],',
-  '  template: `<p noAi>Scrapers get gibberish here.</p>`,',
+  '  imports: [VeneerDirective],',
+  '  template: `<p veneer>Scrapers get gibberish here.</p>`,',
   '})',
 ];
 
@@ -71,7 +71,7 @@ const USE = [
           <span class="badge badge-primary badge-lg mb-2">Step 3</span>
           <h3 class="text-xl font-bold">Mark your text</h3>
           <p class="text-base-content/70 mt-1">
-            Add <code>noAi</code> to any element. That's it. People read it, and
+            Add <code>veneer</code> to any element. That's it. People read it, and
             <code>innerText</code> gets noise.
           </p>
         </div>

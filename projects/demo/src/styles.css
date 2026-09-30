@@ -55,7 +55,7 @@
   font-family: 'Roboto';
   /* Points at the real file so the build bundles it and rewrites this URL
      relative to the emitted stylesheet. An absolute /fonts/… would be left
-     alone and 404 under the /no-ai/ base href on GitHub Pages. */
+     alone and 404 under the /veneer/ base href on GitHub Pages. */
   src: url('../public/fonts/Roboto-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;

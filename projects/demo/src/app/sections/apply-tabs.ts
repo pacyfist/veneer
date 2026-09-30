@@ -8,14 +8,19 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { NoAiDirective, NoAiFontDirective, NoAiFontService, NoAiPipe } from '@pacyfist/no-ai';
+import {
+  VeneerDirective,
+  VeneerFontDirective,
+  VeneerFontService,
+  VeneerPipe,
+} from '@pacyfist/veneer';
 import { CodeBlock } from '../ui/code-block';
 
 /**
  * Settled empirically during Task 3: effects run during prerender.
  *
- * A prerender with `[noAi]="text()"` bound specimens produced scrambled text
- * carrying `data-no-ai-ssr` in the served HTML. That can only happen if the
+ * A prerender with `[veneer]="text()"` bound specimens produced scrambled text
+ * carrying `data-veneer-ssr` in the served HTML. That can only happen if the
  * directive's effect ran, because its `ngOnInit` fallback reads an empty
  * element and would have rendered nothing. Effects therefore do run during
  * prerender in Angular 21, and the library's own comment claiming otherwise is
@@ -37,10 +42,10 @@ type TabId = (typeof TABS)[number]['id'];
 const STATIC_TEXT = 'Protected by element content.';
 
 const SNIPPETS = {
-  static: [`<p noAi>${STATIC_TEXT}</p>`],
-  bound: ['<p [noAi]="body()"></p>'],
-  pipe: ['<h3 noAiFont>{{ title() | noAi }}</h3>'],
-  trap: ['<!-- do not do this -->', '<p noAi>{{ title() }}</p>'],
+  static: [`<p veneer>${STATIC_TEXT}</p>`],
+  bound: ['<p [veneer]="body()"></p>'],
+  pipe: ['<h3 veneerFont>{{ title() | veneer }}</h3>'],
+  trap: ['<!-- do not do this -->', '<p veneer>{{ title() }}</p>'],
 } as const;
 
 /**
@@ -50,7 +55,7 @@ const SNIPPETS = {
 @Component({
   selector: 'app-apply-tabs',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CodeBlock, NoAiDirective, NoAiFontDirective, NoAiPipe],
+  imports: [CodeBlock, VeneerDirective, VeneerFontDirective, VeneerPipe],
   template: `
     <div role="tablist" class="tabs tabs-lift">
       @for (t of tabs; track t.id) {
@@ -72,7 +77,7 @@ const SNIPPETS = {
           @case ('static') {
             <app-code-block [lines]="snippets.static" />
             <div class="rounded-box border-base-300 border p-3" [class.border-warning]="isEmpty()">
-              <p class="text-lg" aria-hidden="true" noAi #specimen>${STATIC_TEXT}</p>
+              <p class="text-lg" aria-hidden="true" veneer #specimen>${STATIC_TEXT}</p>
             </div>
             <p class="text-base-content/70">
               For words written straight into the template. The most common case, and it is
@@ -82,18 +87,20 @@ const SNIPPETS = {
           @case ('bound') {
             <app-code-block [lines]="snippets.bound" />
             <div class="rounded-box border-base-300 border p-3" [class.border-warning]="isEmpty()">
-              <p class="text-lg" aria-hidden="true" [noAi]="bound()" #specimen></p>
+              <p class="text-lg" aria-hidden="true" [veneer]="bound()" #specimen></p>
             </div>
             <p class="text-base-content/70">{{ boundNote }}</p>
           }
           @case ('pipe') {
             <app-code-block [lines]="snippets.pipe" />
             <div class="rounded-box border-base-300 border p-3" [class.border-warning]="isEmpty()">
-              <h3 class="text-lg" aria-hidden="true" noAiFont #specimen>{{ piped() | noAi }}</h3>
+              <h3 class="text-lg" aria-hidden="true" veneerFont #specimen>
+                {{ piped() | veneer }}
+              </h3>
             </div>
             <p class="text-base-content/70">
-              When you're already interpolating. The <code>noAi</code> pipe scrambles the string and
-              the <code>noAiFont</code> attribute applies the decoder font.
+              When you're already interpolating. The <code>veneer</code> pipe scrambles the string
+              and the <code>veneerFont</code> attribute applies the decoder font.
             </p>
           }
           @case ('trap') {
@@ -103,14 +110,14 @@ const SNIPPETS = {
               [class.border-warning]="isEmpty()"
               [class.border-base-300]="!isEmpty()"
             >
-              <p class="text-lg" aria-hidden="true" noAi #specimen>{{ piped() }}</p>
+              <p class="text-lg" aria-hidden="true" veneer #specimen>{{ piped() }}</p>
             </div>
             @if (isEmpty()) {
               <p class="text-error text-sm italic">↑ this element is empty</p>
             }
             <div class="alert alert-error alert-soft">
               <span>
-                The <code>noAi</code> attribute and <code>{{ braces }}</code> both try to own the
+                The <code>veneer</code> attribute and <code>{{ braces }}</code> both try to own the
                 element's text, and the text ends up empty. Use the "Inside {{ braces }}" form
                 instead.
               </span>
@@ -138,7 +145,7 @@ export class ApplyTabs {
    * depend on means this effect re-reads the DOM whenever they re-apply, so
    * the readout never lags behind the specimen it is meant to describe.
    */
-  private readonly noAi = inject(NoAiFontService);
+  private readonly veneer = inject(VeneerFontService);
 
   protected readonly tabs = TABS;
 
@@ -176,8 +183,8 @@ export class ApplyTabs {
   constructor() {
     afterRenderEffect({
       read: () => {
-        this.noAi.fontStack();
-        this.noAi.hidden();
+        this.veneer.fontStack();
+        this.veneer.hidden();
         const el = this.specimen()?.nativeElement;
         this.readout.set(el ? el.innerText : null);
       },

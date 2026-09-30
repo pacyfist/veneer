@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
-import { provideNoAi } from '@pacyfist/no-ai';
+import { provideVeneer } from '@pacyfist/veneer';
 import { baseFontBuffer } from './font-source';
 
 export const appConfig: ApplicationConfig = {
@@ -11,11 +11,11 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
     provideClientHydration(withEventReplay()),
-    provideNoAi({
+    provideVeneer({
       // The same file styles.css registers as `Roboto`, so protected text is
       // indistinguishable from the rest of the page. A loader rather than a URL:
       // the string form is fetched relative to the document, which breaks under
-      // the /no-ai/ base href on GitHub Pages.
+      // the /veneer/ base href on GitHub Pages.
       font: baseFontBuffer,
       fallbackFontFamily: "'Roboto', sans-serif",
     }),

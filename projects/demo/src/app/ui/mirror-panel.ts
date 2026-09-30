@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { NoAiFontDirective, NoAiPipe } from '@pacyfist/no-ai';
+import { VeneerFontDirective, VeneerPipe } from '@pacyfist/veneer';
 
 /**
  * The same text as a person sees it and as a scraper reads it, side by side.
@@ -7,20 +7,20 @@ import { NoAiFontDirective, NoAiPipe } from '@pacyfist/no-ai';
  * The left card is genuinely protected. It has to be: a plain readable
  * paragraph there would make this a claim rather than a demonstration.
  *
- * It uses the pipe with `noAiFont` rather than the `noAi` directive because the
+ * It uses the pipe with `veneerFont` rather than the `veneer` directive because the
  * text is bound and changes as the visitor types. The directive owns
  * `textContent` and would fight the binding.
  */
 @Component({
   selector: 'app-mirror-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NoAiFontDirective, NoAiPipe],
+  imports: [VeneerFontDirective, VeneerPipe],
   template: `
     <div class="grid gap-3 sm:grid-cols-2">
       <div class="rounded-box border-primary/30 bg-primary/5 border p-4">
         <p class="text-primary mb-2 text-xs font-bold tracking-widest uppercase">You see</p>
-        <p class="min-h-6 text-lg leading-relaxed break-words" aria-hidden="true" noAiFont>
-          {{ readable() | noAi }}
+        <p class="min-h-6 text-lg leading-relaxed break-words" aria-hidden="true" veneerFont>
+          {{ readable() | veneer }}
         </p>
         <p class="sr-only">
           A protected copy of your text. It is stored scrambled and repaired on screen by a

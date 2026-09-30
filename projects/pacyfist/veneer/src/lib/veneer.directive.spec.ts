@@ -1,8 +1,8 @@
 import { Component, Type, WritableSignal, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
-import { NoAiDirective } from './no-ai.directive';
-import { NoAiFontService } from './no-ai-font.service';
+import { VeneerDirective } from './veneer.directive';
+import { VeneerFontService } from './veneer-font.service';
 import { buildScrambleMap, scrambleText } from './scramble-map';
 
 const MAP = buildScrambleMap(2024);
@@ -15,12 +15,12 @@ const MAP = buildScrambleMap(2024);
 function fakeService(overrides: Record<string, unknown> = {}) {
   return {
     map: MAP,
-    familyName: 'FakeNoAi',
+    familyName: 'FakeVeneer',
     ready: signal(true),
     failed: signal<string | null>(null),
     revealed: signal(false),
     active: signal(true),
-    fontStack: signal('"FakeNoAi", sans-serif'),
+    fontStack: signal('"FakeVeneer", sans-serif'),
     hidden: signal(false),
     scramble: (text: string) => scrambleText(text, MAP),
     ...overrides,
@@ -28,29 +28,29 @@ function fakeService(overrides: Record<string, unknown> = {}) {
 }
 
 // Templates must be literals for the AOT compiler, so each shape gets a host.
-@Component({ template: '<p noAi>Hello, world</p>', imports: [NoAiDirective] })
+@Component({ template: '<p veneer>Hello, world</p>', imports: [VeneerDirective] })
 class StaticHost {}
 
-@Component({ template: '<p [noAi]="body()"></p>', imports: [NoAiDirective] })
+@Component({ template: '<p [veneer]="body()"></p>', imports: [VeneerDirective] })
 class BoundHost {
   readonly body = signal('Hello, world');
 }
 
 // Empty so the test can plant text into the element before the directive
 // initialises, which is exactly what hydration looks like.
-@Component({ template: '<p noAi></p>', imports: [NoAiDirective] })
+@Component({ template: '<p veneer></p>', imports: [VeneerDirective] })
 class EmptyHost {}
 
 function setup<T>(host: Type<T>, service: Record<string, unknown> = fakeService()) {
   TestBed.configureTestingModule({
-    providers: [{ provide: NoAiFontService, useValue: service }],
+    providers: [{ provide: VeneerFontService, useValue: service }],
   });
   const fixture: ComponentFixture<T> = TestBed.createComponent(host);
   fixture.detectChanges();
   return { fixture, el: fixture.nativeElement.querySelector('p') as HTMLElement };
 }
 
-describe('NoAiDirective', () => {
+describe('VeneerDirective', () => {
   it('scrambles the text the element already contains', () => {
     const { el } = setup(StaticHost);
     expect(el.textContent).not.toContain('Hello');
@@ -64,7 +64,7 @@ describe('NoAiDirective', () => {
 
   it('points the element at the generated font', () => {
     const { el } = setup(StaticHost);
-    expect(el.style.fontFamily).toContain('FakeNoAi');
+    expect(el.style.fontFamily).toContain('FakeVeneer');
   });
 
   it('hides the text until the font is ready, then reveals it', () => {
@@ -96,13 +96,13 @@ describe('NoAiDirective', () => {
     // that text as the original would scramble it again, and the font undoes
     // only one layer — the reader would be shown the server's ciphertext.
     TestBed.configureTestingModule({
-      providers: [{ provide: NoAiFontService, useValue: fakeService() }],
+      providers: [{ provide: VeneerFontService, useValue: fakeService() }],
     });
     const fixture = TestBed.createComponent(EmptyHost);
     const el = fixture.nativeElement.querySelector('p') as HTMLElement;
 
     el.textContent = scrambleText('Hello, world', MAP);
-    el.setAttribute('data-no-ai-ssr', '');
+    el.setAttribute('data-veneer-ssr', '');
 
     fixture.detectChanges();
 
@@ -112,13 +112,13 @@ describe('NoAiDirective', () => {
   it('restores the readable text when hydration is followed by a font failure', () => {
     const service = fakeService();
     TestBed.configureTestingModule({
-      providers: [{ provide: NoAiFontService, useValue: service }],
+      providers: [{ provide: VeneerFontService, useValue: service }],
     });
     const fixture = TestBed.createComponent(EmptyHost);
     const el = fixture.nativeElement.querySelector('p') as HTMLElement;
 
     el.textContent = scrambleText('Hello, world', MAP);
-    el.setAttribute('data-no-ai-ssr', '');
+    el.setAttribute('data-veneer-ssr', '');
     fixture.detectChanges();
 
     // Font dies after hydration: the directive must still know the real words.
@@ -135,7 +135,7 @@ describe('NoAiDirective', () => {
     // and no marker. Inverting it would corrupt it.
     const { el } = setup(StaticHost);
     expect(el.textContent).toBe(scrambleText('Hello, world', MAP));
-    expect(el.hasAttribute('data-no-ai-ssr')).toBe(false);
+    expect(el.hasAttribute('data-veneer-ssr')).toBe(false);
   });
 
   it('re-scrambles when the bound text changes', () => {

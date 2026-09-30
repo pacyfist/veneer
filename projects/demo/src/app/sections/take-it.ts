@@ -19,12 +19,12 @@ import { CodeBlock } from '../ui/code-block';
         <app-code-block prefix="shell" [lines]="install" />
       </div>
       <div class="mt-6 flex flex-wrap justify-center gap-3">
-        <a class="btn btn-primary btn-lg" href="https://github.com/pacyfist/no-ai">
+        <a class="btn btn-primary btn-lg" href="https://github.com/pacyfist/veneer">
           View on GitHub
         </a>
         <a
           class="btn btn-ghost btn-lg"
-          href="https://github.com/pacyfist/no-ai/tree/main/projects/pacyfist/no-ai#readme"
+          href="https://github.com/pacyfist/veneer/tree/main/projects/pacyfist/veneer#readme"
         >
           Read the docs
         </a>
@@ -41,5 +41,5 @@ import { CodeBlock } from '../ui/code-block';
   `,
 })
 export class TakeIt {
-  protected readonly install = ['npm install @pacyfist/no-ai opentype.js'];
+  protected readonly install = ['npm install @pacyfist/veneer opentype.js'];
 }

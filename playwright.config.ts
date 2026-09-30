@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4322;
-const BASE_URL = `http://127.0.0.1:${PORT}/no-ai/`;
+const BASE_URL = `http://127.0.0.1:${PORT}/veneer/`;
 
 /**
  * End-to-end checks run against the BUILT static site, not the dev server.

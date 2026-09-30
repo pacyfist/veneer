@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { NoAiFontService } from '@pacyfist/no-ai';
+import { VeneerFontService } from '@pacyfist/veneer';
 import { SectionHeading } from '../ui/section-heading';
 
 const SPOKEN = 'Protect article bodies, not navigation.';
@@ -16,7 +16,7 @@ const SPOKEN = 'Protect article bodies, not navigation.';
   imports: [SectionHeading],
   template: `
     <app-section-heading eyebrow="The honest part" title="A speed bump, not a vault">
-      no-ai makes lazy, bulk scraping pointless. It won't stop someone who is specifically after
+      veneer makes lazy, bulk scraping pointless. It won't stop someone who is specifically after
       your content, and it doesn't pretend to.
     </app-section-heading>
 
@@ -95,7 +95,7 @@ const SPOKEN = 'Protect article bodies, not navigation.';
   `,
 })
 export class TradeOffs {
-  private readonly noAi = inject(NoAiFontService);
+  private readonly veneer = inject(VeneerFontService);
 
   protected readonly stops = [
     'Scripts that download your HTML and parse it',
@@ -112,5 +112,5 @@ export class TradeOffs {
 
   // computed, not a constant: if the font fails the library stops scrambling,
   // and this readout must stop claiming otherwise.
-  protected readonly spoken = computed(() => this.noAi.scramble(SPOKEN));
+  protected readonly spoken = computed(() => this.veneer.scramble(SPOKEN));
 }

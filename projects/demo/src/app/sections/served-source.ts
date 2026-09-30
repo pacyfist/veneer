@@ -67,7 +67,7 @@ export class ServedSource {
       }
       const html = await response.text();
       const parsed = new DOMParser().parseFromString(html, 'text/html');
-      const protectedEl = parsed.querySelector('[data-no-ai-ssr]');
+      const protectedEl = parsed.querySelector('[data-veneer-ssr]');
 
       if (!protectedEl) {
         this.error.set(

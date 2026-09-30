@@ -59,7 +59,7 @@ export function buildScrambleMap(
 ): ScrambleMap {
   const source = [...new Set(charset)];
   if (source.length < 2) {
-    throw new Error(`[no-ai] charset needs at least 2 distinct codepoints, got ${source.length}.`);
+    throw new Error(`[veneer] charset needs at least 2 distinct codepoints, got ${source.length}.`);
   }
 
   const target = [...source];

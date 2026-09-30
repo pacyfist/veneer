@@ -5,7 +5,7 @@ import {
   computed,
   signal,
 } from '@angular/core';
-import { buildScrambleMap, randomSeed } from '@pacyfist/no-ai';
+import { buildScrambleMap, randomSeed } from '@pacyfist/veneer';
 
 interface Pair {
   readonly from: string;

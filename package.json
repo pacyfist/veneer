@@ -1,13 +1,13 @@
 {
-  "name": "no-ai",
+  "name": "veneer",
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "build:lib": "ng build @pacyfist/no-ai",
+    "build:lib": "ng build @pacyfist/veneer",
     "build": "npm run build:lib && ng build demo",
     "start": "npm run build:lib && ng serve demo --port 4321",
     "watch": "ng build demo --watch --configuration development",
-    "test": "npm run build:lib && ng test @pacyfist/no-ai --watch=false",
+    "test": "npm run build:lib && ng test @pacyfist/veneer --watch=false",
     "build:pages": "npm run build:lib && ng build demo --configuration production,github-pages",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",

@@ -13,13 +13,13 @@ import { Font, Glyph, Path, parse } from 'opentype.js';
 import type { ScrambleMap } from './scramble-map';
 
 /** Thrown when the base font cannot back the configured charset. */
-export class NoAiFontError extends Error {
+export class VeneerFontError extends Error {
   constructor(
     message: string,
     readonly missing: readonly string[] = [],
   ) {
     super(message);
-    this.name = 'NoAiFontError';
+    this.name = 'VeneerFontError';
   }
 }
 
@@ -28,8 +28,8 @@ export function parseBaseFont(buffer: ArrayBuffer): Font {
   try {
     return parse(buffer);
   } catch (cause) {
-    throw new NoAiFontError(
-      `[no-ai] could not parse the base font. It must be a .ttf or .otf file — ` +
+    throw new VeneerFontError(
+      `[veneer] could not parse the base font. It must be a .ttf or .otf file — ` +
         `opentype.js cannot read WOFF or WOFF2. (${(cause as Error)?.message ?? cause})`,
     );
   }
@@ -38,7 +38,7 @@ export function parseBaseFont(buffer: ArrayBuffer): Font {
 /**
  * Produce a font binary whose cmap is the scrambled one.
  *
- * @throws NoAiFontError if the base font is missing a glyph for any character
+ * @throws VeneerFontError if the base font is missing a glyph for any character
  * in the map. Failing here is deliberate: silently dropping a character would
  * make that character render as its scrambled self, showing the reader the
  * wrong letter with no other symptom.
@@ -69,10 +69,10 @@ export function forgeScrambledFont(base: Font, map: ScrambleMap, familyName: str
   }
 
   if (missing.length) {
-    throw new NoAiFontError(
-      `[no-ai] the base font has no glyph for ${missing.length} character(s) in the ` +
+    throw new VeneerFontError(
+      `[veneer] the base font has no glyph for ${missing.length} character(s) in the ` +
         `charset: ${missing.join('')}. Use a base font that covers the charset, or ` +
-        `narrow the charset in provideNoAi().`,
+        `narrow the charset in provideVeneer().`,
       missing,
     );
   }

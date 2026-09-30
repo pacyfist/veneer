@@ -6,20 +6,20 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "@pacyfist/no-ai": {
+    "@pacyfist/veneer": {
       "projectType": "library",
-      "root": "projects/pacyfist/no-ai",
-      "sourceRoot": "projects/pacyfist/no-ai/src",
-      "prefix": "noAi",
+      "root": "projects/pacyfist/veneer",
+      "sourceRoot": "projects/pacyfist/veneer/src",
+      "prefix": "veneer",
       "architect": {
         "build": {
           "builder": "@angular/build:ng-packagr",
           "configurations": {
             "production": {
-              "tsConfig": "projects/pacyfist/no-ai/tsconfig.lib.prod.json"
+              "tsConfig": "projects/pacyfist/veneer/tsconfig.lib.prod.json"
             },
             "development": {
-              "tsConfig": "projects/pacyfist/no-ai/tsconfig.lib.json"
+              "tsConfig": "projects/pacyfist/veneer/tsconfig.lib.json"
             }
           },
           "defaultConfiguration": "production"
@@ -27,7 +27,7 @@
         "test": {
           "builder": "@angular/build:unit-test",
           "options": {
-            "tsConfig": "projects/pacyfist/no-ai/tsconfig.spec.json"
+            "tsConfig": "projects/pacyfist/veneer/tsconfig.spec.json"
           }
         }
       }
@@ -83,7 +83,7 @@
             },
             "github-pages": {
               "outputMode": "static",
-              "baseHref": "/no-ai/"
+              "baseHref": "/veneer/"
             }
           },
           "defaultConfiguration": "production"

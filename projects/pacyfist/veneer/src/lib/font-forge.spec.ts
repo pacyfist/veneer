@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'opentype.js';
-import { NoAiFontError, forgeScrambledFont, parseBaseFont } from './font-forge';
+import { VeneerFontError, forgeScrambledFont, parseBaseFont } from './font-forge';
 import { DEFAULT_CHARSET, buildScrambleMap } from './scramble-map';
 
 /** Travels with the library so its tests never reach into the demo app. */
@@ -21,7 +21,7 @@ describe('parseBaseFont', () => {
   });
 
   it('reports an unusable font clearly instead of throwing something opaque', () => {
-    expect(() => parseBaseFont(new Uint8Array([1, 2, 3, 4]).buffer)).toThrow(NoAiFontError);
+    expect(() => parseBaseFont(new Uint8Array([1, 2, 3, 4]).buffer)).toThrow(VeneerFontError);
     expect(() => parseBaseFont(new Uint8Array([1, 2, 3, 4]).buffer)).toThrow(/\.ttf or \.otf/);
   });
 });
@@ -29,7 +29,7 @@ describe('parseBaseFont', () => {
 describe('forgeScrambledFont', () => {
   const base = parseBaseFont(loadFixture());
   const map = buildScrambleMap(2024);
-  const forged = parse(forgeScrambledFont(base, map, 'NoAi-test'));
+  const forged = parse(forgeScrambledFont(base, map, 'Veneer-test'));
 
   it('renders the readable glyph when asked for the scrambled codepoint', () => {
     for (const [readable, scrambled] of map.forward) {
@@ -73,11 +73,11 @@ describe('forgeScrambledFont', () => {
   it('refuses to forge when the base font cannot draw a charset character', () => {
     // U+4E2D is a CJK ideograph Roboto has no glyph for.
     const cjkMap = buildScrambleMap(1, [0x61, 0x62, 0x4e2d]);
-    expect(() => forgeScrambledFont(base, cjkMap, 'NoAi-test')).toThrow(NoAiFontError);
+    expect(() => forgeScrambledFont(base, cjkMap, 'Veneer-test')).toThrow(VeneerFontError);
     try {
-      forgeScrambledFont(base, cjkMap, 'NoAi-test');
+      forgeScrambledFont(base, cjkMap, 'Veneer-test');
     } catch (e) {
-      expect((e as NoAiFontError).missing).toEqual(['中']);
+      expect((e as VeneerFontError).missing).toEqual(['中']);
     }
   });
 });

@@ -8,7 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { NoAiDirective, NoAiFontService } from '@pacyfist/no-ai';
+import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
 import { SectionHeading } from '../ui/section-heading';
 import { MirrorPanel } from '../ui/mirror-panel';
 import { ServedSource } from './served-source';
@@ -29,7 +29,7 @@ const NEEDLE = 'haystack';
 @Component({
   selector: 'app-try-it',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SectionHeading, NoAiDirective, MirrorPanel, ServedSource],
+  imports: [SectionHeading, VeneerDirective, MirrorPanel, ServedSource],
   host: { '(document:keydown)': 'onKey($event)' },
   template: `
     <app-section-heading eyebrow="Try it yourself" title="Don't take our word for it">
@@ -43,14 +43,14 @@ const NEEDLE = 'haystack';
         <div class="card-body">
           <h3 class="card-title">1. Copy it</h3>
           <p class="sr-only">A protected sentence you are invited to copy follows.</p>
-          <!-- Element content, not an interpolation: {{ }} inside a noAi element
+          <!-- Element content, not an interpolation: {{ }} inside a veneer element
                is the documented trap. The constant is spliced in at compile time
                so this and the clipboard readout cannot drift apart. -->
           <p
             #copyTarget
             class="rounded-field bg-base-200 p-3 text-lg"
             aria-hidden="true"
-            noAi
+            veneer
             (copy)="onCopy()"
           >
             ${COPY_ME}
@@ -80,7 +80,7 @@ const NEEDLE = 'haystack';
         <div class="card-body">
           <h3 class="card-title">2. Search for it</h3>
           <p class="sr-only">A protected sentence naming a word to search for follows.</p>
-          <p class="rounded-field bg-base-200 p-3 text-lg" aria-hidden="true" noAi>
+          <p class="rounded-field bg-base-200 p-3 text-lg" aria-hidden="true" veneer>
             Find the word haystack on this page.
           </p>
           <p class="text-base-content/70">
@@ -142,7 +142,7 @@ const NEEDLE = 'haystack';
 })
 export class TryIt {
   private readonly document = inject(DOCUMENT);
-  private readonly noAi = inject(NoAiFontService);
+  private readonly veneer = inject(VeneerFontService);
 
   private readonly copyTarget = viewChild.required<ElementRef<HTMLElement>>('copyTarget');
 
@@ -150,8 +150,8 @@ export class TryIt {
   protected readonly searched = signal(false);
   protected readonly text = signal('My secret sauce recipe');
 
-  protected readonly scrambled = computed(() => this.noAi.scramble(this.text()));
-  protected readonly needleScrambled = computed(() => this.noAi.scramble(NEEDLE));
+  protected readonly scrambled = computed(() => this.veneer.scramble(this.text()));
+  protected readonly needleScrambled = computed(() => this.veneer.scramble(NEEDLE));
 
   protected onCopy(): void {
     // Read the selection rather than the clipboard: no permission prompt, and

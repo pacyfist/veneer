@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { NoAiFontService } from '@pacyfist/no-ai';
+import { VeneerFontService } from '@pacyfist/veneer';
 import { Breakage } from './sections/breakage';
 import { DeepDive } from './sections/deep-dive';
 import { Faq } from './sections/faq';
@@ -19,5 +19,5 @@ import { TryIt } from './sections/try-it';
 })
 export class App {
   /** Drives the navbar's page-wide "bot vision" switch. */
-  protected readonly noAi = inject(NoAiFontService);
+  protected readonly veneer = inject(VeneerFontService);
 }

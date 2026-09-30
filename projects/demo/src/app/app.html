@@ -1,9 +1,8 @@
 <div class="bg-base-200 text-base-content min-h-screen">
   <header class="navbar bg-base-100/80 border-base-300 sticky top-0 z-30 border-b backdrop-blur">
     <div class="mx-auto flex w-full max-w-6xl items-center gap-4 px-4">
-      <a href="#top" class="flex items-center gap-1 text-lg font-bold tracking-tight">
-        <span class="text-primary">no</span><span class="text-base-content/40">-</span
-        ><span class="text-secondary font-mono">@i</span>
+      <a href="#top" class="flex items-center text-lg font-bold tracking-tight">
+        <span class="text-primary">vene</span><span class="text-secondary font-mono">3r</span>
       </a>
       <nav class="ml-4 hidden gap-5 text-sm md:flex">
         <a class="link link-hover" href="#try">Try it</a>
@@ -17,12 +16,14 @@
           class="flex cursor-pointer items-center gap-2 text-sm"
           title="Turn off the decoder font everywhere on this page"
         >
-          <span class="hidden sm:inline" [class.text-secondary]="noAi.revealed()">Bot vision</span>
+          <span class="hidden sm:inline" [class.text-secondary]="veneer.revealed()"
+            >Bot vision</span
+          >
           <input
             type="checkbox"
             class="toggle toggle-sm checked:border-secondary checked:text-secondary"
-            [checked]="noAi.revealed()"
-            (change)="noAi.revealed.set(!noAi.revealed())"
+            [checked]="veneer.revealed()"
+            (change)="veneer.revealed.set(!veneer.revealed())"
             aria-label="Bot vision: show the whole page as a scraper reads it"
           />
         </label>
@@ -33,7 +34,7 @@
         </label>
         <a
           class="btn btn-sm btn-primary hidden sm:inline-flex"
-          href="https://github.com/pacyfist/no-ai"
+          href="https://github.com/pacyfist/veneer"
         >
           GitHub
         </a>
@@ -72,7 +73,7 @@
   </main>
 
   <footer class="border-base-300 text-base-content/50 border-t px-4 py-8 text-center text-sm">
-    &#64;pacyfist/no-ai · AGPL-3.0 ·
-    <a class="link" href="https://github.com/pacyfist/no-ai">github.com/pacyfist/no-ai</a>
+    &#64;pacyfist/veneer · AGPL-3.0 ·
+    <a class="link" href="https://github.com/pacyfist/veneer">github.com/pacyfist/veneer</a>
   </footer>
 </div>

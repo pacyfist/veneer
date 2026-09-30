@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { NoAiDirective, NoAiFontService } from '@pacyfist/no-ai';
+import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
 
 /**
  * One protected sample plus its own status and scraper readout.
  *
- * Instantiated once per child EnvironmentInjector, so `NoAiDirective` inside it
- * resolves that injector's `NoAiFontService` rather than the shell's.
+ * Instantiated once per child EnvironmentInjector, so `VeneerDirective` inside it
+ * resolves that injector's `VeneerFontService` rather than the shell's.
  *
  * `aria-hidden` is applied only while this instance actually ciphers. A
  * disabled or failed instance renders ordinary readable text, and hiding that
@@ -14,7 +14,7 @@ import { NoAiDirective, NoAiFontService } from '@pacyfist/no-ai';
 @Component({
   selector: 'app-specimen-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NoAiDirective],
+  imports: [VeneerDirective],
   template: `
     <div class="card bg-base-100 border-base-300 border">
       <div class="card-body gap-3">
@@ -24,8 +24,8 @@ import { NoAiDirective, NoAiFontService } from '@pacyfist/no-ai';
           </span>
           <span
             class="badge"
-            [class.badge-primary]="noAi.active()"
-            [class.badge-warning]="noAi.failed()"
+            [class.badge-primary]="veneer.active()"
+            [class.badge-warning]="veneer.failed()"
           >
             {{ status() }}
           </span>
@@ -36,14 +36,14 @@ import { NoAiDirective, NoAiFontService } from '@pacyfist/no-ai';
         </p>
         <p
           class="text-lg leading-relaxed"
-          [attr.aria-hidden]="noAi.active() ? 'true' : null"
-          [noAi]="text()"
+          [attr.aria-hidden]="veneer.active() ? 'true' : null"
+          [veneer]="text()"
         ></p>
         <div class="rounded-field border-secondary/30 bot-scan border p-3">
           <p class="text-secondary text-xs font-bold tracking-widest uppercase">A bot reads</p>
           <p class="text-secondary mt-1 font-mono text-sm break-all">{{ botReads() }}</p>
         </div>
-        @if (noAi.failed(); as message) {
+        @if (veneer.failed(); as message) {
           <p class="text-warning font-mono text-xs break-all">{{ message }}</p>
         }
       </div>
@@ -51,13 +51,17 @@ import { NoAiDirective, NoAiFontService } from '@pacyfist/no-ai';
   `,
 })
 export class SpecimenCard {
-  protected readonly noAi = inject(NoAiFontService);
+  protected readonly veneer = inject(VeneerFontService);
   readonly text = input.required<string>();
 
   protected readonly status = computed(() =>
-    this.noAi.failed() ? 'unprotected, still readable' : this.noAi.active() ? 'protected' : 'off',
+    this.veneer.failed()
+      ? 'unprotected, still readable'
+      : this.veneer.active()
+        ? 'protected'
+        : 'off',
   );
 
   /** What `innerText` returns: the scrambled form, or the original once protection is off. */
-  protected readonly botReads = computed(() => this.noAi.scramble(this.text()));
+  protected readonly botReads = computed(() => this.veneer.scramble(this.text()));
 }

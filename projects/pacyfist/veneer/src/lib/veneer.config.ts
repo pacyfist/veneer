@@ -1,18 +1,18 @@
 import { EnvironmentProviders, InjectionToken, makeEnvironmentProviders } from '@angular/core';
 import { DEFAULT_CHARSET } from './scramble-map';
-import { NoAiFontService } from './no-ai-font.service';
+import { VeneerFontService } from './veneer-font.service';
 
 /** Where the base outlines come from. A URL, the bytes themselves, or a loader. */
-export type NoAiFontSource = string | ArrayBuffer | (() => Promise<ArrayBuffer>);
+export type VeneerFontSource = string | ArrayBuffer | (() => Promise<ArrayBuffer>);
 
-export interface NoAiConfig {
+export interface VeneerConfig {
   /**
    * Base font supplying the glyph outlines, as a .ttf or .otf (not WOFF/WOFF2).
    *
    * Pick the font your body text already uses — the forged font replaces it
-   * wherever no-ai is applied, so a mismatch is visible.
+   * wherever veneer is applied, so a mismatch is visible.
    */
-  font: NoAiFontSource;
+  font: VeneerFontSource;
 
   /**
    * CSS families to fall back to for characters outside the charset — spaces,
@@ -48,27 +48,31 @@ export interface NoAiConfig {
 }
 
 /** Config with defaults applied, as injected. */
-export type ResolvedNoAiConfig = Required<Omit<NoAiConfig, 'seed'>> & Pick<NoAiConfig, 'seed'>;
+export type ResolvedVeneerConfig = Required<Omit<VeneerConfig, 'seed'>> &
+  Pick<VeneerConfig, 'seed'>;
 
-export const NO_AI_CONFIG = new InjectionToken<ResolvedNoAiConfig>('NO_AI_CONFIG');
+export const VENEER_CONFIG = new InjectionToken<ResolvedVeneerConfig>('VENEER_CONFIG');
 
 /**
- * Register no-ai. Add to `providers` in your `ApplicationConfig`.
+ * Register veneer. Add to `providers` in your `ApplicationConfig`.
  *
  * ```ts
- * provideNoAi({
+ * provideVeneer({
  *   font: 'fonts/Roboto-Regular.ttf',
  *   fallbackFontFamily: 'Roboto, sans-serif',
  * })
  * ```
  */
-export function provideNoAi(config: NoAiConfig): EnvironmentProviders {
-  const resolved: ResolvedNoAiConfig = {
+export function provideVeneer(config: VeneerConfig): EnvironmentProviders {
+  const resolved: ResolvedVeneerConfig = {
     fallbackFontFamily: 'sans-serif',
     charset: DEFAULT_CHARSET,
     hideUntilReady: true,
     disabled: false,
     ...config,
   };
-  return makeEnvironmentProviders([{ provide: NO_AI_CONFIG, useValue: resolved }, NoAiFontService]);
+  return makeEnvironmentProviders([
+    { provide: VENEER_CONFIG, useValue: resolved },
+    VeneerFontService,
+  ]);
 }

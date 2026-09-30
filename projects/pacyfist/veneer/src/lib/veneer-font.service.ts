@@ -11,7 +11,7 @@ import {
   signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { NO_AI_CONFIG, NoAiFontSource } from './no-ai.config';
+import { VENEER_CONFIG, VeneerFontSource } from './veneer.config';
 import { ScrambleMap, buildScrambleMap, randomSeed, scrambleText } from './scramble-map';
 import { forgeScrambledFont, parseBaseFont } from './font-forge';
 
@@ -24,15 +24,15 @@ import { forgeScrambledFont, parseBaseFont } from './font-forge';
  * substitution completely. See the README on what this technique does and
  * does not defend against.
  */
-const SEED_KEY = makeStateKey<number>('noAiSeed');
+const SEED_KEY = makeStateKey<number>('veneerSeed');
 
-async function resolveFontSource(source: NoAiFontSource): Promise<ArrayBuffer> {
+async function resolveFontSource(source: VeneerFontSource): Promise<ArrayBuffer> {
   if (typeof source === 'function') return source();
   if (typeof source !== 'string') return source;
 
   const response = await fetch(source);
   if (!response.ok) {
-    throw new Error(`[no-ai] base font request failed: ${response.status} ${response.statusText}`);
+    throw new Error(`[veneer] base font request failed: ${response.status} ${response.statusText}`);
   }
   return response.arrayBuffer();
 }
@@ -45,8 +45,8 @@ async function resolveFontSource(source: NoAiFontSource): Promise<ArrayBuffer> {
  * Only the font is loaded asynchronously, and only in a browser.
  */
 @Injectable()
-export class NoAiFontService implements OnDestroy {
-  private readonly config = inject(NO_AI_CONFIG);
+export class VeneerFontService implements OnDestroy {
+  private readonly config = inject(VENEER_CONFIG);
   private readonly document = inject(DOCUMENT);
   private readonly transferState = inject(TransferState);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -104,7 +104,7 @@ export class NoAiFontService implements OnDestroy {
     }
 
     this.map = buildScrambleMap(seed, this.config.charset);
-    this.familyName = `NoAi-${seed.toString(36)}`;
+    this.familyName = `Veneer-${seed.toString(36)}`;
 
     if (this.config.disabled) {
       this.ready.set(true);
@@ -140,7 +140,7 @@ export class NoAiFontService implements OnDestroy {
     } catch (error) {
       // Fail open. Unreadable content is worse than unprotected content, so
       // `active()` flips false and every directive restores its original text.
-      console.error('[no-ai] disabled - could not build the protective font.', error);
+      console.error('[veneer] disabled - could not build the protective font.', error);
       this.failed.set((error as Error)?.message ?? String(error));
       this.ready.set(true);
     }

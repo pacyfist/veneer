@@ -12,12 +12,12 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { NoAiConfig, provideNoAi, randomSeed } from '@pacyfist/no-ai';
+import { VeneerConfig, provideVeneer, randomSeed } from '@pacyfist/veneer';
 import { baseFontBuffer } from '../font-source';
 import { SpecimenCard } from './specimen-card';
 
 /**
- * Renders one specimen under its own `provideNoAi`.
+ * Renders one specimen under its own `provideVeneer`.
  *
  * The child injector is built only in the browser, after the first render -
  * never during prerender. A seed drawn on the server and drawn again on the
@@ -27,7 +27,7 @@ import { SpecimenCard } from './specimen-card';
  *
  * `config` is watched with an `effect` rather than derived with `computed`,
  * because building the injector is a side effect: the previous injector, its
- * `NoAiFontService`, and the `FontFace` it registered must be torn down
+ * `VeneerFontService`, and the `FontFace` it registered must be torn down
  * before a replacement is built, or every config change leaks one of each.
  */
 @Component({
@@ -54,7 +54,7 @@ import { SpecimenCard } from './specimen-card';
 })
 export class IsolatedInstance {
   readonly text = input.required<string>();
-  readonly config = input<Partial<NoAiConfig>>({});
+  readonly config = input<Partial<VeneerConfig>>({});
 
   protected readonly card = SpecimenCard;
   protected readonly injector = signal<EnvironmentInjector | null>(null);
@@ -76,12 +76,12 @@ export class IsolatedInstance {
     destroyRef.onDestroy(() => untracked(this.injector)?.destroy());
   }
 
-  private rebuild(config: Partial<NoAiConfig>): void {
+  private rebuild(config: Partial<VeneerConfig>): void {
     untracked(this.injector)?.destroy();
 
     const child = createEnvironmentInjector(
       [
-        provideNoAi({
+        provideVeneer({
           font: baseFontBuffer,
           fallbackFontFamily: "'Roboto', sans-serif",
           seed: randomSeed(),

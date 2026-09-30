@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
-import { DEFAULT_CHARSET, NoAiConfig } from '@pacyfist/no-ai';
+import { DEFAULT_CHARSET, VeneerConfig } from '@pacyfist/veneer';
 import { SectionHeading } from '../ui/section-heading';
 import { IsolatedInstance } from '../ui/isolated-instance';
 import { baseFontBuffer } from '../font-source';
@@ -55,7 +55,7 @@ export class Breakage {
       label: "Font won't load",
       plain: 'Protection switches off and the real text is put back. Readers notice nothing.',
       detail:
-        'The font request fails. The library logs an error, sets failed(), and every noAi element restores its original text.',
+        'The font request fails. The library logs an error, sets failed(), and every veneer element restores its original text.',
     },
     {
       id: 'missing-glyph' as const,
@@ -63,7 +63,7 @@ export class Breakage {
       plain:
         "The font can't draw an emoji it was asked to cover, so the library refuses to guess and falls back to plain text.",
       detail:
-        'forgeScrambledFont throws NoAiFontError listing the missing characters rather than silently showing a reader the wrong letter. The throw is caught, so the page fails open.',
+        'forgeScrambledFont throws VeneerFontError listing the missing characters rather than silently showing a reader the wrong letter. The throw is caught, so the page fails open.',
     },
     {
       id: 'flash' as const,
@@ -77,7 +77,7 @@ export class Breakage {
 
   protected readonly current = computed(() => this.modes.find((m) => m.id === this.mode())!);
 
-  protected readonly config = computed<Partial<NoAiConfig>>(() => {
+  protected readonly config = computed<Partial<VeneerConfig>>(() => {
     switch (this.mode()) {
       case 'no-font':
         return { font: () => Promise.reject(new Error('deliberately broken by the demo')) };

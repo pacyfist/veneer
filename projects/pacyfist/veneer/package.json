@@ -1,7 +1,7 @@
 {
-  "name": "@pacyfist/no-ai",
+  "name": "@pacyfist/veneer",
   "version": "0.0.1",
-  "description": "Angular directives that scramble text in the DOM and render it correctly with a font generated at runtime, so bulk scrapers extract gibberish.",
+  "description": "Angular directives that scramble text in the DOM and render it correctly with a font generated at runtime, so scrapers, scripts and copy-paste get gibberish.",
   "keywords": [
     "angular",
     "scraping",

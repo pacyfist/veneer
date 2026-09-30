@@ -1,7 +1,7 @@
 /**
  * Serves the built static site the way GitHub Pages does.
  *
- * Tests run against `dist/demo/browser` under the real `/no-ai/` base path,
+ * Tests run against `dist/demo/browser` under the real `/veneer/` base path,
  * because that path is where the interesting failures live: an asset URL that
  * resolves at the domain root and 404s under a subpath takes the font with it,
  * and the library then fails open into a page that looks fine and protects
@@ -14,7 +14,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 
 const ROOT = 'dist/demo/browser';
-const BASE = '/no-ai/';
+const BASE = '/veneer/';
 const PORT = Number(process.env.PORT ?? 4322);
 
 const TYPES = {

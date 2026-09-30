@@ -1,24 +1,24 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
-import { NoAiFontService } from './no-ai-font.service';
-import { NoAiConfig, provideNoAi } from './no-ai.config';
+import { VeneerFontService } from './veneer-font.service';
+import { VeneerConfig, provideVeneer } from './veneer.config';
 import { scrambleText } from './scramble-map';
 
 @Component({ template: '<p>host</p>' })
 class Host {}
 
 /** Creates the service inside a rendered component, so afterNextRender fires. */
-async function createService(config: NoAiConfig) {
-  TestBed.configureTestingModule({ providers: [provideNoAi(config)] });
+async function createService(config: VeneerConfig) {
+  TestBed.configureTestingModule({ providers: [provideVeneer(config)] });
   const fixture = TestBed.createComponent(Host);
   fixture.detectChanges();
-  const service = TestBed.inject(NoAiFontService);
+  const service = TestBed.inject(VeneerFontService);
   await fixture.whenStable();
   return service;
 }
 
-describe('NoAiFontService', () => {
+describe('VeneerFontService', () => {
   it('builds the same cipher for the same seed', async () => {
     const a = await createService({ font: new ArrayBuffer(0), seed: 99, disabled: true });
     TestBed.resetTestingModule();
@@ -33,7 +33,7 @@ describe('NoAiFontService', () => {
       seed: 99,
       disabled: true,
     });
-    expect(service.familyName).toBe(`NoAi-${(99).toString(36)}`);
+    expect(service.familyName).toBe(`Veneer-${(99).toString(36)}`);
   });
 
   it('leaves text alone when disabled', async () => {

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { NoAiFontService, scrambleText } from '@pacyfist/no-ai';
+import { VeneerFontService, scrambleText } from '@pacyfist/veneer';
 import { SectionHeading } from '../ui/section-heading';
 
 interface Pair {
@@ -107,11 +107,11 @@ interface Pair {
   `,
 })
 export class HowItWorks {
-  private readonly noAi = inject(NoAiFontService);
+  private readonly veneer = inject(VeneerFontService);
 
   protected readonly word = signal('Hello');
 
-  protected readonly stored = computed(() => scrambleText(this.word(), this.noAi.map));
+  protected readonly stored = computed(() => scrambleText(this.word(), this.veneer.map));
 
   protected readonly pairs = computed<readonly Pair[]>(() => {
     const real = [...this.word()];

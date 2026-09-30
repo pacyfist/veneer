@@ -4,7 +4,7 @@
   "compileOnSave": false,
   "compilerOptions": {
     "paths": {
-      "@pacyfist/no-ai": ["./dist/pacyfist/no-ai"]
+      "@pacyfist/veneer": ["./dist/pacyfist/veneer"]
     },
     "strict": true,
     "noImplicitOverride": true,
@@ -27,10 +27,10 @@
   "files": [],
   "references": [
     {
-      "path": "./projects/pacyfist/no-ai/tsconfig.lib.json"
+      "path": "./projects/pacyfist/veneer/tsconfig.lib.json"
     },
     {
-      "path": "./projects/pacyfist/no-ai/tsconfig.spec.json"
+      "path": "./projects/pacyfist/veneer/tsconfig.spec.json"
     },
     {
       "path": "./projects/demo/tsconfig.app.json"

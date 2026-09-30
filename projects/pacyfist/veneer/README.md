@@ -1,10 +1,11 @@
-# @pacyfist/no-ai
+# @pacyfist/veneer
 
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Angular](https://img.shields.io/badge/angular-%5E21.2-dd0031.svg)](https://angular.dev)
 [![SSR](https://img.shields.io/badge/SSR-supported-brightgreen.svg)](#server-side-rendering)
 
-Angular directives that make bulk text scraping return gibberish.
+Angular directives that keep text readable for people while scrapers, scripts
+and copy-paste get gibberish.
 
 Text is stored in the DOM as a substitution cipher. A font generated in the
 browser at page load maps the scrambled codepoints back to the correct glyph
@@ -12,7 +13,7 @@ outlines. A reader sees the original words; anything reading `textContent` gets
 noise.
 
 ```html
-<p noAi>The quick brown fox jumps over the lazy dog.</p>
+<p veneer>The quick brown fox jumps over the lazy dog.</p>
 ```
 
 ```
@@ -20,7 +21,7 @@ on screen:  The quick brown fox jumps over the lazy dog.
 innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
 ```
 
-**Live demo:** https://pacyfist.github.io/no-ai/
+**Live demo:** https://pacyfist.github.io/veneer/
 
 > [!IMPORTANT]
 > This raises the cost of scraping. It does not make content secret, and it is
@@ -62,12 +63,12 @@ formats. Ship the uncompressed `.ttf`/`.otf` alongside your web fonts, or load
 it through a custom loader that decompresses first.
 
 Use the same typeface your body text already uses. The forged font replaces it
-wherever `no-ai` is applied, so a mismatch is immediately visible.
+wherever `veneer` is applied, so a mismatch is immediately visible.
 
 ## Installation
 
 ```bash
-npm install @pacyfist/no-ai opentype.js
+npm install @pacyfist/veneer opentype.js
 ```
 
 ## Quick start
@@ -76,11 +77,11 @@ npm install @pacyfist/no-ai opentype.js
 
 ```ts
 import { ApplicationConfig } from '@angular/core';
-import { provideNoAi } from '@pacyfist/no-ai';
+import { provideVeneer } from '@pacyfist/veneer';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideNoAi({
+    provideVeneer({
       font: '/fonts/Roboto-Regular.ttf',
       fallbackFontFamily: "'Roboto', sans-serif",
     }),
@@ -92,14 +93,14 @@ export const appConfig: ApplicationConfig = {
 
 ```ts
 import { Component, input } from '@angular/core';
-import { NoAiDirective, NoAiFontDirective, NoAiPipe } from '@pacyfist/no-ai';
+import { VeneerDirective, VeneerFontDirective, VeneerPipe } from '@pacyfist/veneer';
 
 @Component({
   selector: 'app-article',
-  imports: [NoAiDirective, NoAiFontDirective, NoAiPipe],
+  imports: [VeneerDirective, VeneerFontDirective, VeneerPipe],
   template: `
-    <h1 noAiFont>{{ title() | noAi }}</h1>
-    <p noAi>Text a scraper should not be able to read.</p>
+    <h1 veneerFont>{{ title() | veneer }}</h1>
+    <p veneer>Text a scraper should not be able to read.</p>
   `,
 })
 export class Article {
@@ -112,13 +113,13 @@ That is the whole setup. No stylesheet to import - the directives set
 
 ## Usage
 
-### Static text - `[noAi]` directive
+### Static text - `[veneer]` directive
 
 The directive takes the element's own content, replaces it with the scrambled
 form, and points the element at the forged font:
 
 ```html
-<p noAi>Text a scraper should not be able to read.</p>
+<p veneer>Text a scraper should not be able to read.</p>
 ```
 
 ### Text you hand it directly
@@ -126,39 +127,39 @@ form, and points the element at the forged font:
 Bind a string and the directive owns the element's content:
 
 ```html
-<p [noAi]="article().body"></p>
+<p [veneer]="article().body"></p>
 ```
 
-### Interpolated text - `noAi` pipe + `noAiFont`
+### Interpolated text - `veneer` pipe + `veneerFont`
 
 When Angular interpolates the text, scramble with the pipe and supply the font
-with `noAiFont`:
+with `veneerFont`:
 
 ```html
-<h1 noAiFont>{{ title() | noAi }}</h1>
+<h1 veneerFont>{{ title() | veneer }}</h1>
 ```
 
 > [!WARNING]
-> Do not put `noAi` on an element Angular also interpolates into. The directive
+> Do not put `veneer` on an element Angular also interpolates into. The directive
 > owns `textContent` and the two will fight over it. Interpolation → pipe;
 > everything else → directive.
 
-`noAiFont` on its own only applies the font, without touching text - use it on
+`veneerFont` on its own only applies the font, without touching text - use it on
 any element that renders already-scrambled content.
 
 ### Runtime state
 
 ```ts
 import { inject } from '@angular/core';
-import { NoAiFontService } from '@pacyfist/no-ai';
+import { VeneerFontService } from '@pacyfist/veneer';
 
-const noAi = inject(NoAiFontService);
+const veneer = inject(VeneerFontService);
 
-noAi.ready(); // signal<boolean>       - forged font registered
-noAi.failed(); // signal<string | null> - error message, or null
-noAi.active(); // computed<boolean>     - protection actually in force
-noAi.hidden(); // computed<boolean>     - text held back to avoid a flash
-noAi.revealed.set(true); // withhold the font - show the raw scrambled characters
+veneer.ready(); // signal<boolean>       - forged font registered
+veneer.failed(); // signal<string | null> - error message, or null
+veneer.active(); // computed<boolean>     - protection actually in force
+veneer.hidden(); // computed<boolean>     - text held back to avoid a flash
+veneer.revealed.set(true); // withhold the font - show the raw scrambled characters
 ```
 
 `revealed` is a demo and debugging switch: flipping it on renders exactly what a
@@ -167,7 +168,7 @@ scraper receives, which is a convincing way to show the mechanism working.
 ## Configuration
 
 ```ts
-provideNoAi({
+provideVeneer({
   font: '/fonts/Roboto-Regular.ttf',
   fallbackFontFamily: "'Roboto', sans-serif",
   charset: undefined,
@@ -205,27 +206,27 @@ protected text would be. Turn it off to accept the flash instead.
 
 ### Setup
 
-| Export                                               | Description                                                  |
-| ---------------------------------------------------- | ------------------------------------------------------------ |
-| `provideNoAi(config)`                                | Returns `EnvironmentProviders`. Add to `providers`           |
-| `NO_AI_CONFIG`                                       | `InjectionToken<ResolvedNoAiConfig>` for the resolved config |
-| `NoAiConfig`, `NoAiFontSource`, `ResolvedNoAiConfig` | Config types                                                 |
+| Export                                                     | Description                                                    |
+| ---------------------------------------------------------- | -------------------------------------------------------------- |
+| `provideVeneer(config)`                                    | Returns `EnvironmentProviders`. Add to `providers`             |
+| `VENEER_CONFIG`                                            | `InjectionToken<ResolvedVeneerConfig>` for the resolved config |
+| `VeneerConfig`, `VeneerFontSource`, `ResolvedVeneerConfig` | Config types                                                   |
 
 ### Template pieces
 
-| Export              | Selector     | Description                                            |
-| ------------------- | ------------ | ------------------------------------------------------ |
-| `NoAiDirective`     | `[noAi]`     | Scrambles the element's text and applies the font      |
-| `NoAiFontDirective` | `[noAiFont]` | Applies the font only, leaves text alone               |
-| `NoAiPipe`          | `\| noAi`    | Scrambles a bound string. Impure by design (see below) |
+| Export                | Selector       | Description                                            |
+| --------------------- | -------------- | ------------------------------------------------------ |
+| `VeneerDirective`     | `[veneer]`     | Scrambles the element's text and applies the font      |
+| `VeneerFontDirective` | `[veneerFont]` | Applies the font only, leaves text alone               |
+| `VeneerPipe`          | `\| veneer`    | Scrambles a bound string. Impure by design (see below) |
 
-`NoAiPipe` is impure because protection has to switch off the instant the font
+`VeneerPipe` is impure because protection has to switch off the instant the font
 fails to load, and a pure pipe would keep serving its cached scramble since the
 input string never changed. The cost is one `Map` lookup per character per call.
 
 ### Runtime state
 
-**`NoAiFontService`** - provided by `provideNoAi`.
+**`VeneerFontService`** - provided by `provideVeneer`.
 
 | Member           | Type                      | Description                                          |
 | ---------------- | ------------------------- | ---------------------------------------------------- |
@@ -253,7 +254,7 @@ Exported so the cipher can be reused outside Angular.
 | `ScrambleMap`                               | `{ seed, forward: ReadonlyMap<number, number> }`                       |
 | `parseBaseFont(buffer)`                     | Parse a `.ttf`/`.otf` into an opentype.js `Font`                       |
 | `forgeScrambledFont(base, map, familyName)` | Produce the font binary whose `cmap` is scrambled                      |
-| `NoAiFontError`                             | Thrown on parse failure or missing glyphs; carries `missing: string[]` |
+| `VeneerFontError`                           | Thrown on parse failure or missing glyphs; carries `missing: string[]` |
 
 ## Server-side rendering
 
@@ -265,8 +266,8 @@ text directly into the HTML. The seed travels to the client through Angular's
 `TransferState`, both sides derive the same cipher, and hydration sees identical
 text.
 
-Elements the server scrambled carry a `data-no-ai-ssr` attribute. The `noAi`
-directive in its element-content form (`<p noAi>Text</p>`) takes the element's
+Elements the server scrambled carry a `data-veneer-ssr` attribute. The `veneer`
+directive in its element-content form (`<p veneer>Text</p>`) takes the element's
 own text as the original, and on a hydrating page that text is _already_
 ciphertext - scrambling it again would leave the reader looking at the server's
 output, since the font undoes only one layer. The attribute is how a hydrating
@@ -313,7 +314,7 @@ unprotected content.
 
 `forgeScrambledFont` throws instead when the base font lacks a glyph for a
 charset character - silently dropping it would show readers the _wrong letter_
-with no other symptom. The thrown `NoAiFontError` lists the missing characters in
+with no other symptom. The thrown `VeneerFontError` lists the missing characters in
 `missing`. That throw is still caught by the service, so the page fails open
 either way.
 
@@ -323,7 +324,7 @@ The core is framework-free - the same functions run in the browser, in an SSR
 process, and in a plain Node script:
 
 ```ts
-import { buildScrambleMap, scrambleText, invertScrambleMap } from '@pacyfist/no-ai';
+import { buildScrambleMap, scrambleText, invertScrambleMap } from '@pacyfist/veneer';
 
 const map = buildScrambleMap(12345);
 
@@ -347,7 +348,7 @@ Useful for pre-scrambling static content in a build step, paired with
 | Protected text is invisible and never appears   | The font never loaded and JS is disabled, or `hideUntilReady` is on while the request hangs. Check the console |
 | Text renders readable, protection seems off     | The library failed open. Inspect `failed()`, or `disabled` is set                                              |
 | Protected text is in the wrong typeface         | `fallbackFontFamily` doesn't name the same typeface as `font`                                                  |
-| Reader sees gibberish after hydration           | Interpolating into an element that also has `noAi`. Use the pipe + `noAiFont`                                  |
+| Reader sees gibberish after hydration           | Interpolating into an element that also has `veneer`. Use the pipe + `veneerFont`                              |
 
 ## Contributing
 
@@ -362,7 +363,7 @@ npm run e2e      # Playwright checks against the built static site
 npm run build    # library + demo production build
 ```
 
-Issues and pull requests: https://github.com/pacyfist/no-ai
+Issues and pull requests: https://github.com/pacyfist/veneer
 
 ## License
 
