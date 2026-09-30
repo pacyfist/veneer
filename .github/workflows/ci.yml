@@ -1,4 +1,4 @@
-name: CI
+name: validate
 
 # Checks every Angular major the library's peerDependencies accept. The library
 # is built once, with the oldest major, because that is the build npm gets (see
