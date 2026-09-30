@@ -144,6 +144,8 @@ The full reference covers every config option, the API, SSR details,
 troubleshooting and the framework-free core:
 [projects/pacyfist/veneer/README.md](projects/pacyfist/veneer/README.md).
 
+What's planned next, and why: [ROADMAP.md](ROADMAP.md).
+
 ## Repository layout
 
 | Path                       | What                                         |
