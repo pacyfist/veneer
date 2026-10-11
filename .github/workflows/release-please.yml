@@ -1,0 +1,46 @@
+name: release-please
+
+# Keeps a release PR open that bumps projects/pacyfist/veneer/package.json and
+# adds the next CHANGELOG.md entry, from Conventional Commits that touch the
+# library (release-please-config.json). Merging that PR tags vX.Y.Z and
+# publishes a GitHub Release.
+#
+# A release made with GITHUB_TOKEN does not start other workflows, so the
+# `release: published` trigger in publish.yml would never fire. GITHUB_TOKEN
+# may still dispatch a workflow, so this job starts publish.yml on the new tag.
+# publish.yml then validates every Angular major and browser and publishes.
+#
+# The release PR is opened with GITHUB_TOKEN too, so validate does not run on
+# it automatically. That is fine: publish.yml runs the full validation before
+# anything reaches npm.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  # Lets the job dispatch publish.yml.
+  actions: write
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Start publish.yml on the release tag
+        if: ${{ steps.release.outputs['projects/pacyfist/veneer--release_created'] == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs['projects/pacyfist/veneer--tag_name'] }}
+        run: gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"

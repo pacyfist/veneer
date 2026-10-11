@@ -159,7 +159,14 @@ npm install
 npm start            # demo at http://localhost:4321
 npm test             # library unit tests
 npm run build:pages  # static site in dist/demo/browser
+npm run e2e          # Playwright (Chromium, Firefox, WebKit) against that build
 ```
+
+Releases are cut by [release-please](https://github.com/googleapis/release-please):
+merging its release PR bumps `projects/pacyfist/veneer/package.json`, updates the
+library [CHANGELOG](projects/pacyfist/veneer/CHANGELOG.md), tags `vX.Y.Z`, and
+starts `publish.yml`, which publishes only after the full validate run passes.
+The workspace root `package.json` is private and unversioned.
 
 ## License
 
