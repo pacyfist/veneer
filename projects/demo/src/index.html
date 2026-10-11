@@ -21,6 +21,19 @@
     <meta property="og:url" content="https://www.pacyfist.dev/veneer/" />
     <meta name="twitter:card" content="summary" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <!-- The very font veneer reads outlines from: protected and ordinary text
+         must be the same typeface, or the swap is visible. The URL is the one
+         provideVeneer() fetches, relative to <base href>, so the browser
+         downloads the file once and both uses share it. -->
+    <style>
+      @font-face {
+        font-family: 'Roboto';
+        src: url('fonts/Roboto-Regular.ttf') format('truetype');
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+      }
+    </style>
   </head>
   <body>
     <app-root></app-root>

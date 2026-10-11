@@ -53,17 +53,17 @@ const NEEDLE = 'haystack';
             <button type="button" class="btn btn-sm btn-primary" (click)="copyForMe()">
               Copy it for me
             </button>
-            <span class="text-base-content/50 text-sm">or select it and press Ctrl+C</span>
+            <span class="text-base-content/70 text-sm">or select it and press Ctrl+C</span>
           </div>
           <div class="rounded-field border-secondary/30 bot-scan mt-2 border p-3">
             <p class="text-secondary text-xs font-bold tracking-widest uppercase">Your clipboard</p>
             @if (copied(); as taken) {
               <p class="text-secondary mt-1 font-mono break-all">{{ taken }}</p>
             } @else {
-              <p class="text-base-content/40 mt-1 text-sm">Waiting for you to copy…</p>
+              <p class="text-base-content/70 mt-1 text-sm">Waiting for you to copy…</p>
             }
           </div>
-          <p class="text-base-content/60 text-sm">
+          <p class="text-base-content/70 text-sm">
             That's what ends up in a chatbot when someone pastes your article into it.
           </p>
         </div>

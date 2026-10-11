@@ -57,7 +57,7 @@ const SAMPLE = 'Rendered with the settings on the left. Accents like cafe and na
             </select>
           </label>
 
-          <p class="text-base-content/50 text-xs leading-relaxed">
+          <p class="text-base-content/70 text-xs leading-relaxed">
             Pick the mismatched fallback to see why the base font has to be the one your body text
             already uses. Characters outside the charset fall back, and they stop matching their
             neighbours.

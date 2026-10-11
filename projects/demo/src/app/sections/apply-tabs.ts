@@ -28,7 +28,8 @@ import { CodeBlock } from '../ui/code-block';
  */
 const BOUND_SSR_NOTE =
   'For words that come from code or an API. Bind the string to the attribute and leave the ' +
-  'element empty. Also scrambled during server rendering.';
+  'element empty. Also scrambled during server rendering. When the string arrives at runtime, ' +
+  'from an API or a CMS, it is not in your JavaScript bundle either.';
 
 const TABS = [
   { id: 'static', label: 'Fixed text' },
@@ -64,6 +65,7 @@ const SNIPPETS = {
           class="tab"
           [class.tab-active]="active() === t.id"
           [class.text-error]="t.id === 'trap'"
+          [class.text-base-content/80]="t.id !== 'trap' && active() !== t.id"
           (click)="active.set(t.id)"
         >
           {{ t.label }}
@@ -80,8 +82,9 @@ const SNIPPETS = {
               <p class="text-lg" veneer #specimen>${STATIC_TEXT}</p>
             </div>
             <p class="text-base-content/70">
-              For words written straight into the template. The most common case, and it is
-              scrambled during server rendering too, so crawlers never see the real text.
+              For words written straight into the template. It is scrambled during server rendering
+              too, so crawlers that read the HTML never see the real text. Like all template text,
+              it is also in your JavaScript bundle in plain form.
             </p>
           }
           @case ('bound') {

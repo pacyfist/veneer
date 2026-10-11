@@ -50,11 +50,11 @@ import { CipherTable } from './cipher-table';
           </p>
           <div class="grid max-w-md grid-cols-2 gap-4 text-center">
             <div>
-              <div class="text-base-content/50 text-xs tracking-widest uppercase">original</div>
+              <div class="text-base-content/70 text-xs tracking-widest uppercase">original</div>
               <div class="text-5xl">AV To</div>
             </div>
             <div>
-              <div class="text-base-content/50 text-xs tracking-widest uppercase">generated</div>
+              <div class="text-base-content/70 text-xs tracking-widest uppercase">generated</div>
               <div class="text-5xl" veneerFont>{{ kernSample() }}</div>
             </div>
           </div>
@@ -66,13 +66,15 @@ import { CipherTable } from './cipher-table';
         <div class="collapse-content text-base-content/70 flex max-w-3xl flex-col gap-3">
           <p>
             This site is prerendered to static files, so the page's own cipher is fixed at build
-            time and every visitor sees the same one. A server-rendered app draws a fresh cipher per
-            request. The cipher table above runs its own instance to show that.
+            time and every visitor sees the same one. A server-rendered app draws one cipher per
+            server process. The cipher table above runs its own instance in your browser, with a
+            cipher of its own.
           </p>
           <p>
             The demo sentences also ship readable inside this page's JavaScript bundle, because
-            Angular compiles template text into it. Demo copy was never the thing being protected.
-            The evidence that matters is the served HTML in "Try it yourself".
+            Angular compiles template text into it. That is true of any text written in an app's
+            source; only content that arrives at runtime, from an API or a CMS, stays out of the
+            bundle. The evidence for the HTML is the served page in "Try it yourself".
           </p>
           <p>
             Server-scrambled elements carry a <code>data-veneer-ssr</code> attribute. It tells the

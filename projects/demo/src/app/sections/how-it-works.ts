@@ -26,7 +26,7 @@ interface Pair {
     </app-section-heading>
 
     <label class="mb-8 flex max-w-md flex-col gap-2">
-      <span class="text-base-content/60 text-sm">Try a word:</span>
+      <span class="text-base-content/70 text-sm">Try a word:</span>
       <input
         class="input input-lg font-bold"
         maxlength="12"
@@ -42,14 +42,14 @@ interface Pair {
           <span class="text-primary text-4xl font-bold">1</span>
           <h3 class="card-title">Swap every letter</h3>
           <p class="text-base-content/70">
-            Each character is replaced with a different one. That scrambled version is what goes
-            into your HTML.
+            Each letter is swapped for a different letter, each digit for a different digit. That
+            scrambled version is what goes into your HTML.
           </p>
           <div class="mt-3 flex flex-wrap gap-1.5">
             @for (p of pairs(); track $index) {
               <div class="rounded-field bg-base-200 flex flex-col items-center px-2 py-1">
                 <span class="text-primary text-lg font-bold">{{ p.real }}</span>
-                <span class="text-base-content/40 text-xs">↓</span>
+                <span class="text-base-content/70 text-xs">↓</span>
                 <span class="text-secondary font-mono text-lg">{{ p.stored }}</span>
               </div>
             }
@@ -62,15 +62,15 @@ interface Pair {
           <span class="text-primary text-4xl font-bold">2</span>
           <h3 class="card-title">Build a matching font</h3>
           <p class="text-base-content/70">
-            A font is just a lookup table from character to shape. Your browser builds one where the
-            table is shuffled to match, so the slot for one letter draws another.
+            A font is a lookup table from character to shape. veneer copies your font with the table
+            shuffled to match, so the slot for one letter draws another. Kerning and ligatures stay.
           </p>
           <ul class="mt-3 flex flex-col gap-1.5 font-mono text-sm">
             @for (p of uniquePairs(); track p.stored) {
               <li class="flex items-center gap-2">
-                <span class="text-base-content/50">slot</span>
+                <span class="text-base-content/70">slot</span>
                 <span class="text-secondary w-5 text-center text-base">{{ p.stored }}</span>
-                <span class="text-base-content/50">draws</span>
+                <span class="text-base-content/70">draws</span>
                 <span class="text-primary font-sans text-base font-bold">{{ p.real }}</span>
               </li>
             }
@@ -100,9 +100,10 @@ interface Pair {
       </li>
     </ol>
 
-    <p class="text-base-content/60 mt-6 max-w-3xl">
-      All of this happens in the browser when the page loads, from a normal <code>.ttf</code> font
-      you already use. There is no server component and no third-party service.
+    <p class="text-base-content/70 mt-6 max-w-3xl">
+      It starts from a normal <code>.ttf</code> font you already use. With server rendering the
+      server builds the font and scrambles the HTML; otherwise the browser does it when the page
+      loads. There is no third-party service.
     </p>
   `,
 })

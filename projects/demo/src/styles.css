@@ -25,6 +25,12 @@
   --color-accent-content: #ffffff;
   --color-neutral: #16161d;
   --color-neutral-content: #f6f5f1;
+  /* Darker than daisyUI's defaults, so error and warning text on white meets
+     WCAG AA contrast (4.5:1). */
+  --color-error: #be123c;
+  --color-error-content: #ffffff;
+  --color-warning: #a16207;
+  --color-warning-content: #ffffff;
   --radius-box: 1rem;
   --radius-field: 0.5rem;
 }
@@ -49,18 +55,10 @@
   --radius-field: 0.5rem;
 }
 
-/* The very font the library reads outlines from. Protected text and normal text
-   must be the same typeface, or the swap is visible. */
-@font-face {
-  font-family: 'Roboto';
-  /* Points at the real file so the build bundles it and rewrites this URL
-     relative to the emitted stylesheet. An absolute /fonts/… would be left
-     alone and 404 under the /veneer/ base href on GitHub Pages. */
-  src: url('../public/fonts/Roboto-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+/* The @font-face for 'Roboto' is in index.html, not here: the build would
+   rewrite a url() in this file to a hashed copy (media/Roboto-Regular-*.ttf),
+   and the browser would download the font twice, once for this rule and once
+   for veneer, which fetches fonts/Roboto-Regular.ttf. */
 
 /* Make Roboto the sans stack Tailwind and daisyUI hand to everything, so the
    forged font matches its surroundings without per-element overrides. */

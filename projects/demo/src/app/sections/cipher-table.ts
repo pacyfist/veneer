@@ -51,7 +51,7 @@ interface Pair {
                   <tr>
                     @for (pair of row; track pair.from) {
                       <td class="whitespace-nowrap">
-                        {{ pair.from }} <span class="text-base-content/40">-&gt;</span>
+                        {{ pair.from }} <span class="text-base-content/70">-&gt;</span>
                         <span class="text-primary">{{ pair.to }}</span>
                       </td>
                     }

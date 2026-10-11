@@ -40,7 +40,7 @@ const LENS = 90;
             />
           </svg>
           An Angular library
-          <span class="text-base-content/50 font-normal">· Angular 20–22 · SSR ready</span>
+          <span class="text-base-content/70 font-normal">· Angular 20–22 · SSR ready</span>
         </p>
         <h1 class="text-5xl leading-[1.05] font-bold tracking-tight md:text-6xl">
           Readable by <span class="text-primary">people</span>.<br />
@@ -67,7 +67,7 @@ const LENS = 90;
 
       <div class="rounded-box bg-base-100 border-base-300 border p-6 shadow-xl md:p-8">
         <div class="mb-4 flex items-center justify-between gap-3">
-          <span class="text-base-content/50 text-xs font-bold tracking-widest uppercase">
+          <span class="text-base-content/70 text-xs font-bold tracking-widest uppercase">
             {{ botView() ? 'what a bot reads' : 'what you see' }}
           </span>
           <label class="flex cursor-pointer items-center gap-2 text-sm">
@@ -118,7 +118,7 @@ const LENS = 90;
           }
         </div>
 
-        <p class="text-base-content/50 mt-5 text-sm">
+        <p class="text-base-content/70 mt-5 text-sm">
           <span class="hidden md:inline">Hover the paragraph for bot vision.</span>
           <span class="md:hidden">Drag across the paragraph for bot vision.</span>
         </p>

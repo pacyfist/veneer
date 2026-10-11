@@ -20,7 +20,7 @@ import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
     <div class="card bg-base-100 border-base-300 border">
       <div class="card-body gap-3">
         <div class="flex items-center justify-between">
-          <span class="text-base-content/50 text-xs font-bold tracking-widest uppercase">
+          <span class="text-base-content/70 text-xs font-bold tracking-widest uppercase">
             Live sample
           </span>
           <span

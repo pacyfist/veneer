@@ -7,6 +7,9 @@ import { ApplyTabs } from './apply-tabs';
 /**
  * Snippets live here rather than inline in the template: an Angular template
  * would parse any `{{ }}` inside them as interpolation.
+ *
+ * They are the root README's "Get started" code blocks, line for line;
+ * e2e/snippets.spec.ts fails when the two drift apart.
  */
 const INSTALL = ['npm install @pacyfist/veneer'];
 
@@ -30,6 +33,27 @@ const USE = [
   '  imports: [VeneerDirective],',
   '  template: `<p veneer>Scrapers get gibberish here.</p>`,',
   '})',
+  'export class Article {}',
+];
+
+const SERVER_CONFIG = [
+  '// app.config.server.ts',
+  "import { provideVeneerServer } from '@pacyfist/veneer/server';",
+  "import { join } from 'node:path';",
+  '',
+  'const serverConfig: ApplicationConfig = {',
+  '  providers: [',
+  '    provideServerRendering(withRoutes(serverRoutes)),',
+  "    provideVeneerServer({ fonts: join(import.meta.dirname, '../browser') }),",
+  '  ],',
+  '};',
+];
+
+const SERVER_TS = [
+  '// server.ts, before the Angular request handler',
+  "import { veneerFontMiddleware } from '@pacyfist/veneer/server';",
+  '',
+  'app.use(veneerFontMiddleware());',
 ];
 
 @Component({
@@ -80,6 +104,22 @@ const USE = [
         </div>
         <app-code-block file="article.component.ts" [lines]="use" />
       </li>
+
+      <li class="grid gap-4 md:grid-cols-[16rem_1fr]">
+        <div>
+          <span class="badge badge-outline badge-lg mb-2">Server-rendered apps</span>
+          <h3 class="text-xl font-bold">Add the server half</h3>
+          <p class="text-base-content/70 mt-1">
+            Without it the server renders protected text readable. With it, the server forges the
+            font and serves it, and the page carries only the font's URL, never the key. Prerendered
+            sites copy the forged fonts into the build output once, after the build.
+          </p>
+        </div>
+        <div class="flex flex-col gap-3">
+          <app-code-block [lines]="serverConfig" />
+          <app-code-block [lines]="serverTs" />
+        </div>
+      </li>
     </ol>
 
     <div class="mt-16">
@@ -102,7 +142,7 @@ const USE = [
           paragraph, like <a class="link link-primary" href="#how">this one</a>. Only the text is
           scrambled.
         </p>
-        <p class="text-base-content/60 mt-2 text-sm">
+        <p class="text-base-content/70 mt-2 text-sm">
           The attribute rewrites each text node in place and leaves the elements alone.
           <code>code</code> elements and anything marked <code>veneer-skip</code> stay readable. For
           HTML from a CMS, bind it with <code>[veneerHtml]</code>, which sanitizes it first.
@@ -115,6 +155,8 @@ export class GetStarted {
   protected readonly install = INSTALL;
   protected readonly config = CONFIG;
   protected readonly use = USE;
+  protected readonly serverConfig = SERVER_CONFIG;
+  protected readonly serverTs = SERVER_TS;
 
   /** Held as a field so the braces are not parsed as an interpolation. */
   protected readonly braces = '{{ }}';

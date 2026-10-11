@@ -13,7 +13,7 @@ import { CodeBlock } from '../ui/code-block';
       </h2>
       <p class="text-base-content/70 mt-4 text-lg">
         A free, open-source Angular library. Needs Angular 20, 21 or 22 and a .ttf, .otf or .woff
-        font you're allowed to embed.
+        font whose license allows modified versions.
       </p>
       <div class="mt-8 text-left">
         <app-code-block prefix="shell" [lines]="install" />

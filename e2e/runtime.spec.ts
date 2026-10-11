@@ -10,9 +10,14 @@ const FONT_PATH = '/veneer/fonts/Roboto-Regular.ttf';
 test('resolves the relative font path against <base href> and fetches it once', async ({
   page,
 }) => {
+  // The library's own fetches. The page's @font-face loads the same URL as a
+  // 'font' request, which the HTTP cache serves (see font-requests.spec.ts).
   const requests: string[] = [];
   page.on('request', (request) => {
-    if (new URL(request.url()).pathname.endsWith('/Roboto-Regular.ttf')) {
+    if (
+      request.resourceType() === 'fetch' &&
+      new URL(request.url()).pathname.endsWith('/Roboto-Regular.ttf')
+    ) {
       requests.push(new URL(request.url()).pathname);
     }
   });

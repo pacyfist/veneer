@@ -12,7 +12,7 @@ import { ChangeDetectionStrategy, Component, computed, input, signal } from '@an
     <div class="relative">
       <div class="mockup-code w-full text-sm">
         @if (file()) {
-          <span class="text-neutral-content/50 absolute top-3 left-24 font-mono text-xs">
+          <span class="text-neutral-content/70 absolute top-3 left-24 font-mono text-xs">
             {{ file() }}
           </span>
         }

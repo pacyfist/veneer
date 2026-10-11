@@ -29,15 +29,15 @@ const SEED = 12345;
             <span class="badge badge-primary badge-sm">round trip</span>
           </h3>
           <label class="mt-2 flex flex-col gap-1 text-xs">
-            <span class="text-base-content/50 tracking-widest uppercase">input</span>
+            <span class="text-base-content/70 tracking-widest uppercase">input</span>
             <input class="input input-sm" [value]="input()" (input)="onType($event)" />
           </label>
           <div class="mt-3">
-            <div class="text-base-content/50 text-xs tracking-widest uppercase">scrambleText</div>
+            <div class="text-base-content/70 text-xs tracking-widest uppercase">scrambleText</div>
             <p class="text-primary mt-1 font-mono text-xs break-all">{{ scrambled() }}</p>
           </div>
           <div class="mt-3">
-            <div class="text-base-content/50 text-xs tracking-widest uppercase">
+            <div class="text-base-content/70 text-xs tracking-widest uppercase">
               invertScrambleMap
             </div>
             <p class="mt-1 font-mono text-xs break-all">{{ restored() }}</p>

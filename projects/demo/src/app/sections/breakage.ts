@@ -37,7 +37,7 @@ const UNCOVERED = [0x180, 0x183];
         <div class="card-body">
           <h3 class="card-title">{{ current().label }}</h3>
           <p class="text-base-content/80 text-lg">{{ current().plain }}</p>
-          <p class="text-base-content/50 text-sm">{{ current().detail }}</p>
+          <p class="text-base-content/70 text-sm">{{ current().detail }}</p>
         </div>
       </div>
       <app-isolated-instance [text]="sample()" [config]="config()" />

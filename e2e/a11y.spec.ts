@@ -11,9 +11,9 @@ import { HERO } from './support/demo-specimens';
  * protection is on says nothing about whether protected text is accessible
  * (it is not, see the README's Accessibility section). What it does catch are
  * the mistakes veneer itself could make: aria-hidden over focusable content,
- * missing names, attributes in the wrong place. Violations on or inside
- * protected elements are counted as veneer's and must be zero; the rest belong
- * to the demo's own design and are listed as annotations.
+ * missing names, attributes in the wrong place, and the demo's own (colour
+ * contrast, in both themes). Every violation fails the test; each is labelled
+ * as veneer's (on or inside a protected element) or the demo's.
  */
 
 const HERO_SELECTOR = 'app-hero p[veneer]';
@@ -63,31 +63,29 @@ async function audit(page: Page): Promise<Finding[]> {
   return findings;
 }
 
+/** Readable lines for the failure message: whose, which rule, where. */
 function report(findings: Finding[]) {
-  const demo = findings.filter((f) => !f.veneer);
-  const byRule = new Map<string, number>();
-  for (const f of demo) byRule.set(f.rule, (byRule.get(f.rule) ?? 0) + 1);
-  test.info().annotations.push({
-    type: 'demo-only axe violations',
-    description: [...byRule].map(([rule, n]) => `${rule} x${n}`).join(', ') || 'none',
-  });
-  return findings.filter((f) => f.veneer);
+  return findings.map((f) => `${f.veneer ? 'veneer' : 'demo'}: ${f.rule} at ${f.target}`);
 }
 
 test.describe('axe-core', () => {
-  test('no violations from veneer with protection on', async ({ page }) => {
-    await openDemo(page);
-    const mine = report(await audit(page));
-    expect(mine).toEqual([]);
-  });
+  for (const colorScheme of ['light', 'dark'] as const) {
+    test.describe(`${colorScheme} theme`, () => {
+      test.use({ colorScheme });
 
-  test('no violations from veneer in readable mode', async ({ page }) => {
-    await openDemo(page);
-    await page.locator(TOGGLE).click();
-    await expect(page.locator(HERO_SELECTOR)).toHaveText(HERO.text);
-    const mine = report(await audit(page));
-    expect(mine).toEqual([]);
-  });
+      test('no violations with protection on', async ({ page }) => {
+        await openDemo(page);
+        expect(report(await audit(page))).toEqual([]);
+      });
+
+      test('no violations in readable mode', async ({ page }) => {
+        await openDemo(page);
+        await page.locator(TOGGLE).click();
+        await expect(page.locator(HERO_SELECTOR)).toHaveText(HERO.text);
+        expect(report(await audit(page))).toEqual([]);
+      });
+    });
+  }
 });
 
 test.describe('readable mode', () => {

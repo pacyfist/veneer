@@ -14,7 +14,11 @@ const QUESTIONS: readonly Question[] = [
   },
   {
     q: 'Does it stop AI scrapers completely?',
-    a: "No. It stops the cheap, bulk kind: fetching HTML, reading innerText, pasting a page into a chatbot, crawlers that don't run JavaScript. Someone determined can download the font and undo the cipher in a few lines of code. It raises the cost of scraping; it doesn't make anything secret.",
+    a: "No. It stops the cheap, bulk kind: crawlers that read your HTML without running JavaScript, scripts reading innerText, pasting a page into a chatbot. It does not stop a crawler that downloads your JavaScript bundles (text written in your templates is in there), a scraper that knows veneer and downloads the fonts (about 15 lines of code), a headless browser, or OCR. The threat model in the repository has the measured attack costs. It raises the cost of scraping; it doesn't make anything secret.",
+  },
+  {
+    q: 'Is the key in the page?',
+    a: "No. With server rendering the server draws the cipher from a secure random source, with no seed at all, forges the font itself and writes only the font's URL into the HTML. A crawler that reads the HTML gets ciphertext and no key. The forged font is the key: anyone who downloads it and your normal font can compare them and undo the cipher, which is the bar veneer sets.",
   },
   {
     q: 'What about screenshots and OCR?',
@@ -22,31 +26,35 @@ const QUESTIONS: readonly Question[] = [
   },
   {
     q: 'Will it hurt my SEO?',
-    a: 'For the protected text, yes. The server-rendered HTML is scrambled too, so search engines index the gibberish. Protect article bodies, not the pages or headings you want to rank for.',
+    a: 'For the protected text, yes. Search engines index the server-rendered HTML, and for protected text that is gibberish. Protect article bodies, not the titles, headings and summaries you want to rank for, and keep meta descriptions to a summary.',
   },
   {
     q: 'Is it accessible?',
-    a: "Not on its own. Screen readers, find-in-page and copy-paste all see the scrambled text: that is the protection. Opt-in helpers: withA11y('hide') keeps screen readers from reading gibberish (it hides the text, it does not make it accessible), and readable mode, the Readable text switch at the top of this page, turns scrambling off for visitors who need the real text. Leave links, labels and navigation unprotected.",
+    a: "Not while the text is scrambled: screen readers, find-in-page, translation and copy-paste all get the scrambled characters, because that is the protection. The route to accessibility is readable mode: a toggle, like the Readable text button at the top of this page, that switches scrambling off for the visitor and is remembered. withA11y('hide') stops screen readers from reading gibberish aloud, but it hides the text rather than making it accessible. Both are opt-in. Leave links, labels and navigation unprotected.",
+  },
+  {
+    q: 'What is readable mode?',
+    a: 'A switch on the page that turns scrambling off for every protected element, for one visitor, and remembers the choice in their browser. The library ships it as a ready-made button. With it on, the page is ordinary text: screen readers, copy, search and translation all work.',
   },
   {
     q: 'What if the font fails to load?',
-    a: 'It fails open: text turns readable again and an error is logged. With JavaScript disabled, visitors see the scrambled text instead of blank space: the hiding is switched on by a one-line inline script, which never runs for them.',
+    a: 'It fails open: text turns readable again, an error with a stable code is logged, and a status listener can report it to your monitoring. With JavaScript disabled, visitors see the scrambled text instead of blank space. One case cannot fail open: a server-rendered page whose forged font cannot be fetched at all, because the readable text is not in that page.',
   },
   {
     q: 'Is it slow?',
-    a: 'The font is built once, in the browser, when the page loads. After that each character is one lookup. Kerning is dropped, which you will barely notice in body text.',
+    a: 'Building the font takes a few milliseconds: it is your font with only its lookup table replaced, so kerning and ligatures stay. After that each character is one lookup. Visitors download your font (which they usually do anyway) and, on server-rendered pages, the forged font, about the same size.',
   },
   {
     q: 'Does it work with server-side rendering?',
-    a: 'Yes, and that is where it matters most. With provideVeneerServer() the server forges the font itself and writes the scrambled text into the HTML, which carries only the font URL, never the key. The browser fetches that font and reads the cipher back from it. A prerendered site like this one shares one cipher per build.',
+    a: 'Yes, and that is where it matters most. Add provideVeneerServer() on the server: it forges the font and writes the scrambled text into the HTML. A server process uses one cipher for all its requests; a prerendered site like this one shares one cipher per build.',
   },
   {
     q: 'Can I use any of it outside Angular?',
-    a: 'Only the low-level parts. The cipher and font builder are plain functions exported from the package, so a build script could pre-scramble static content. Everything else, including keeping text and font in sync, is the Angular layer.',
+    a: 'Only the low-level parts. The cipher and the font forge are plain functions in their own entry points, so a build script could pre-scramble static content. Everything else, including keeping text and font in sync, is the Angular layer.',
   },
   {
     q: 'What does the license mean for me?',
-    a: "It's AGPL-3.0. If you use it on a public website, that site's source code has to be available under the same license. That is intentional. You also need a font whose license allows embedding.",
+    a: "It's AGPL-3.0. If you use it on a public website, that site's source code has to be available under the same license. That is intentional. Your font's license must also allow modified versions, because veneer makes a renamed copy of it; the README has a checklist.",
   },
 ];
 

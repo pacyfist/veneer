@@ -10,8 +10,9 @@ const COPY_SAMPLE = 'Copy me and paste me: you get these very words back.';
 /**
  * What it stops, what it does not, and what it costs.
  *
- * Wording here tracks the README's "What this defends against" and
- * "Trade-offs" sections. If one changes, change the other.
+ * Wording here tracks the root README's "A speed bump, not a vault" table and
+ * the library README's "What this defends against". If one changes, change
+ * the other.
  */
 @Component({
   selector: 'app-trade-offs',
@@ -26,7 +27,7 @@ const COPY_SAMPLE = 'Copy me and paste me: you get these very words back.';
     <div class="grid gap-4 md:grid-cols-2">
       <div class="card border-primary/30 bg-primary/5 border">
         <div class="card-body">
-          <h3 class="card-title text-primary">Stops</h3>
+          <h3 class="card-title text-primary text-2xl">Stops</h3>
           <ul class="flex flex-col gap-2 text-lg">
             @for (item of stops; track item) {
               <li class="flex gap-3"><span class="text-primary">✓</span>{{ item }}</li>
@@ -36,7 +37,7 @@ const COPY_SAMPLE = 'Copy me and paste me: you get these very words back.';
       </div>
       <div class="card border-secondary/30 bg-secondary/5 border">
         <div class="card-body">
-          <h3 class="card-title text-secondary">Doesn't stop</h3>
+          <h3 class="card-title text-secondary text-2xl">Doesn't stop</h3>
           <ul class="flex flex-col gap-2 text-lg">
             @for (item of doesNotStop; track item) {
               <li class="flex gap-3"><span class="text-secondary">✕</span>{{ item }}</li>
@@ -109,10 +110,10 @@ const COPY_SAMPLE = 'Copy me and paste me: you get these very words back.';
     <div class="rounded-box border-base-300 bg-base-200 mt-6 border p-5 text-lg">
       <p>
         <strong>Good use:</strong> article bodies, recipes, lyrics, product descriptions.
-        <strong>Leave alone:</strong> menus, headings, form labels, and anything you want Google to
-        rank. <strong>Never:</strong> secrets. This is not encryption. <strong>Styling:</strong>
-        <code>text-transform</code> and <code>small-caps</code> paint the wrong letters on protected
-        text.
+        <strong>Leave alone:</strong> menus, headings, form labels, and anything you want search
+        engines to rank. <strong>Never:</strong> secrets. This is not encryption.
+        <strong>Styling:</strong> <code>text-transform</code> and <code>small-caps</code> paint the
+        wrong letters on protected text.
       </p>
     </div>
   `,
@@ -124,15 +125,17 @@ export class TradeOffs {
   protected readonly copyFeatures = [withReadableCopy()];
 
   protected readonly stops = [
-    'Scripts that download your HTML and parse it',
-    "Crawlers that don't run JavaScript",
+    'Crawlers that read your HTML without running JavaScript',
+    'Scripts that read innerText or textContent',
     'Copy-pasting your page into a chatbot',
-    'Cheap bulk scraping for AI training sets',
+    'Bulk scrapers that have never heard of veneer',
   ];
 
   protected readonly doesNotStop = [
-    'Screenshots run through OCR: the pixels are correct',
-    'Someone who downloads the font and reverses the cipher',
+    'Crawlers that also download your JS bundles: text written in your templates is in there',
+    'Scrapers that know veneer and download the fonts: about 15 lines of code',
+    'Headless browsers that read the font from memory',
+    'Screenshots run through OCR or a vision model',
     'A determined person targeting your site in particular',
   ];
 
