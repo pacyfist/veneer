@@ -61,7 +61,11 @@ export interface VeneerConfig {
   strictCoverage?: boolean;
 }
 
-/** Config with defaults applied and features folded in, as injected. */
+/**
+ * Config with defaults applied and features folded in, as injected.
+ *
+ * @internal Exported as `ɵResolvedVeneerConfig` for the testing entry point only.
+ */
 export type ResolvedVeneerConfig = Required<Omit<VeneerConfig, 'seed'>> &
   Pick<VeneerConfig, 'seed'> & {
     /** From `withStatusListener()`. */
@@ -120,6 +124,11 @@ export function withStatusAttribute(): VeneerFeature<'statusAttribute'> {
   return { ɵkind: 'statusAttribute', ɵapply: (config) => ({ ...config, statusAttribute: true }) };
 }
 
+/**
+ * The resolved config of the nearest `provideVeneer`.
+ *
+ * @internal Exported as `ɵVENEER_CONFIG` for the testing entry point only.
+ */
 export const VENEER_CONFIG = new InjectionToken<ResolvedVeneerConfig>('VENEER_CONFIG');
 
 /**

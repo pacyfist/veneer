@@ -6,12 +6,12 @@ import {
   signal,
 } from '@angular/core';
 import {
-  ResolvedVeneerConfig,
-  VENEER_CONFIG,
   VeneerFailure,
   VeneerFontService,
   VeneerFontState,
   VeneerStatus,
+  ɵResolvedVeneerConfig as ResolvedVeneerConfig,
+  ɵVENEER_CONFIG as VENEER_CONFIG,
 } from '@pacyfist/veneer';
 import {
   DEFAULT_CHARSET,
@@ -128,8 +128,8 @@ export class VeneerTestingFontService implements VeneerFontState {
  * ```
  *
  * Directives, the pipe and anything injecting `VeneerFontService` get a
- * deterministic `VeneerTestingFontService`. `VENEER_CONFIG` is provided too,
- * built from the options as they were at setup.
+ * deterministic `VeneerTestingFontService`. The internal config token is
+ * provided too, built from the options as they were at setup.
  */
 export function provideVeneerTesting(options: VeneerTestingOptions = {}): EnvironmentProviders {
   const config: ResolvedVeneerConfig = {

@@ -2,10 +2,10 @@ import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 import {
-  VENEER_CONFIG,
   VeneerFontDirective,
   VeneerFontService,
   VeneerPipe,
+  ɵVENEER_CONFIG as VENEER_CONFIG,
 } from '@pacyfist/veneer';
 import { buildScrambleMap, scrambleText } from '@pacyfist/veneer/core';
 import {
@@ -82,7 +82,7 @@ describe('provideVeneerTesting', () => {
     expect(el.style.fontFamily).toBe('serif');
   });
 
-  it('leaves text alone when disabled, and says so in VENEER_CONFIG', () => {
+  it('leaves text alone when disabled, and says so in the internal config', () => {
     const { el, service } = setup({ state: 'disabled' });
     expect(service.ready()).toBe(true);
     expect(service.failed()).toBeNull();

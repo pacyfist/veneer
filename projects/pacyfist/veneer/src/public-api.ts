@@ -3,18 +3,12 @@
  */
 
 // Setup
-export {
-  provideVeneer,
-  withStatusAttribute,
-  withStatusListener,
-  VENEER_CONFIG,
-} from './lib/veneer.config';
+export { provideVeneer, withStatusAttribute, withStatusListener } from './lib/veneer.config';
 export type {
   VeneerConfig,
   VeneerFeature,
   VeneerFeatureKind,
   VeneerFontSource,
-  ResolvedVeneerConfig,
 } from './lib/veneer.config';
 
 // Template pieces
@@ -36,3 +30,8 @@ export type {
 // The framework-free core, also published on its own as `@pacyfist/veneer/core`
 // so it can be used outside Angular without pulling in `@angular/core`.
 export * from '@pacyfist/veneer/core';
+
+// Internal. Exported only for `@pacyfist/veneer/testing`; not covered by
+// semver and may change in any release.
+export { VENEER_CONFIG as ɵVENEER_CONFIG } from './lib/veneer.config';
+export type { ResolvedVeneerConfig as ɵResolvedVeneerConfig } from './lib/veneer.config';

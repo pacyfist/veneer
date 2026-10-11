@@ -258,13 +258,15 @@ protected text would be. Turn it off to accept the flash instead.
 
 ### Setup
 
-| Export                                                     | Description                                                                   |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `provideVeneer(config, ...features)`                       | Returns `EnvironmentProviders`. Add to `providers`                            |
-| `withStatusListener(fn)`, `withStatusAttribute()`          | Features: report status changes; mirror status on `<html data-veneer-status>` |
-| `VeneerStatus`, `VeneerFailure`, `VeneerStatusEvent`       | Status types                                                                  |
-| `VENEER_CONFIG`                                            | `InjectionToken<ResolvedVeneerConfig>` for the resolved config                |
-| `VeneerConfig`, `VeneerFontSource`, `ResolvedVeneerConfig` | Config types                                                                  |
+| Export                                               | Description                                                                   |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `provideVeneer(config, ...features)`                 | Returns `EnvironmentProviders`. Add to `providers`                            |
+| `withStatusListener(fn)`, `withStatusAttribute()`    | Features: report status changes; mirror status on `<html data-veneer-status>` |
+| `VeneerStatus`, `VeneerFailure`, `VeneerStatusEvent` | Status types                                                                  |
+| `VeneerConfig`, `VeneerFontSource`, `VeneerFeature`  | Config types                                                                  |
+
+Exports whose names start with `ɵ` are internal (they exist for
+`@pacyfist/veneer/testing`) and may change in any release.
 
 ### Template pieces
 
@@ -346,7 +348,7 @@ TestBed.inject(VeneerTestingFontService).setState('failed'); // simulate a font 
 
 | Export                           | Description                                                                               |
 | -------------------------------- | ----------------------------------------------------------------------------------------- |
-| `provideVeneerTesting(options?)` | Provides a deterministic `VeneerFontService` stand-in and `VENEER_CONFIG`                 |
+| `provideVeneerTesting(options?)` | Provides a deterministic `VeneerFontService` stand-in                                     |
 | `VeneerTestingOptions`           | `{ seed?, state?, charset?, fallbackFontFamily? }`                                        |
 | `VeneerTestingState`             | `'ready'` (default), `'loading'`, `'failed'` or `'disabled'`                              |
 | `VeneerTestingFontService`       | The stand-in. Implements `VeneerFontState`; `setState(state)` changes state mid-test      |
