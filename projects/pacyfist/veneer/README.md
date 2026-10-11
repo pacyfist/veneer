@@ -40,6 +40,7 @@ innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
 - [API reference](#api-reference)
 - [Server-side rendering](#server-side-rendering)
 - [What this defends against](#what-this-defends-against)
+- [Where plaintext still leaks](#where-plaintext-still-leaks)
 - [Accessibility](#accessibility)
 - [Trade-offs](#trade-offs)
 - [Failure behaviour](#failure-behaviour)
@@ -579,6 +580,118 @@ This raises the cost of scraping; it does not make content secret. **Do not use
 it as an access control.** veneer works best while few sites use it: a generic
 decoder is cheap to write once, and nobody writes one for a technique almost no
 site uses.
+
+## Where plaintext still leaks
+
+veneer rewrites the text of the elements it protects, and nothing else. The same
+words reach a scraper through every other copy your app makes of them. Check
+each of these before you rely on the protection.
+
+**Text written in your source ships in your JS bundle.** Angular compiles
+templates and code into JavaScript, so element content (`<p veneer>Text</p>`),
+bound literals (`signal('Text')`) and constants are in `main-*.js` in plain
+form, next to a prerendered page that hides them. The bound form does not help
+by itself: `[veneer]="text"` keeps the plaintext out of the bundle only when
+`text` is not in the source. **Only text that is not in the source keeps
+plaintext out of the bundle**: content from an API, a CMS or a file fetched at
+runtime. Protect that, through `[veneer]`, `[veneerHtml]` or the pipe, and
+expect anything you typed into a template to be readable to a crawler that
+downloads your scripts.
+
+**The HttpClient transfer cache serializes API responses into the page.**
+`provideClientHydration()` turns it on by default: every `GET` and `HEAD`
+response the server made through `HttpClient` (and `httpResource`) during the
+render is written, body and all, into the `<script id="ng-state">` JSON of the
+HTML. If that is where your article came from, the article is in the page in
+plaintext. Leave the requests that carry protected content out of the cache:
+
+```ts
+import {
+  provideClientHydration,
+  withHttpTransferCacheOptions,
+  withNoHttpTransferCache,
+} from '@angular/platform-browser';
+
+// Keep the cache, except for the requests that carry protected text:
+provideClientHydration(
+  withHttpTransferCacheOptions({ filter: (req) => !req.url.includes('/api/articles/') }),
+);
+
+// Or switch it off entirely:
+provideClientHydration(withNoHttpTransferCache());
+```
+
+```ts
+// Or per request:
+this.http.get<Article>(`/api/articles/${id}`, { transferCache: false });
+```
+
+Without the cache the browser requests that data again while the page hydrates,
+so the API has to be reachable from the browser, and each page view costs one more
+request. The API itself is public too: veneer protects the page, not the JSON
+endpoint behind it.
+
+**Head tags and attributes are plain text.** The page `<title>`, `<meta
+name="description">`, Open Graph and Twitter tags, JSON-LD (`articleBody`,
+`headline`, `description`), and `alt`, `aria-label` and `title` attributes are
+never scrambled. Keep them to a summary you are happy to give away, and leave
+`articleBody` out of JSON-LD.
+
+**Form values cannot use the forged font.** `<input value>`, `<textarea>` and
+placeholders render in the browser's own controls, so veneer leaves them alone
+(the walker skips `textarea`). Do not pre-fill a form with protected text.
+
+**Text quoted elsewhere.** An excerpt in a list page, a teaser, a "related
+articles" box, an RSS or Atom feed, a sitemap, a print or AMP version, a search
+snippet: each is its own copy and needs its own protection, or none.
+
+### Test for leaks
+
+`findVeneerLeaks(text, originals)` from `@pacyfist/veneer/testing` finds each
+protected original, whole or as a run of 4 or more consecutive words, in any
+text: served HTML, JSON or a JS bundle. It decodes HTML character references and
+JavaScript string escapes first, so `&#39;` and `\u00e9` do not hide a match.
+
+```ts
+import { findVeneerLeaks } from '@pacyfist/veneer/testing';
+
+// Against a running SSR server or a prerendered build:
+const html = await (await fetch('http://localhost:4000/articles/42')).text();
+expect(findVeneerLeaks(html, [article.body])).toEqual([]);
+
+// And every script the page loads:
+for (const src of html.matchAll(/<script[^>]+src="([^"]+)"/g)) {
+  const js = await (await fetch(new URL(src[1], 'http://localhost:4000/'))).text();
+  expect(findVeneerLeaks(js, [article.body])).toEqual([]);
+}
+```
+
+Each result says what leaked: `{ original, fragment, whole, words, start, end }`.
+Pass `{ minWords: Infinity }` to report whole originals only.
+
+### Measured on the demo
+
+veneer's own e2e suite (`e2e/leaks.spec.ts`) runs this over every protected text
+in the demo, against each part of the served HTML and every JS file the page
+loads. Every demo specimen is a string in the source, so every one is in the
+bundle, as the suite expects:
+
+| Demo specimen (form)                                 | Served HTML                                 | JS bundle                                   |
+| ---------------------------------------------------- | ------------------------------------------- | ------------------------------------------- |
+| hero "This paragraph looks perfectly…" (element)     | clean                                       | leaks, twice (template text and a constant) |
+| try-it "Copy this sentence and…" (element)           | clean                                       | leaks                                       |
+| try-it "Find the word haystack…" (element)           | clean                                       | leaks                                       |
+| apply-tabs "Protected by element content." (element) | leaks: the demo's own code sample quotes it | leaks, twice                                |
+| apply-tabs "Protected from a bound signal." (bound)  | clean                                       | leaks (`signal('…')` literal)               |
+| apply-tabs "Protected through the pipe." (pipe)      | clean                                       | leaks                                       |
+| try-it "My secret sauce recipe" (pipe)               | leaks: an `<input value>` pre-fills it      | leaks                                       |
+| bench "Rendered with the settings…" (bound)          | clean (rendered in the browser only)        | leaks                                       |
+| breakage "The page stays usable…" (bound)            | clean (rendered in the browser only)        | leaks                                       |
+
+No specimen leaks through the title, meta and OG tags, `alt`/`aria-label`/`title`
+attributes or the `ng-state` JSON (the demo makes no HttpClient calls and has no
+JSON-LD). The two HTML leaks are the demo quoting itself, which is the
+"text quoted elsewhere" case above.
 
 ## Accessibility
 
