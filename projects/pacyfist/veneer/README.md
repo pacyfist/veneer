@@ -39,6 +39,7 @@ innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
 - [Configuration](#configuration)
 - [API reference](#api-reference)
 - [Server-side rendering](#server-side-rendering)
+- [Search engines and `shouldProtect`](#search-engines-and-shouldprotect)
 - [What this defends against](#what-this-defends-against)
 - [Accessibility](#accessibility)
 - [Trade-offs](#trade-offs)
@@ -555,6 +556,39 @@ inverted only once `initialMap()` is known.
 Without server rendering, nothing changes: the browser draws its own cipher and
 forges its own font, and `initialMap()` is that map from the start.
 
+## Search engines and `shouldProtect`
+
+Protected text is ciphertext to every crawler, search engines included, so by
+default it does not rank. `shouldProtect` lets the server decide per request,
+for example to give verified search crawlers readable text:
+
+```ts
+// app.config.server.ts
+provideVeneerServer({
+  fonts: join(import.meta.dirname, '../browser'),
+  // `context` is the second argument server.ts passes to angularApp.handle().
+  shouldProtect: (request, context) => !(context as { crawler?: unknown })?.crawler,
+});
+```
+
+- **Dynamic SSR only.** It runs for routes rendered per request
+  (`RenderMode.Server` with `AngularNodeAppEngine`/`AngularAppEngine`), where
+  Angular provides `REQUEST`. Prerendered (SSG) pages, build-time route
+  extraction and `CommonEngine` have no request: the hook is not called and the
+  page is protected. A prerendered page cannot be unprotected for a crawler.
+- **`false` means readable.** That render scrambles nothing, forges no font and
+  puts no font URL in the page; `TransferState` carries only
+  `{ protect: false }`, so the browser that hydrates it keeps the readable text
+  (status `disabled`, nothing hidden, nothing fetched). Only an explicit `false`
+  unprotects; anything else protects.
+- **Errors protect.** If the hook throws or rejects, the page is rendered
+  protected and the server logs [VNR017](#vnr017). An error means the visitor
+  could not be verified; failing towards readable text would hand the page to
+  anyone who can make the check fail. People see the same page either way, so
+  the cost is a crawler occasionally getting protected text.
+- **It may be async**, and the render waits for it, so keep it fast (the crawler
+  check below caches and times out).
+
 ## What this defends against
 
 **Stops** bulk text extraction - `fetch` plus an HTML parse, `innerText`
@@ -817,6 +851,12 @@ without it, so server-rendered element content stays unreadable (bound text,
 `veneerFontMiddleware()`, that a load balancer sends the font request to the
 instance that rendered the page, or for prerendered pages that the `emitDir`
 folder was copied into the browser output.
+
+### VNR017
+
+On the server: the `shouldProtect` hook given to `provideVeneerServer()` threw or
+rejected, so the page was rendered **protected**. Logged once per distinct error.
+The server log has the error; a common cause is a DNS lookup in the hook failing.
 
 ### VNR020
 

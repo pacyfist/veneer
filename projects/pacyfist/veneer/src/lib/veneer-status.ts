@@ -6,7 +6,9 @@
  * - `active`: the forged font is registered; protection is in force, unless
  *   the visitor switched on readable mode (`readable()`, see `active()`).
  * - `failed`: the font could not be built; text is shown readable (fail open).
- * - `disabled`: `disabled: true` in the config; text is never scrambled.
+ * - `disabled`: `disabled: true` in the config, or the server's `shouldProtect`
+ *   hook (`@pacyfist/veneer/server`) returned false for this page's request;
+ *   text is never scrambled.
  */
 export type VeneerStatus = 'loading' | 'active' | 'failed' | 'disabled';
 
