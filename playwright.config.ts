@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4322;
+// E2E_PORT lets several checkouts run the suite side by side without one
+// reusing another's server.
+const PORT = Number(process.env['E2E_PORT'] ?? 4322);
 const BASE_URL = `http://127.0.0.1:${PORT}/veneer/`;
 
 /**
@@ -31,7 +33,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 
   webServer: {
-    command: 'node e2e/serve-static.mjs',
+    command: `PORT=${PORT} node e2e/serve-static.mjs`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
