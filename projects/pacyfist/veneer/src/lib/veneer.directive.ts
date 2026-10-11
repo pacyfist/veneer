@@ -11,7 +11,7 @@ import {
 import { isPlatformBrowser } from '@angular/common';
 import { injectVeneerState } from './veneer-inject';
 import { VeneerFontState } from './veneer-font-state';
-import { invertScrambleMap, scrambleText } from '@pacyfist/veneer/core';
+import { ScrambleMap, invertScrambleMap, scrambleText } from '@pacyfist/veneer/core';
 
 /**
  * Marks an element whose text was scrambled during server rendering.
@@ -50,16 +50,31 @@ export class VeneerDirective implements OnInit {
   /** The readable text. Held so the directive can restore it if the font fails. */
   private original: string | null = null;
 
+  /**
+   * Set while the element holds server ciphertext that cannot be inverted
+   * yet, because the client does not know the server's map.
+   */
+  private awaitingMap = false;
+
   constructor() {
     effect(() => {
       const bound = this.veneer();
       if (bound) this.original = bound;
+
+      // Hydrating: the server's map arrives with its forged font. Until then
+      // the server's text stays in the DOM untouched.
+      const serverMap = this.service.initialMap();
+      if (this.awaitingMap && serverMap) {
+        this.awaitingMap = false;
+        this.original ??= this.invert(serverMap);
+      }
 
       // Read the reactive state so this re-runs when the font lands, when the
       // reveal toggle flips, when loading fails, or when the map is narrowed.
       this.service.fontStack();
       this.service.hidden();
       this.service.map();
+      this.service.active();
 
       this.apply();
     });
@@ -80,18 +95,34 @@ export class VeneerDirective implements OnInit {
    * only ever undoes one layer — so the reader would be left looking at the
    * server's ciphertext. Invert the cipher instead to recover the real words.
    */
-  private readOriginalFromDom(): string {
+  private readOriginalFromDom(): string | null {
     const el = this.element.nativeElement;
-    const text = el.textContent ?? '';
+    if (!el.hasAttribute(SSR_MARKER)) return el.textContent ?? '';
 
-    if (!el.hasAttribute(SSR_MARKER)) return text;
+    // The server scrambled with the initial map, whatever the map is now. The
+    // client learns it from the forged font; until then, wait.
+    const serverMap = this.service.initialMap();
+    if (serverMap) return this.invert(serverMap);
+    this.awaitingMap = true;
+    return null;
+  }
 
-    // The server scrambled with the initial map, whatever the map is now.
-    return scrambleText(text, invertScrambleMap(this.service.initialMap));
+  private invert(serverMap: ScrambleMap): string {
+    const text = this.element.nativeElement.textContent ?? '';
+    return scrambleText(text, invertScrambleMap(serverMap));
   }
 
   private apply(): void {
-    if (this.original === null) return;
+    if (this.original === null) {
+      // The server's map never arrived and the font failed: the text cannot
+      // be recovered, but it must not stay hidden either.
+      if (this.awaitingMap && !this.service.active()) {
+        const el = this.element.nativeElement;
+        this.renderer.setStyle(el, 'font-family', this.service.fontStack());
+        this.renderer.removeStyle(el, 'visibility');
+      }
+      return;
+    }
 
     const el = this.element.nativeElement;
     this.renderer.setProperty(el, 'textContent', this.service.scramble(this.original));

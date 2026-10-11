@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 import {
+  VeneerDirective,
   VeneerFontDirective,
   VeneerFontService,
   VeneerPipe,
@@ -120,5 +121,48 @@ describe('decodeVeneer', () => {
     setup({ seed: 1 });
     const other = buildScrambleMap(2);
     expect(decodeVeneer(scrambleText('Hello', other), other)).toBe('Hello');
+  });
+});
+
+@Component({ template: '<p veneer></p>', imports: [VeneerDirective] })
+class ElementHost {}
+
+describe('provideVeneerTesting: hydration', () => {
+  it('starts with initialMap equal to the map', () => {
+    const { service } = setup();
+    expect(service.initialMap()).toBe(service.map());
+  });
+
+  it('simulates a client that does not know the server map yet, then learns it', () => {
+    TestBed.configureTestingModule({ providers: [provideVeneerTesting({ initialMap: null })] });
+    const service = TestBed.inject(VeneerTestingFontService);
+    const serverMap = buildScrambleMap(1234);
+    const fixture = TestBed.createComponent(ElementHost);
+    const el = fixture.nativeElement.querySelector('p') as HTMLElement;
+    const ciphertext = scrambleText('Rendered on the server', serverMap);
+    el.textContent = ciphertext;
+    el.setAttribute('data-veneer-ssr', '');
+    fixture.detectChanges();
+
+    // The directive must not invert server ciphertext with an unknown map.
+    expect(service.initialMap()).toBeNull();
+    expect(el.textContent).toBe(ciphertext);
+
+    service.setInitialMap(serverMap);
+    fixture.detectChanges();
+    expect(service.map()).toBe(serverMap);
+    expect(el.textContent).toBe(ciphertext);
+    expect(decodeVeneer(el)).toBe('Rendered on the server');
+
+    service.setState('failed');
+    fixture.detectChanges();
+    expect(el.textContent).toBe('Rendered on the server');
+  });
+
+  it('can go back to an unknown server map', () => {
+    const { service } = setup();
+    service.setInitialMap(null);
+    expect(service.initialMap()).toBeNull();
+    expect(service.map()).toBeTruthy();
   });
 });

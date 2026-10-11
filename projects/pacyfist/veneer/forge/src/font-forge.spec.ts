@@ -12,8 +12,17 @@ import {
   coveredCodepoints,
   forgeScrambledFont,
   parseBaseFont,
+  parseBaseFontSync,
+  readScrambleMap,
 } from './font-forge';
-import { DEFAULT_CHARSET, buildScrambleMap, type ScrambleMap } from '@pacyfist/veneer/core';
+import {
+  DEFAULT_CHARSET,
+  LATIN_1,
+  LATIN_EXT_A,
+  buildScrambleMap,
+  randomScrambleMap,
+  type ScrambleMap,
+} from '@pacyfist/veneer/core';
 import { type Sfnt, readSfnt, tableChecksum, viewOf, writeSfnt } from './sfnt';
 import { decodeWoff } from './woff';
 
@@ -479,5 +488,57 @@ describe('WOFF input', () => {
     const offset = view.getUint32(44 + 4);
     woff.fill(0xff, offset, offset + 16);
     await expect(parseBaseFont(woff)).rejects.toThrow(VeneerFontError);
+  });
+});
+
+describe('parseBaseFontSync', () => {
+  const ttf = loadFixture();
+
+  it('parses a TrueType file without waiting, like parseBaseFont', async () => {
+    const sync = parseBaseFontSync(ttf);
+    const async = await parseBaseFont(ttf);
+    expect(sync.numGlyphs).toBe(async.numGlyphs);
+    expect(sync.codepoints()).toEqual(async.codepoints());
+  });
+
+  it('refuses WOFF, which needs an asynchronous inflate', () => {
+    expect(() => parseBaseFontSync(encodeWoff(readSfnt(ttf)))).toThrow(/only the asynchronous/);
+  });
+
+  it('rejects bytes that are not a font', () => {
+    expect(() => parseBaseFontSync(new Uint8Array([1, 2, 3, 4]))).toThrow(VeneerFontError);
+  });
+});
+
+describe('readScrambleMap', async () => {
+  const base = await parseBaseFont(loadFixture());
+  const forge = (map: ScrambleMap) => parseBaseFont(forgeScrambledFont(base, map, 'Veneer-read'));
+
+  it('recovers the exact map a font was forged with', async () => {
+    for (const map of [buildScrambleMap(5), randomScrambleMap(), randomScrambleMap()]) {
+      const read = readScrambleMap(base, await forge(map));
+      expect(new Map([...read.forward].sort())).toEqual(new Map([...map.forward].sort()));
+    }
+  });
+
+  it('recovers Latin-1 and Latin Extended-A maps too', async () => {
+    const charset = coveredCodepoints(base, [...DEFAULT_CHARSET, ...LATIN_1, ...LATIN_EXT_A]);
+    const map = randomScrambleMap(charset);
+    const read = readScrambleMap(base, await forge(map));
+    expect(read.forward.size).toBe(map.forward.size);
+    for (const [readable, scrambled] of map.forward) {
+      expect(read.forward.get(readable)).toBe(scrambled);
+    }
+  });
+
+  it('reads an empty map from an unscrambled font', async () => {
+    expect(readScrambleMap(base, await forge({ forward: new Map() })).forward.size).toBe(0);
+  });
+
+  it('refuses a font whose changed glyphs no scrambled codepoint owns', async () => {
+    // "b" now draws the "a" glyph, but "a" still draws it too: not a cipher
+    // forged from this base font.
+    const forged = await forge(mapOf([['a', 'b']]));
+    expect(() => readScrambleMap(base, forged)).toThrow(/does not match the base font/);
   });
 });

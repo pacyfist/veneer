@@ -1,6 +1,7 @@
 import {
   EnvironmentProviders,
   Signal,
+  WritableSignal,
   computed,
   makeEnvironmentProviders,
   signal,
@@ -42,6 +43,15 @@ export interface VeneerTestingOptions {
 
   /** Families after the forged one in `fontStack`. Defaults to `'sans-serif'`. */
   fallbackFontFamily?: string;
+
+  /**
+   * Pass `null` to start as a client hydrating a server render does: the
+   * server's map is not known yet, so `initialMap()` is null and directives
+   * must leave server-rendered ciphertext alone. Call `setInitialMap()` later
+   * to simulate the forged font arriving. By default `initialMap()` is the
+   * map from the start, as in an app without server rendering.
+   */
+  initialMap?: ScrambleMap | null;
 }
 
 /** Seed used when a test does not pass one. Any fixed value would do. */
@@ -80,8 +90,10 @@ export function defaultTestingMap(): ScrambleMap {
 export class VeneerTestingFontService implements VeneerFontState {
   private readonly state = signal<VeneerTestingState>('ready');
   private readonly fallbackFontFamily: string;
+  private readonly serverMap: WritableSignal<ScrambleMap | null>;
+  private readonly currentMap: WritableSignal<ScrambleMap>;
 
-  readonly initialMap: ScrambleMap;
+  readonly initialMap: Signal<ScrambleMap | null>;
   readonly map: Signal<ScrambleMap>;
   readonly familyName: string;
 
@@ -102,8 +114,11 @@ export class VeneerTestingFontService implements VeneerFontState {
 
   constructor(options: VeneerTestingOptions = {}) {
     const seed = options.seed ?? DEFAULT_TESTING_SEED;
-    this.initialMap = buildScrambleMap(seed, options.charset ?? DEFAULT_CHARSET);
-    this.map = signal(this.initialMap).asReadonly();
+    const map = buildScrambleMap(seed, options.charset ?? DEFAULT_CHARSET);
+    this.currentMap = signal(map);
+    this.map = this.currentMap.asReadonly();
+    this.serverMap = signal(options.initialMap === undefined ? map : options.initialMap);
+    this.initialMap = this.serverMap.asReadonly();
     this.familyName = `Veneer-${seed.toString(36)}`;
     this.fallbackFontFamily = options.fallbackFontFamily ?? 'sans-serif';
     this.state.set(options.state ?? 'ready');
@@ -117,6 +132,16 @@ export class VeneerTestingFontService implements VeneerFontState {
   /** Force a state, for example to simulate the font failing after first render. */
   setState(state: VeneerTestingState): void {
     this.state.set(state);
+  }
+
+  /**
+   * Simulate the server's map becoming known (the forged font was fetched
+   * and read), or, with `null`, not being known yet. A map also becomes the
+   * one `scramble()` applies, as in the real service.
+   */
+  setInitialMap(map: ScrambleMap | null): void {
+    this.serverMap.set(map);
+    if (map) this.currentMap.set(map);
   }
 }
 

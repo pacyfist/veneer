@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_CHARSET,
   buildScrambleMap,
   invertScrambleMap,
   isScramblable,
+  randomScrambleMap,
   randomSeed,
   scrambleText,
 } from './scramble-map';
@@ -327,5 +328,51 @@ describe('randomSeed', () => {
   it('does not repeat itself on consecutive calls', () => {
     const seeds = new Set(Array.from({ length: 50 }, () => randomSeed()));
     expect(seeds.size).toBeGreaterThan(45);
+  });
+});
+
+describe('randomScrambleMap', () => {
+  const groups = [str(ASCII_LETTERS), str(ASCII_DIGITS), ...ASCII_PUNCTUATION_CLASSES];
+
+  it('keeps the classes of buildScrambleMap, with no fixed points', () => {
+    for (let i = 0; i < 100; i++) {
+      expectWithinGroups(randomScrambleMap().forward, groups, i);
+    }
+  });
+
+  it('covers the same codepoints as a seeded map', () => {
+    expect([...randomScrambleMap().forward.keys()].sort()).toEqual(
+      [...buildScrambleMap(1).forward.keys()].sort(),
+    );
+  });
+
+  it('carries no seed', () => {
+    const map = randomScrambleMap();
+    expect('seed' in map).toBe(false);
+    expect('seed' in invertScrambleMap(map)).toBe(false);
+  });
+
+  it('draws a different map every time', () => {
+    const letters = (m: ReturnType<typeof randomScrambleMap>) =>
+      str(ASCII_LETTERS.map((cp) => m.forward.get(cp)!));
+    const seen = new Set(Array.from({ length: 20 }, () => letters(randomScrambleMap())));
+    expect(seen.size).toBe(20);
+  });
+
+  it('reads the CSPRNG, not Math.random', () => {
+    const spy = vi.spyOn(globalThis.crypto, 'getRandomValues');
+    const math = vi.spyOn(Math, 'random');
+    randomScrambleMap();
+    expect(spy).toHaveBeenCalled();
+    expect(math).not.toHaveBeenCalled();
+    spy.mockRestore();
+    math.mockRestore();
+  });
+
+  it('takes a random source for tests, and round-trips', () => {
+    let x = 0;
+    const map = randomScrambleMap(DEFAULT_CHARSET, () => (x = (x * 7 + 0.31) % 1));
+    const text = 'Hello, World 42';
+    expect(scrambleText(scrambleText(text, map), invertScrambleMap(map))).toBe(text);
   });
 });

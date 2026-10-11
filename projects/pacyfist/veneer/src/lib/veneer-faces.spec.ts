@@ -8,6 +8,8 @@ import * as opentypeNs from 'opentype.js';
 import { parseBaseFont } from '@pacyfist/veneer/forge';
 import { VeneerFontService } from './veneer-font.service';
 import { VeneerConfig, VeneerFeature, provideVeneer, withFaces } from './veneer.config';
+import { VENEER_SERVER_FORGE } from './veneer-server';
+import { buildScrambleMap } from '@pacyfist/veneer/core';
 
 const opentype = (
   typeof opentypeNs.parse === 'function' ? opentypeNs : Reflect.get(opentypeNs, 'default')
@@ -152,36 +154,56 @@ describe('withFaces', () => {
 });
 
 describe('id', () => {
-  it('publishes an implicit seed under a key namespaced by id on the server', () => {
+  const forge = {
+    prepare: () => ({
+      map: buildScrambleMap(1),
+      familyName: 'Veneer-test',
+      urls: ['veneer/a.ttf'],
+    }),
+  };
+
+  it('publishes the font URLs under a key namespaced by id on the server', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: PLATFORM_ID, useValue: 'server' },
+        { provide: VENEER_SERVER_FORGE, useValue: forge },
         provideVeneer({ font: new ArrayBuffer(0), id: 'sidebar' }),
       ],
     });
-    const service = TestBed.inject(VeneerFontService);
+    TestBed.inject(VeneerFontService);
     const state = TestBed.inject(TransferState);
 
-    expect(state.get(makeStateKey<number>('veneerSeed:sidebar'), null)).toBe(service.map().seed);
-    expect(state.hasKey(makeStateKey<number>('veneerSeed'))).toBe(false);
+    expect(state.get(makeStateKey<unknown>('veneer:sidebar'), null)).toEqual({
+      family: 'Veneer-test',
+      fonts: ['veneer/a.ttf'],
+    });
+    expect(state.hasKey(makeStateKey<unknown>('veneer'))).toBe(false);
   });
 
-  it('reads the seed for its own id when hydrating', () => {
+  it('reads the fonts for its own id when hydrating', () => {
     TestBed.configureTestingModule({
-      providers: [provideVeneer({ font: new ArrayBuffer(0), id: 'sidebar', disabled: true })],
+      providers: [provideVeneer({ font: new ArrayBuffer(0), id: 'sidebar' })],
     });
     const state = TestBed.inject(TransferState);
-    state.set(makeStateKey<number>('veneerSeed'), 1);
-    state.set(makeStateKey<number>('veneerSeed:sidebar'), 2);
+    state.set(makeStateKey<unknown>('veneer'), { family: 'Veneer-shell', fonts: ['veneer/a.ttf'] });
+    state.set(makeStateKey<unknown>('veneer:sidebar'), {
+      family: 'Veneer-side',
+      fonts: ['veneer/b.ttf'],
+    });
 
-    expect(TestBed.inject(VeneerFontService).map().seed).toBe(2);
+    const service = TestBed.inject(VeneerFontService);
+    expect(service.familyName).toBe('Veneer-side');
+    expect(service.initialMap()).toBeNull();
   });
 
   it('keeps the plain key without an id', () => {
     TestBed.configureTestingModule({
-      providers: [provideVeneer({ font: new ArrayBuffer(0), disabled: true })],
+      providers: [provideVeneer({ font: new ArrayBuffer(0) })],
     });
-    TestBed.inject(TransferState).set(makeStateKey<number>('veneerSeed'), 5);
-    expect(TestBed.inject(VeneerFontService).map().seed).toBe(5);
+    TestBed.inject(TransferState).set(makeStateKey<unknown>('veneer'), {
+      family: 'Veneer-shell',
+      fonts: ['veneer/a.ttf'],
+    });
+    expect(TestBed.inject(VeneerFontService).familyName).toBe('Veneer-shell');
   });
 });

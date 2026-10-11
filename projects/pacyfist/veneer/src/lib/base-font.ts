@@ -21,6 +21,48 @@ export class FontSourceError extends Error {
   }
 }
 
+/**
+ * Thrown when the forged font the server pointed at could not be fetched, or
+ * does not decode against the base font (VNR016).
+ */
+export class ForgedFontError extends Error {
+  constructor(
+    message: string,
+    /** The URL that was requested. */
+    readonly url?: string,
+  ) {
+    super(message);
+    this.name = 'ForgedFontError';
+  }
+}
+
+/** Fetch a forged font the server rendered with. */
+export async function fetchForgedFont(source: string, baseUrl: string): Promise<ArrayBuffer> {
+  const url = resolveFontUrl(source, baseUrl);
+  const hint =
+    'The server rendered this page with that font, so without it the page cannot be decoded. ' +
+    'Check that the server mounts veneerFontMiddleware() or, for prerendered pages, that the ' +
+    "emitted fonts were copied into the browser output (see provideVeneerServer's `emitDir`).";
+  let response: Response;
+  try {
+    response = await fetch(url);
+  } catch (cause) {
+    const reason = (cause as Error)?.message ?? String(cause);
+    throw new ForgedFontError(
+      veneerMessage('VNR016', `could not fetch the forged font from ${url} (${reason}). ${hint}`),
+      url,
+    );
+  }
+  if (!response.ok) {
+    const status = [response.status, response.statusText].filter(Boolean).join(' ');
+    throw new ForgedFontError(
+      veneerMessage('VNR016', `the forged font request for ${url} failed: ${status}. ${hint}`),
+      url,
+    );
+  }
+  return response.arrayBuffer();
+}
+
 const SUBPATH_HINT =
   'Check that the file is served at that URL. A relative path such as ' +
   "'fonts/Roboto-Regular.ttf' resolves against the document base URL (<base href>); " +

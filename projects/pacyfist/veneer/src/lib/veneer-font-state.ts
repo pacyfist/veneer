@@ -12,18 +12,26 @@ import type { VeneerFailure, VeneerStatus } from './veneer-status';
  */
 export interface VeneerFontState {
   /**
-   * The substitution in force. It can change once, after the font loads, when
-   * characters the font cannot draw are dropped (see `strictCoverage`).
+   * The substitution in force: what `scramble()` applies. In a client-only app
+   * it can change once, after the font loads, when characters the font cannot
+   * draw are dropped (see `strictCoverage`). When hydrating a server render it
+   * changes once, to the server's map, when that becomes known.
    */
   readonly map: Signal<ScrambleMap>;
 
   /**
-   * The map built at startup over the configured charset. Server-rendered
-   * text was scrambled with it, so hydration inverts with it.
+   * The map server-rendered text was scrambled with, so the one hydration
+   * inverts.
+   *
+   * The server never sends its map or a seed. In the browser this stays `null`
+   * until the forged font the server rendered with has been fetched and its
+   * cmap read; anything that recovers readable text from server-rendered
+   * ciphertext must wait for it to be non-null. Without server rendering it is
+   * the browser's own map from the start.
    */
-  readonly initialMap: ScrambleMap;
+  readonly initialMap: Signal<ScrambleMap | null>;
 
-  /** Family name of the forged font. */
+  /** Family name of the forged font. Random: it says nothing about the cipher. */
   readonly familyName: string;
 
   /** True once the forged font is registered and text is safe to show. */

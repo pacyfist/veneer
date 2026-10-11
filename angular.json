@@ -32,6 +32,7 @@
               "**/*.spec.ts",
               "../core/**/*.spec.ts",
               "../forge/**/*.spec.ts",
+              "../server/**/*.spec.ts",
               "../testing/**/*.spec.ts"
             ]
           }

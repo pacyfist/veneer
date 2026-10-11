@@ -105,26 +105,47 @@ function toBytes(buffer: ArrayBuffer | Uint8Array): Uint8Array {
  */
 export async function parseBaseFont(buffer: ArrayBuffer | Uint8Array): Promise<BaseFont> {
   const bytes = toBytes(buffer);
-  const signature = bytes.byteLength >= 4 ? viewOf(bytes).getUint32(0) : 0;
+  if (signatureOf(bytes) === WOFF_SIGNATURE) {
+    const sfnt = await decodeWoff(bytes);
+    return guarded('parse the base font', () => describe(sfnt));
+  }
+  return parseBaseFontSync(bytes);
+}
 
-  let sfnt: Sfnt;
+/**
+ * {@link parseBaseFont} without the wait, for TrueType (.ttf) and CFF
+ * OpenType (.otf) only: WOFF needs an asynchronous inflate. The server entry
+ * point uses it to forge during a synchronous render.
+ *
+ * @throws VeneerFontError when the bytes are not a .ttf or .otf font.
+ */
+export function parseBaseFontSync(buffer: ArrayBuffer | Uint8Array): BaseFont {
+  const bytes = toBytes(buffer);
+  const signature = signatureOf(bytes);
+
   if (signature === WOFF_SIGNATURE) {
-    sfnt = await decodeWoff(bytes);
+    throw new VeneerFontError(
+      '[veneer] the font is WOFF, which only the asynchronous parseBaseFont() reads. ' +
+        'Supply it as .ttf or .otf here.',
+    );
   } else if (signature === WOFF2_SIGNATURE) {
     throw new VeneerFontError(WOFF2_HELP);
-  } else if (isSfntFlavor(signature)) {
-    sfnt = readSfnt(bytes);
   } else if (signature === 0x74746366) {
     throw new VeneerFontError(
       '[veneer] the base font is a TrueType collection (.ttc). Extract the one face you need ' +
         'into a .ttf first.',
     );
-  } else {
+  } else if (!isSfntFlavor(signature)) {
     throw new VeneerFontError(
       '[veneer] could not parse the base font. It must be a .ttf, .otf or .woff file.',
     );
   }
+  const sfnt = readSfnt(bytes);
   return guarded('parse the base font', () => describe(sfnt));
+}
+
+function signatureOf(bytes: Uint8Array): number {
+  return bytes.byteLength >= 4 ? viewOf(bytes).getUint32(0) : 0;
 }
 
 function describe(sfnt: Sfnt): BaseFont {
@@ -227,4 +248,55 @@ export function forgeScrambledFont(base: BaseFont, map: ForgeMap, familyName: st
     }
     return writeSfnt({ flavor: sfnt.flavor, tables });
   });
+}
+
+/**
+ * Read the cipher back out of a forged font: the inverse of
+ * {@link forgeScrambledFont}, given the base font it was forged from.
+ *
+ * A codepoint whose glyph differs between the two cmaps is a scrambled one; the
+ * readable character it stands for is the base codepoint that owns the glyph
+ * it now draws. This is how a browser learns the cipher of server-rendered
+ * text without the server writing a seed into the page: the only way to the
+ * map is to fetch and parse the forged font, which is all an attacker can do
+ * too.
+ *
+ * Only codepoints that differ are searched, so a base glyph shared by a
+ * scrambled codepoint and one outside the cipher (a space and a no-break
+ * space, say) is not ambiguous. Two scrambled codepoints sharing one base
+ * glyph are, and the server entry point never puts such a pair in a map.
+ *
+ * @throws VeneerFontError when the fonts do not belong together: a changed
+ * glyph no scrambled base codepoint owns, two candidates, or a result that is
+ * not a permutation.
+ */
+export function readScrambleMap(base: BaseFont, forged: BaseFont): ForgeMap {
+  const changed = forged.codepoints().filter((cp) => forged.glyphId(cp) !== base.glyphId(cp));
+  const owners = new Map<number, number[]>();
+  for (const cp of changed) {
+    const glyph = base.glyphId(cp);
+    const list = owners.get(glyph);
+    if (list) list.push(cp);
+    else owners.set(glyph, [cp]);
+  }
+
+  const mismatch = (why: string): never => {
+    throw new VeneerFontError(
+      `[veneer] the forged font does not match the base font (${why}). Both must come from ` +
+        'the same base font file.',
+    );
+  };
+  const forward = new Map<number, number>();
+  for (const scrambled of changed) {
+    const candidates = owners.get(forged.glyphId(scrambled)) ?? [];
+    if (candidates.length !== 1) {
+      mismatch(
+        `U+${scrambled.toString(16).toUpperCase().padStart(4, '0')} draws a glyph that ` +
+          `${candidates.length ? 'several' : 'no'} scrambled base codepoints own`,
+      );
+    }
+    if (forward.has(candidates[0])) mismatch('two codepoints decode to one character');
+    forward.set(candidates[0], scrambled);
+  }
+  return { forward };
 }

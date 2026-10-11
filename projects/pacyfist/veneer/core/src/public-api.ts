@@ -12,6 +12,7 @@ export {
   buildScrambleMap,
   invertScrambleMap,
   isScramblable,
+  randomScrambleMap,
   randomSeed,
   scrambleText,
 } from './scramble-map';

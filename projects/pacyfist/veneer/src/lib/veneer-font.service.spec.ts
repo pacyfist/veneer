@@ -47,13 +47,20 @@ describe('VeneerFontService', () => {
     expect([...a.map().forward]).toEqual([...b.map().forward]);
   });
 
-  it('names the font after the seed, so two ciphers never share a family', async () => {
-    const service = await createService({
-      font: new ArrayBuffer(0),
-      seed: 99,
-      disabled: true,
-    });
-    expect(service.familyName).toBe(`Veneer-${(99).toString(36)}`);
+  it('gives the font a random family name that says nothing about the seed', async () => {
+    const a = await createService({ font: new ArrayBuffer(0), seed: 99, disabled: true });
+    TestBed.resetTestingModule();
+    const b = await createService({ font: new ArrayBuffer(0), seed: 99, disabled: true });
+
+    expect(a.familyName).toMatch(/^Veneer-[0-9a-f]{16}$/);
+    expect(a.familyName).not.toBe(b.familyName);
+    expect(a.familyName).not.toContain((99).toString(36));
+  });
+
+  it('draws the map from the CSPRNG when no seed is configured', async () => {
+    const service = await createService({ font: new ArrayBuffer(0), disabled: true });
+    expect(service.map().seed).toBeUndefined();
+    expect(service.initialMap()).toBe(service.map());
   });
 
   it('leaves text alone when disabled', async () => {
