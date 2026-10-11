@@ -153,7 +153,8 @@ text.
 **What does the license mean for me?**
 It's AGPL-3.0. If you use it on a public website, that site's source code has to
 be available under the same license. That's intentional. You also need a font
-whose license allows embedding.
+whose license allows modified versions: forging creates a renamed derivative of
+it. See the [font license checklist](projects/pacyfist/veneer/README.md#font-license-checklist).
 
 ## Documentation
 

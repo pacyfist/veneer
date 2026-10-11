@@ -884,4 +884,38 @@ applies to software offered to users over a network, which is what a web page is
 Using this library in a site you serve publicly means that site's source falls
 under the same terms. That is the intent, not an oversight.
 
-The base font is yours to supply and license.
+The base font is yours to supply and license. See the checklist below.
+
+### Font license checklist
+
+Forging creates a **modified derivative** of your base font: the same glyphs
+with a replaced `cmap`, a renamed family (a random `Veneer-…` name in the `name`
+table) and stripped `post` glyph names. Every visitor gets that derivative,
+either as the forged font file a server-rendered page links to, or built in
+their browser from the base font you serve. Copyright and license records in
+the `name` table are kept byte for byte. Check your font's license before you
+ship:
+
+- [ ] **The license allows modified versions**, and serving them to visitors.
+      Most commercial font EULAs (desktop and web licenses alike) forbid
+      modifying, converting or creating derivatives. Do not use such a font
+      without written permission from the foundry.
+- [ ] **OFL fonts: no Reserved Font Name.** Open the font's `OFL.txt`. If the
+      copyright line says "with Reserved Font Name …", the OFL forbids a Modified
+      Version from using that name, and the forged font is a Modified Version.
+      Treat it as off limits unless the copyright holder gives written
+      permission. A CFF (`.otf`) font also keeps its original names inside the
+      `CFF` table, which veneer does not rename.
+- [ ] **OFL fonts without a Reserved Font Name are fine.** Keep the copyright
+      notice and license with the font (veneer keeps them inside the forged font
+      too).
+- [ ] **Apache-2.0 fonts are fine**, such as the Roboto release this repository
+      ships for its demo and tests (`Roboto-LICENSE.txt`). Keep the license next
+      to the font. Newer Roboto releases use the OFL; check the license file of
+      your copy.
+- [ ] **Every face counts.** Each file you pass to `withFaces()` has its own
+      license; check them all.
+- [ ] **Self-hosting is allowed.** veneer reads the font from your own origin.
+
+This is a checklist, not legal advice. When in doubt, ask the font's copyright
+holder.
