@@ -1,0 +1,131 @@
+import { EnvironmentProviders, computed, makeEnvironmentProviders, signal } from '@angular/core';
+import {
+  ResolvedVeneerConfig,
+  VENEER_CONFIG,
+  VeneerFontService,
+  VeneerFontState,
+} from '@pacyfist/veneer';
+import {
+  DEFAULT_CHARSET,
+  ScrambleMap,
+  buildScrambleMap,
+  scrambleText,
+} from '@pacyfist/veneer/core';
+
+/**
+ * The font states a test can force.
+ *
+ * - `ready`: the font is "loaded" and text is scrambled. The default.
+ * - `loading`: text is scrambled but hidden, as before a real font lands.
+ * - `failed`: the font "could not be built"; text stays readable (fail open).
+ * - `disabled`: as with `provideVeneer({ disabled: true })`; text stays readable.
+ */
+export type VeneerTestingState = 'ready' | 'loading' | 'failed' | 'disabled';
+
+export interface VeneerTestingOptions {
+  /** Seed for the cipher. Defaults to a fixed value, so tests are reproducible. */
+  seed?: number;
+
+  /** Initial state. Defaults to `'ready'`. Change it later with `setState()`. */
+  state?: VeneerTestingState;
+
+  /** Codepoints the cipher covers. Defaults to `DEFAULT_CHARSET`. */
+  charset?: readonly number[];
+
+  /** Families after the forged one in `fontStack`. Defaults to `'sans-serif'`. */
+  fallbackFontFamily?: string;
+}
+
+/** Seed used when a test does not pass one. Any fixed value would do. */
+const DEFAULT_TESTING_SEED = 0x5eed;
+
+/** The message `failed()` carries in the `failed` state. */
+const FORCED_FAILURE = '[veneer] font failure forced by provideVeneerTesting()';
+
+/** The most recently created stand-in, read by `decodeVeneer()` when no map is passed. */
+let current: VeneerTestingFontService | undefined;
+
+/** @internal */
+export function currentTestingService(): VeneerTestingFontService | undefined {
+  return current;
+}
+
+/** @internal */
+export function defaultTestingMap(): ScrambleMap {
+  return buildScrambleMap(DEFAULT_TESTING_SEED);
+}
+
+/**
+ * Stands in for `VeneerFontService`: the same cipher and the same signals, but
+ * no font is fetched, forged or registered, so nothing touches `FontFace`.
+ *
+ * Registered by `provideVeneerTesting()` under both this class and
+ * `VeneerFontService`. Inject it by this class to change state mid-test:
+ *
+ * ```ts
+ * TestBed.inject(VeneerTestingFontService).setState('failed');
+ * ```
+ */
+export class VeneerTestingFontService implements VeneerFontState {
+  private readonly state = signal<VeneerTestingState>('ready');
+  private readonly fallbackFontFamily: string;
+
+  readonly map: ScrambleMap;
+  readonly familyName: string;
+
+  readonly ready = computed(() => this.state() !== 'loading');
+  readonly failed = computed(() => (this.state() === 'failed' ? FORCED_FAILURE : null));
+  readonly revealed = signal(false);
+  readonly active = computed(() => this.state() === 'ready' || this.state() === 'loading');
+  readonly fontStack = computed(() =>
+    this.active() && !this.revealed()
+      ? `"${this.familyName}", ${this.fallbackFontFamily}`
+      : this.fallbackFontFamily,
+  );
+  readonly hidden = computed(() => this.active() && !this.revealed() && !this.ready());
+
+  constructor(options: VeneerTestingOptions = {}) {
+    const seed = options.seed ?? DEFAULT_TESTING_SEED;
+    this.map = buildScrambleMap(seed, options.charset ?? DEFAULT_CHARSET);
+    this.familyName = `Veneer-${seed.toString(36)}`;
+    this.fallbackFontFamily = options.fallbackFontFamily ?? 'sans-serif';
+    this.state.set(options.state ?? 'ready');
+    current = this;
+  }
+
+  scramble(text: string): string {
+    return this.active() ? scrambleText(text, this.map) : text;
+  }
+
+  /** Force a state, for example to simulate the font failing after first render. */
+  setState(state: VeneerTestingState): void {
+    this.state.set(state);
+  }
+}
+
+/**
+ * Replaces `provideVeneer()` in tests.
+ *
+ * ```ts
+ * TestBed.configureTestingModule({ providers: [provideVeneerTesting()] });
+ * ```
+ *
+ * Directives, the pipe and anything injecting `VeneerFontService` get a
+ * deterministic `VeneerTestingFontService`. `VENEER_CONFIG` is provided too,
+ * built from the options as they were at setup.
+ */
+export function provideVeneerTesting(options: VeneerTestingOptions = {}): EnvironmentProviders {
+  const config: ResolvedVeneerConfig = {
+    font: new ArrayBuffer(0),
+    fallbackFontFamily: options.fallbackFontFamily ?? 'sans-serif',
+    charset: options.charset ?? DEFAULT_CHARSET,
+    hideUntilReady: true,
+    disabled: options.state === 'disabled',
+    seed: options.seed ?? DEFAULT_TESTING_SEED,
+  };
+  return makeEnvironmentProviders([
+    { provide: VENEER_CONFIG, useValue: config },
+    { provide: VeneerTestingFontService, useFactory: () => new VeneerTestingFontService(options) },
+    { provide: VeneerFontService, useExisting: VeneerTestingFontService },
+  ]);
+}

@@ -1,31 +1,20 @@
-import { Component, Type, WritableSignal, signal } from '@angular/core';
+import { Component, Type, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
-import { VeneerDirective } from './veneer.directive';
-import { VeneerFontService } from './veneer-font.service';
 import { buildScrambleMap, scrambleText } from '@pacyfist/veneer/core';
+import {
+  VeneerTestingFontService,
+  VeneerTestingOptions,
+  decodeVeneer,
+  provideVeneerTesting,
+} from '@pacyfist/veneer/testing';
+import { VeneerDirective } from './veneer.directive';
 
-const MAP = buildScrambleMap(2024);
-
-/**
- * Stands in for the real service so directive behaviour can be asserted without
- * a font fetch — jsdom has no FontFace. The real loading path is covered by
- * scripts/verify-in-browser.mjs against Chrome.
- */
-function fakeService(overrides: Record<string, unknown> = {}) {
-  return {
-    map: MAP,
-    familyName: 'FakeVeneer',
-    ready: signal(true),
-    failed: signal<string | null>(null),
-    revealed: signal(false),
-    active: signal(true),
-    fontStack: signal('"FakeVeneer", sans-serif'),
-    hidden: signal(false),
-    scramble: (text: string) => scrambleText(text, MAP),
-    ...overrides,
-  };
-}
+// The testing entry point stands in for the real service, so directive
+// behaviour is asserted without a font fetch (jsdom has no FontFace). The real
+// loading path is covered by the Playwright suite in e2e/.
+const SEED = 2024;
+const MAP = buildScrambleMap(SEED);
 
 // Templates must be literals for the AOT compiler, so each shape gets a host.
 @Component({ template: '<p veneer>Hello, world</p>', imports: [VeneerDirective] })
@@ -41,13 +30,16 @@ class BoundHost {
 @Component({ template: '<p veneer></p>', imports: [VeneerDirective] })
 class EmptyHost {}
 
-function setup<T>(host: Type<T>, service: Record<string, unknown> = fakeService()) {
-  TestBed.configureTestingModule({
-    providers: [{ provide: VeneerFontService, useValue: service }],
-  });
+function configure(options: VeneerTestingOptions = {}) {
+  TestBed.configureTestingModule({ providers: [provideVeneerTesting({ seed: SEED, ...options })] });
+  return TestBed.inject(VeneerTestingFontService);
+}
+
+function setup<T>(host: Type<T>, options: VeneerTestingOptions = {}) {
+  const service = configure(options);
   const fixture: ComponentFixture<T> = TestBed.createComponent(host);
   fixture.detectChanges();
-  return { fixture, el: fixture.nativeElement.querySelector('p') as HTMLElement };
+  return { fixture, service, el: fixture.nativeElement.querySelector('p') as HTMLElement };
 }
 
 describe('VeneerDirective', () => {
@@ -63,41 +55,36 @@ describe('VeneerDirective', () => {
   });
 
   it('points the element at the generated font', () => {
+    const { el, service } = setup(StaticHost);
+    expect(el.style.fontFamily).toContain(service.familyName);
+  });
+
+  it('shows the reader the original words', () => {
     const { el } = setup(StaticHost);
-    expect(el.style.fontFamily).toContain('FakeVeneer');
+    expect(decodeVeneer(el)).toBe('Hello, world');
   });
 
   it('hides the text until the font is ready, then reveals it', () => {
-    const service = fakeService({ hidden: signal(true) });
-    const { fixture, el } = setup(StaticHost, service);
+    const { fixture, service, el } = setup(StaticHost, { state: 'loading' });
 
     expect(el.style.visibility).toBe('hidden');
 
-    (service.hidden as WritableSignal<boolean>).set(false);
+    service.setState('ready');
     fixture.detectChanges();
     expect(el.style.visibility).toBe('');
   });
 
   it('fails open — leaves readable text when the font could not be built', () => {
-    const { el } = setup(
-      StaticHost,
-      fakeService({
-        failed: signal('boom'),
-        active: signal(false),
-        scramble: (text: string) => text,
-        fontStack: signal('sans-serif'),
-      }),
-    );
+    const { el } = setup(StaticHost, { state: 'failed' });
     expect(el.textContent).toBe('Hello, world');
+    expect(el.style.fontFamily).toBe('sans-serif');
   });
 
   it('does not scramble twice when hydrating server-scrambled text', () => {
     // The server left ciphertext in the DOM and marked the element. Reading
     // that text as the original would scramble it again, and the font undoes
     // only one layer — the reader would be shown the server's ciphertext.
-    TestBed.configureTestingModule({
-      providers: [{ provide: VeneerFontService, useValue: fakeService() }],
-    });
+    configure();
     const fixture = TestBed.createComponent(EmptyHost);
     const el = fixture.nativeElement.querySelector('p') as HTMLElement;
 
@@ -110,10 +97,7 @@ describe('VeneerDirective', () => {
   });
 
   it('restores the readable text when hydration is followed by a font failure', () => {
-    const service = fakeService();
-    TestBed.configureTestingModule({
-      providers: [{ provide: VeneerFontService, useValue: service }],
-    });
+    const service = configure();
     const fixture = TestBed.createComponent(EmptyHost);
     const el = fixture.nativeElement.querySelector('p') as HTMLElement;
 
@@ -122,9 +106,7 @@ describe('VeneerDirective', () => {
     fixture.detectChanges();
 
     // Font dies after hydration: the directive must still know the real words.
-    (service.active as WritableSignal<boolean>).set(false);
-    service.scramble = (text: string) => text;
-    (service.fontStack as WritableSignal<string>).set('sans-serif');
+    service.setState('failed');
     fixture.detectChanges();
 
     expect(el.textContent).toBe('Hello, world');
