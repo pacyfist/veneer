@@ -17,7 +17,10 @@ test('the demo page never logs "[veneer] disabled"', async ({ page }) => {
   // Every protected element is hidden until the font is ready or forging has
   // failed, so a visible hero means load() has settled one way or the other.
   await expect(page.locator('app-hero p[veneer]')).toBeVisible();
-  await page.waitForLoadState('networkidle');
+  // The shell mirrors its status on <html data-veneer-status> once load() has
+  // settled. Waiting for that instead of 'networkidle', which can stall in
+  // Firefox under parallel load and made this test flaky.
+  await expect(page.locator('html')).toHaveAttribute('data-veneer-status', /^(active|failed)$/);
 
   expect(disabled).toEqual([]);
 });
