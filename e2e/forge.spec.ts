@@ -113,11 +113,47 @@ async function measureRoboto(page: Page) {
     const forged: ArrayBuffer = core.forgeScrambledFont(base, map, 'Veneer-e2e');
     const forgeMs = performance.now() - started;
 
+    // Everything the forge does except the remap: cmap re-encoded, name
+    // renamed, post stripped, tables re-laid out.
+    const neutral = core.forgeScrambledFont(base, { seed: 0, forward: new Map() }, 'Neutral-e2e');
+
     const baseFace = new FontFace('Base-e2e', bytes);
     const forgedFace = new FontFace('Veneer-e2e', forged);
-    await Promise.all([baseFace.load(), forgedFace.load()]);
+    const neutralFace = new FontFace('Neutral-e2e', neutral);
+    await Promise.all([baseFace.load(), forgedFace.load(), neutralFace.load()]);
     document.fonts.add(baseFace);
     document.fonts.add(forgedFace);
+    document.fonts.add(neutralFace);
+
+    // Per-character pixel comparison against the base font, as in demo.spec.ts.
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 48;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    const draw = (family: string, char: string) => {
+      ctx.clearRect(0, 0, 48, 48);
+      ctx.font = `32px "${family}"`;
+      ctx.fillText(char, 4, 36);
+      return ctx.getImageData(0, 0, 48, 48).data;
+    };
+    const pixelDistance = (family: string, text: string, shown: string) => {
+      let differing = 0;
+      let inked = 0;
+      for (let c = 0; c < text.length; c++) {
+        const drawn = draw(family, shown[c]);
+        const plain = draw('Base-e2e', text[c]);
+        for (let i = 3; i < plain.length; i += 4) {
+          if (plain[i] > 0) inked++;
+          if (Math.abs(drawn[i] - plain[i]) > 64) differing++;
+        }
+      }
+      return differing / inked;
+    };
+    const prose = samples.join(' ');
+    const pixels = {
+      neutral: pixelDistance('Neutral-e2e', prose, prose),
+      forged: pixelDistance('Veneer-e2e', prose, core.scrambleText(prose, map)),
+      control: pixelDistance('Base-e2e', prose, core.scrambleText(prose, map)),
+    };
 
     const width = (family: string, text: string, mode: string) => {
       const span = document.createElement('span');
@@ -149,6 +185,7 @@ async function measureRoboto(page: Page) {
       baseSize: bytes.byteLength,
       forgedSize: forged.byteLength,
       measurements,
+      pixels,
     };
   }, SAMPLES);
 }
@@ -191,7 +228,7 @@ async function measureCff(page: Page) {
 }
 
 for (const engine of Object.keys(ENGINES)) {
-  test(`${engine}: the forged font loads and shapes exactly like the base font`, async ({
+  test(`${engine}: the forged font loads, shapes and draws like the base font`, async ({
     browser,
     browserName,
   }, testInfo) => {
@@ -231,6 +268,17 @@ for (const engine of Object.keys(ENGINES)) {
       const pangram = (roboto.measurements as Measurement[]).at(-1)!;
       expect(Math.abs(pangram.control - pangram.base)).toBeGreaterThan(1);
 
+      // Rasterisation. Everything the forge changes besides the cmap remap must
+      // be invisible in every engine. The remap itself is invisible in
+      // Chromium; Firefox (FreeType's auto-hinter, Linux) derives its hinting
+      // zones from letters looked up through the cmap, so the cipher moves
+      // some pixels there. See demo.spec.ts for the measured range.
+      expect(roboto.pixels.neutral, `${engine} neutral forge`).toBeLessThan(0.001);
+      expect(roboto.pixels.forged, `${engine} forged`).toBeLessThan(
+        engine === 'chromium' ? 0.01 : 0.3,
+      );
+      expect(roboto.pixels.control).toBeGreaterThan(0.5);
+
       const cff = await measureCff(page);
       expect(cff.outlines).toBe('cff');
       expect(cff.b).toBeCloseTo(70, 1); // draws 😀
@@ -244,6 +292,7 @@ for (const engine of Object.keys(ENGINES)) {
         forgeMs: Math.round(roboto.forgeMs * 10) / 10,
         baseSize: roboto.baseSize,
         forgedSize: roboto.forgedSize,
+        pixels: roboto.pixels,
         widths: roboto.measurements,
         cff,
       };

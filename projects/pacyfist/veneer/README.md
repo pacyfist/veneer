@@ -340,6 +340,10 @@ On protected text only:
   comparing its glyphs with the public base font, can invert the cipher. `post`
   glyph names are stripped, but a CFF (`.otf`) base font keeps its glyph names in
   the `CFF` table.
+- **Hinting can differ by a pixel in Firefox on Linux** - widths, kerning and
+  ligatures match exactly everywhere, and Chromium draws identical pixels. Firefox
+  on Linux hints with FreeType's auto-hinter, which measures letters such as `x`
+  and `o` through the `cmap`; the scrambled `cmap` shifts some vertical snapping.
 
 These are the same mechanism as the protection, not bugs to be fixed. Protect
 article bodies. Leave navigation, headings, form labels, and anything assistive
