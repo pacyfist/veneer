@@ -27,7 +27,9 @@ function loadBundles(browser: Browser, request: APIRequestContext) {
       scripts[new URL(response.url()).pathname] = await response.text();
     });
     await page.goto('./');
-    await page.waitForLoadState('networkidle');
+    // Settled status means the lazy forge chunk has loaded too. Not
+    // 'networkidle', which stalls in Firefox under parallel load.
+    await expect(page.locator('html')).toHaveAttribute('data-veneer-status', /^(active|failed)$/);
     await page.close();
 
     const { document } = await fetchServedPage(request);

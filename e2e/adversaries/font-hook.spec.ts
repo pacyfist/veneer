@@ -50,7 +50,7 @@ test.describe('adversary (c): FontFace hook in a real browser', () => {
 
     await page.goto('./');
     await page.waitForFunction(() => window.__veneerFonts.length > 0);
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('html')).toHaveAttribute('data-veneer-status', /^(active|failed)$/);
 
     // 3. Each captured font's bytes, and the text of the elements drawn in it.
     const { fonts, texts } = await page.evaluate(async () => {

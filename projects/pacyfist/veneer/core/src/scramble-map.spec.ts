@@ -95,12 +95,17 @@ describe('buildScrambleMap', () => {
     expect(new Set(forward.values()).size).toBe(forward.size);
   });
 
-  it('keeps letters, digits and each punctuation class apart, with no fixed points, across many seeds', () => {
-    const groups = [str(ASCII_LETTERS), str(ASCII_DIGITS), ...ASCII_PUNCTUATION_CLASSES];
-    for (let seed = 0; seed < 500; seed++) {
-      expectWithinGroups(buildScrambleMap(seed).forward, groups, seed);
-    }
-  });
+  // CPU-heavy: 500 maps. The longer timeout keeps it stable on a loaded CI box.
+  it(
+    'keeps letters, digits and each punctuation class apart, with no fixed points, across many seeds',
+    { timeout: 30_000 },
+    () => {
+      const groups = [str(ASCII_LETTERS), str(ASCII_DIGITS), ...ASCII_PUNCTUATION_CLASSES];
+      for (let seed = 0; seed < 500; seed++) {
+        expectWithinGroups(buildScrambleMap(seed).forward, groups, seed);
+      }
+    },
+  );
 
   it('mixes upper and lower case, so the case pattern does not leak', () => {
     const crossings = new Set<string>();

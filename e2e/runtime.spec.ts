@@ -24,7 +24,6 @@ test('resolves the relative font path against <base href> and fetches it once', 
   // relative URL. Once it is protecting, both instances have their font.
   const card = page.locator('app-breakage app-specimen-card');
   await expect(card.locator('.badge')).toHaveText('protected');
-  await page.waitForLoadState('networkidle');
 
   expect(requests.filter((path) => path === FONT_PATH)).toHaveLength(1);
 });
