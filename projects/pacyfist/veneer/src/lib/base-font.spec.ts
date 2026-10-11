@@ -61,6 +61,12 @@ describe('resolveFontSource', () => {
     expect(error.message).toContain('<base href>');
   });
 
+  it('leaves out an empty status text', async () => {
+    vi.stubGlobal('fetch', async () => new Response('', { status: 404 }));
+    const error = await resolveFontSource('fonts/A.ttf', BASE).catch((e) => e);
+    expect(error.message).toContain('failed: 404. ');
+  });
+
   it('reports a network error with the URL', async () => {
     vi.stubGlobal('fetch', async () => {
       throw new TypeError('Failed to fetch');
@@ -90,6 +96,14 @@ describe('resolveFontSource', () => {
     expect(error).toBeInstanceOf(FontSourceError);
     expect(error.message).toContain('VNR010');
     expect(error.message).toContain('network down');
+  });
+});
+
+describe('resolveFontSource with a loader that throws FontSourceError', () => {
+  it('passes it through unwrapped', async () => {
+    const original = new FontSourceError('[veneer] VNR010: custom', 'https://cdn.test/A.ttf');
+    const error = await resolveFontSource(() => Promise.reject(original), BASE).catch((e) => e);
+    expect(error).toBe(original);
   });
 });
 
