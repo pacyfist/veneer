@@ -23,14 +23,15 @@ import { gzipSync } from 'node:zlib';
  * size when they were introduced, so they catch real growth; lower them when a
  * change makes a bundle smaller.
  *
- * Measured 2026-10-11 (Angular 21 build, gzip level 9): `.` 6,702 B.
- * `./core` and `./testing` did not exist yet; their budgets are provisional
- * copies of the main one until they are measured.
+ * Measured 2026-10-11 (Angular 21 build, gzip level 9), after the core and
+ * testing entry points and the dependency-free font forge landed:
+ * `.` 4,547 B, `./core` 11,407 B (the sfnt reader/writer that replaced
+ * opentype.js), `./testing` 1,894 B.
  */
 const BUDGETS = {
-  '.': 7_400,
-  './core': 7_400,
-  './testing': 7_400,
+  '.': 5_000,
+  './core': 12_500,
+  './testing': 2_100,
 };
 
 const dist = process.argv[2] ?? 'dist/pacyfist/veneer';
