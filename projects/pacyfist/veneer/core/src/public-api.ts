@@ -14,4 +14,11 @@ export {
   scrambleText,
 } from './scramble-map';
 export type { ScrambleMap } from './scramble-map';
-export { VeneerFontError, forgeScrambledFont, parseBaseFont } from './font-forge';
+export {
+  VeneerFontError,
+  charsetFromFont,
+  coveredCodepoints,
+  forgeScrambledFont,
+  parseBaseFont,
+} from './font-forge';
+export type { BaseFont } from './font-forge';

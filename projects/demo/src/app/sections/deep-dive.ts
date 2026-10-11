@@ -41,14 +41,12 @@ import { CipherTable } from './cipher-table';
       </details>
 
       <details class="collapse-arrow bg-base-100 border-base-300 collapse border">
-        <summary class="collapse-title text-lg font-bold">
-          Why big headlines look slightly off
-        </summary>
+        <summary class="collapse-title text-lg font-bold">Kerning and ligatures carry over</summary>
         <div class="collapse-content">
           <p class="text-base-content/70 mb-4 max-w-3xl">
-            The generated font carries no kerning (<code>kern</code>/<code>GPOS</code> tables), so
-            letter pairs that normally tuck together don't. You won't notice it in body text; at
-            display sizes you can.
+            The generated font is your base font with only its character map replaced. Kerning
+            (<code>GPOS</code>), ligatures and hinting carry over, so letter pairs tuck together
+            exactly as in the original, even at display sizes.
           </p>
           <div class="grid max-w-md grid-cols-2 gap-4 text-center">
             <div>

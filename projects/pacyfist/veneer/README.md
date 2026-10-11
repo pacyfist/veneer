@@ -42,6 +42,7 @@ innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
 - [What this defends against](#what-this-defends-against)
 - [Trade-offs](#trade-offs)
 - [Failure behaviour](#failure-behaviour)
+- [WOFF2 and Google Fonts](#woff2-and-google-fonts)
 - [Using the cipher outside Angular](#using-the-cipher-outside-angular)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
@@ -54,13 +55,13 @@ innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
 | Requirement | Version / notes                                                                                                                          |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Angular     | 20, 21 or 22 (`@angular/core`, `@angular/common`)                                                                                        |
-| opentype.js | `^2.0.0` - peer dependency, so you pin the version                                                                                       |
-| Base font   | A **`.ttf` or `.otf`** file you are licensed to embed                                                                                    |
+| Base font   | A **`.ttf`, `.otf` or `.woff`** file you are licensed to embed. WOFF2 needs a decoder you choose, see below                              |
 | Browser     | Anything with the [CSS Font Loading API](https://developer.mozilla.org/docs/Web/API/CSS_Font_Loading_API) (`FontFace`, `document.fonts`) |
 
-opentype.js **cannot read WOFF or WOFF2** - those are compressed container
-formats. Ship the uncompressed `.ttf`/`.otf` alongside your web fonts, or load
-it through a custom loader that decompresses first.
+veneer has no runtime dependency besides Angular. It reads TrueType, CFF
+OpenType and WOFF 1.0 itself (WOFF through the browser's `DecompressionStream`).
+It does not decode **WOFF2**, which would put a Brotli decoder in every bundle;
+see [WOFF2 and Google Fonts](#woff2-and-google-fonts).
 
 Use the same typeface your body text already uses. The forged font replaces it
 wherever `veneer` is applied, so a mismatch is immediately visible.
@@ -68,7 +69,7 @@ wherever `veneer` is applied, so a mismatch is immediately visible.
 ## Installation
 
 ```bash
-npm install @pacyfist/veneer opentype.js
+npm install @pacyfist/veneer
 ```
 
 ## Quick start
@@ -178,21 +179,23 @@ provideVeneer({
 });
 ```
 
-| Option               | Type                                                  | Default                   | Purpose                                                         |
-| -------------------- | ----------------------------------------------------- | ------------------------- | --------------------------------------------------------------- |
-| `font`               | `string \| ArrayBuffer \| () => Promise<ArrayBuffer>` | _required_                | Base font supplying the glyph outlines                          |
-| `fallbackFontFamily` | `string`                                              | `'sans-serif'`            | Renders characters outside the charset - spaces, accents, emoji |
-| `charset`            | `readonly number[]`                                   | printable ASCII, no space | Codepoints the cipher covers                                    |
-| `seed`               | `number`                                              | random per page load      | Pins the cipher. Tests and reproducible builds only             |
-| `hideUntilReady`     | `boolean`                                             | `true`                    | Keep protected text invisible until the font lands              |
-| `disabled`           | `boolean`                                             | `false`                   | Turn everything off, per environment                            |
+| Option               | Type                                                  | Default                   | Purpose                                                        |
+| -------------------- | ----------------------------------------------------- | ------------------------- | -------------------------------------------------------------- |
+| `font`               | `string \| ArrayBuffer \| () => Promise<ArrayBuffer>` | _required_                | Base font supplying the glyph outlines                         |
+| `fallbackFontFamily` | `string`                                              | `'sans-serif'`            | Used until the font is ready, when off, and for missing glyphs |
+| `charset`            | `readonly number[]`                                   | printable ASCII, no space | Codepoints the cipher covers                                   |
+| `seed`               | `number`                                              | random per page load      | Pins the cipher. Tests and reproducible builds only            |
+| `hideUntilReady`     | `boolean`                                             | `true`                    | Keep protected text invisible until the font lands             |
+| `disabled`           | `boolean`                                             | `false`                   | Turn everything off, per environment                           |
 
 **`charset`** defaults to `U+0021`-`U+007E` - printable ASCII **without the
 space**. Space is excluded deliberately: it is the only character the browser can
 break a line at, so mapping it to something else would collapse a paragraph into
 one unbreakable word. The cipher is a _derangement_ - every character maps to a
 different character, so nothing survives untouched. Characters outside the
-charset pass through unchanged and render in `fallbackFontFamily`.
+charset pass through unchanged and render from the same forged font, which keeps
+every base glyph; only characters the base font lacks fall back to
+`fallbackFontFamily`.
 
 **`seed`** should normally be left alone. A constant seed means every visitor and
 every crawl sees the same substitution, which is solvable once by frequency
@@ -246,17 +249,20 @@ exported `VeneerFontState` interface, which the testing stand-in implements too.
 Published on its own as `@pacyfist/veneer/core`, which imports no Angular, and
 re-exported from `@pacyfist/veneer`.
 
-| Export                                      | Description                                                            |
-| ------------------------------------------- | ---------------------------------------------------------------------- |
-| `DEFAULT_CHARSET`                           | Printable ASCII minus the space                                        |
-| `buildScrambleMap(seed, charset?)`          | Build the derangement. Throws below 2 distinct codepoints              |
-| `scrambleText(text, map)`                   | Apply a map; unmapped characters pass through                          |
-| `invertScrambleMap(map)`                    | The reverse substitution - decode your own output                      |
-| `randomSeed()`                              | A seed from the CSPRNG when there is one                               |
-| `ScrambleMap`                               | `{ seed, forward: ReadonlyMap<number, number> }`                       |
-| `parseBaseFont(buffer)`                     | Parse a `.ttf`/`.otf` into an opentype.js `Font`                       |
-| `forgeScrambledFont(base, map, familyName)` | Produce the font binary whose `cmap` is scrambled                      |
-| `VeneerFontError`                           | Thrown on parse failure or missing glyphs; carries `missing: string[]` |
+| Export                                      | Description                                                                  |
+| ------------------------------------------- | ---------------------------------------------------------------------------- |
+| `DEFAULT_CHARSET`                           | Printable ASCII minus the space                                              |
+| `buildScrambleMap(seed, charset?)`          | Build the derangement. Throws below 2 distinct codepoints                    |
+| `scrambleText(text, map)`                   | Apply a map; unmapped characters pass through                                |
+| `invertScrambleMap(map)`                    | The reverse substitution - decode your own output                            |
+| `randomSeed()`                              | A seed from the CSPRNG when there is one                                     |
+| `ScrambleMap`                               | `{ seed, forward: ReadonlyMap<number, number> }`                             |
+| `parseBaseFont(buffer)`                     | Async. Parse a `.ttf`/`.otf`/`.woff` into a `BaseFont`                       |
+| `BaseFont`                                  | `{ outlines, unitsPerEm, numGlyphs, familyName, glyphId(cp), codepoints() }` |
+| `forgeScrambledFont(base, map, familyName)` | Produce the font binary whose `cmap` is scrambled                            |
+| `coveredCodepoints(base, candidate)`        | The candidate codepoints the base font has a glyph for                       |
+| `charsetFromFont(bytes, candidate?)`        | Async, build time. Covered codepoints that are safe to scramble              |
+| `VeneerFontError`                           | Thrown on parse failure or missing glyphs; carries `missing: string[]`       |
 
 ### Testing
 
@@ -328,8 +334,12 @@ On protected text only:
 - **Screen readers announce gibberish**
 - **Find-in-page (Ctrl+F) does not match**
 - **Copy-paste yields the scrambled string**
-- **No kerning** - the generated font carries no `kern`/`GPOS` table. Visually
-  negligible for body text, measurable on pairs like `AV` at display sizes.
+- **The forged font is the key** - it is the base font with only the `cmap`
+  replaced, so it keeps the base glyph ids, kerning, ligatures and hinting, and
+  protected text shapes exactly like the base font. Anyone holding it, or
+  comparing its glyphs with the public base font, can invert the cipher. `post`
+  glyph names are stripped, but a CFF (`.otf`) base font keeps its glyph names in
+  the `CFF` table.
 
 These are the same mechanism as the protection, not bugs to be fixed. Protect
 article bodies. Leave navigation, headings, form labels, and anything assistive
@@ -347,6 +357,51 @@ charset character - silently dropping it would show readers the _wrong letter_
 with no other symptom. The thrown `VeneerFontError` lists the missing characters in
 `missing`. That throw is still caught by the service, so the page fails open
 either way.
+
+## WOFF2 and Google Fonts
+
+veneer reads `.ttf`, `.otf` and `.woff`. For a **WOFF2** font, either convert it
+once at build time:
+
+```bash
+woff2_decompress Font.woff2          # google/woff2, writes Font.ttf
+# or: pip install fonttools brotli && fonttools ttLib.woff2 decompress Font.woff2
+```
+
+or decode it in the app with a decoder you pick, through the loader:
+
+```ts
+provideVeneer({
+  font: async () => {
+    const woff2 = await (await fetch('/fonts/Font.woff2')).arrayBuffer();
+    const { decompress } = await import('some-woff2-decoder'); // your choice
+    return decompress(woff2); // must resolve to .ttf/.otf bytes
+  },
+});
+```
+
+**Static TTFs from Google Fonts:** the css2 API serves WOFF2 to browsers. Download
+the family from its page on fonts.google.com ("Get font" then "Download all"): the
+zip has variable TTFs at the top and static TTFs per weight under `static/`. Use
+the static file that matches the weight your text uses, e.g.
+`static/Roboto-Regular.ttf`, and serve it next to your web fonts. The same files
+are in the `google/fonts` GitHub repository under `ofl/<family>/` or
+`apache/<family>/`.
+
+**Charset for a font:** a font without, say, `~` or `|` makes the forge throw and
+the page fail open. Check coverage at build time and paste the result into
+`charset`:
+
+```ts
+import { readFileSync } from 'node:fs';
+import { DEFAULT_CHARSET, charsetFromFont } from '@pacyfist/veneer/core';
+
+const charset = await charsetFromFont(readFileSync('Font.ttf'), DEFAULT_CHARSET);
+console.log(JSON.stringify(charset));
+```
+
+It leaves out whitespace (including U+00A0), U+00AD, control and format
+characters and combining marks.
 
 ## Using the cipher outside Angular
 
@@ -373,7 +428,8 @@ Useful for pre-scrambling static content in a build step, paired with
 
 | Symptom                                         | Cause                                                                                                          |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `could not parse the base font`                 | The file is WOFF/WOFF2. opentype.js needs `.ttf` or `.otf`                                                     |
+| `could not parse the base font`                 | The file is not a font. veneer reads `.ttf`, `.otf` and `.woff`                                                |
+| `the base font is WOFF2`                        | Convert it to `.ttf`, or decode it in the `font` loader. See [WOFF2 and Google Fonts](#woff2-and-google-fonts) |
 | `the base font has no glyph for N character(s)` | Base font doesn't cover the charset. Use a fuller font, or narrow `charset`                                    |
 | `base font request failed: 404`                 | The `font` URL isn't served. Check it's in your `assets`/`public` output                                       |
 | Protected text is invisible and never appears   | The font never loaded and JS is disabled, or `hideUntilReady` is on while the request hangs. Check the console |

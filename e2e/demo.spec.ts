@@ -51,11 +51,11 @@ test.describe('demo site', () => {
     await expect(hero).toBeVisible();
 
     // Draw each ciphertext character next to the plain character in the base
-    // font and count the pixels that differ. Per character, because whole-line
-    // metrics drift apart by a pixel or two. The forged font drops hinting, so
-    // a working one is close rather than pixel-identical; the control, which
-    // draws the ciphertext in the base font as a scraper would see it, shows
-    // how far apart wrong glyphs land.
+    // font and count the pixels that differ. The forged font is the base font
+    // with only its cmap replaced, so the same glyph and the same hinting draw
+    // both: measured 0 differing pixels over repeated runs (Chromium 151). The
+    // control, which draws the ciphertext in the base font as a scraper would
+    // see it, shows how far apart wrong glyphs land.
     const { forged, control } = await hero.evaluate(async (el, original) => {
       const family = getComputedStyle(el).fontFamily.split(',')[0].trim();
       const scrambled = (el.textContent ?? '').trim();
@@ -90,6 +90,6 @@ test.describe('demo site', () => {
     }, HERO_TEXT);
 
     expect(control).toBeGreaterThan(0.5);
-    expect(forged).toBeLessThan(0.15);
+    expect(forged).toBeLessThan(0.01);
   });
 });
