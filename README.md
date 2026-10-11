@@ -41,13 +41,13 @@ writes the scrambled text into the HTML, so crawlers never see the real words.
 
 ## Get started
 
-You need Angular 20, 21 or 22, opentype.js 2, and a `.ttf` or `.otf` copy of the font
-your page already uses. WOFF and WOFF2 won't work.
+You need Angular 20, 21 or 22 and a `.ttf`, `.otf` or `.woff` copy of the font your
+page already uses. WOFF2 needs converting first (see the library README).
 
 **1. Install**
 
 ```bash
-npm install @pacyfist/veneer opentype.js
+npm install @pacyfist/veneer
 ```
 
 **2. Point it at your font** in `app.config.ts`
