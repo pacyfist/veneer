@@ -47,7 +47,8 @@ export default defineConfig({
   webServer: variants.map(({ port, command, root }) => ({
     command,
     url: `http://127.0.0.1:${port}/`,
-    env: { PORT: String(port), ...(root ? { ROOT: root } : {}) },
+    // VENEER_EXAMPLE_TEST_CRAWLER: test-only crawler header, see src/server.ts.
+    env: { PORT: String(port), VENEER_EXAMPLE_TEST_CRAWLER: '1', ...(root ? { ROOT: root } : {}) },
     reuseExistingServer: false,
     timeout: 30_000,
   })),

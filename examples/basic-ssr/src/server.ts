@@ -4,7 +4,7 @@ import {
   isMainModule,
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
-import { veneerFontMiddleware } from '@pacyfist/veneer/server';
+import { type VerifiedCrawler, veneerFontMiddleware, verifyCrawler } from '@pacyfist/veneer/server';
 import express from 'express';
 import { join } from 'node:path';
 
@@ -18,9 +18,24 @@ app.use(veneerFontMiddleware());
 
 app.use(express.static(browserDistFolder, { maxAge: '1y', index: false, redirect: false }));
 
-app.use((req, res, next) => {
+/**
+ * TEST ONLY: with VENEER_EXAMPLE_TEST_CRAWLER=1 (set by playwright.config.ts),
+ * a request carrying `x-veneer-test-crawler: 1` counts as a verified crawler,
+ * so the e2e test can see a crawler's page without a real crawler IP. Never
+ * do this in an app: anyone can send a header.
+ */
+const testCrawlerHeader = process.env['VENEER_EXAMPLE_TEST_CRAWLER'] === '1';
+const testCrawler: VerifiedCrawler = { name: 'test', hostname: 'test.invalid' };
+
+app.use(async (req, res, next) => {
+  // Reverse and forward DNS, never the user-agent alone. The result reaches
+  // shouldProtect in app.config.server.ts as the request context.
+  const crawler =
+    testCrawlerHeader && req.get('x-veneer-test-crawler') === '1'
+      ? testCrawler
+      : await verifyCrawler(req.ip ?? '', req.get('user-agent'));
   angularApp
-    .handle(req)
+    .handle(req, { crawler })
     .then((response) => (response ? writeResponseToNodeResponse(response, res) : next()))
     .catch(next);
 });
