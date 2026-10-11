@@ -633,6 +633,43 @@ app.use(async (req, res, next) => {
 builds one with its own cache, list (`KNOWN_CRAWLERS` is the default) or DNS
 resolver (inject a fake one in tests).
 
+**Cloaking: verify with your SEO team.** Search engines penalise serving
+crawlers different content from users. Here people and verified crawlers get
+the same visible text: people see it drawn by the forged font, crawlers get it
+as plain characters. Only the encoding in the HTML differs. That is an argument,
+not a guarantee: an engine that also fetches the page as an ordinary visitor
+gets different bytes, and how it judges that is up to it. Keep every protected
+page fully readable to people, and leave anything you need to rank (titles,
+headings, summaries, navigation) unprotected in the first place.
+
+**Structured data for gated content: verify with your SEO team.** For content
+hidden from users but shown to crawlers, Google documents schema.org markup
+that declares it: `isAccessibleForFree: false` on the page, plus a `hasPart`
+`WebPageElement` whose `cssSelector` names the class of the gated element.
+Protected text is not gated (people can read it), so whether this markup fits is
+a judgement call, not a recipe:
+
+```html
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "isAccessibleForFree": false,
+    "hasPart": {
+      "@type": "WebPageElement",
+      "isAccessibleForFree": false,
+      "cssSelector": ".protected-body"
+    }
+  }
+</script>
+```
+
+**Unprotected for a crawler means unprotected for its operator.** Text you serve
+readable to a crawler is plain text to whoever runs it. Search is not
+necessarily the only use: what the operator may also do with it, AI training
+included, is governed by their policies and by robots.txt and AI-preference
+signals, not by veneer. Decide per crawler, not "all bots".
+
 ## What this defends against
 
 **Stops** bulk text extraction - `fetch` plus an HTML parse, `innerText`
