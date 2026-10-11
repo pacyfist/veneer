@@ -308,7 +308,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
       const map = this.config.strictCoverage
         ? initial
         : this.narrow(coveredCodepoints, bases, initial);
-      // One seed, one family: every face is forged from the same map, and the
+      // One map, one family: every face is forged from the same map, and the
       // descriptors let the browser pick the right one for bold or italic text.
       const forged = bases.map((base) => forgeScrambledFont(base, map, this.familyName));
       stage = 'face';

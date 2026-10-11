@@ -39,11 +39,14 @@ export interface VeneerConfig {
   charset?: readonly number[];
 
   /**
-   * Fixes the cipher instead of drawing a fresh one per page load.
+   * Fixes the cipher instead of drawing it from the CSPRNG.
    *
-   * Only for tests and reproducible builds. A constant seed means every visitor
-   * and every crawl sees the same substitution, which is trivially solvable
-   * once by frequency analysis and reusable forever after.
+   * Only for tests and reproducible builds. A fixed seed is solvable: it sits
+   * in your JavaScript bundle, a 32-bit seed can be found by trying them all
+   * with the public `buildScrambleMap`, and every visitor and every crawl sees
+   * the same substitution. Without it there is no seed at all: the server (see
+   * `provideVeneerServer` in `@pacyfist/veneer/server`) or the browser draws
+   * the map from the CSPRNG.
    */
   seed?: number;
 
@@ -64,8 +67,9 @@ export interface VeneerConfig {
    *
    * `false` (the default): leave those characters out of the cipher. They pass
    * through unscrambled and render in the fallback font, and a dev-mode
-   * warning (VNR014) lists them. The map is rebuilt from the same seed once
-   * the font has loaded, and protected text is re-scrambled with it.
+   * warning (VNR014) lists them. The map is redrawn without them (on the
+   * server before rendering, in the browser once the font has loaded), and
+   * protected text is re-scrambled with it.
    *
    * `true`: fail open instead (VNR012), switching protection off for the whole
    * instance, as before 0.1.
@@ -73,10 +77,10 @@ export interface VeneerConfig {
   strictCoverage?: boolean;
 
   /**
-   * Names this instance, so several instances with implicit seeds can render
-   * on one server page: each carries its seed to the client under its own
-   * key. Without distinct ids, the last instance's seed wins and the others
-   * hydrate with the wrong cipher. Not needed with an explicit `seed`.
+   * Names this instance, so several instances can render on one server page:
+   * each carries its forged fonts' URLs to the client under its own key.
+   * Without distinct ids, the last instance's fonts win and the others
+   * hydrate with the wrong cipher.
    */
   id?: string;
 }
@@ -150,7 +154,7 @@ export function withStatusListener(
  * );
  * ```
  *
- * All faces are forged with one seed under one family name, with matching
+ * All faces are forged from one map under one family name, with matching
  * `FontFace` descriptors. Every face must load: if one cannot be built the
  * whole instance fails open. Characters any face lacks are dropped from the
  * cipher (see `strictCoverage`).
