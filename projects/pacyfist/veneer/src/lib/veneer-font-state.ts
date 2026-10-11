@@ -1,5 +1,6 @@
 import { Signal, WritableSignal } from '@angular/core';
 import type { ScrambleMap } from '@pacyfist/veneer/core';
+import type { VeneerFailure, VeneerStatus } from './veneer-status';
 
 /**
  * The public shape of `VeneerFontService`: everything the directives, the pipe
@@ -19,8 +20,15 @@ export interface VeneerFontState {
   /** True once the forged font is registered and text is safe to show. */
   readonly ready: Signal<boolean>;
 
-  /** Set when the font could not be built. The library fails open when this happens. */
-  readonly failed: Signal<string | null>;
+  /**
+   * Set when the font could not be built: a stable `code`, a `message`, and for
+   * missing glyphs the `missing` characters. The library fails open when this
+   * happens. Read `failed()?.message` for the text.
+   */
+  readonly failed: Signal<VeneerFailure | null>;
+
+  /** `loading`, `active`, `failed` or `disabled`. */
+  readonly status: Signal<VeneerStatus>;
 
   /**
    * Demo/debug switch. When true the forged font is withheld, exposing the raw

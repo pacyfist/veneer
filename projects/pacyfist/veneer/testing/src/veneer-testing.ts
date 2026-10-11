@@ -2,8 +2,10 @@ import { EnvironmentProviders, computed, makeEnvironmentProviders, signal } from
 import {
   ResolvedVeneerConfig,
   VENEER_CONFIG,
+  VeneerFailure,
   VeneerFontService,
   VeneerFontState,
+  VeneerStatus,
 } from '@pacyfist/veneer';
 import {
   DEFAULT_CHARSET,
@@ -39,8 +41,11 @@ export interface VeneerTestingOptions {
 /** Seed used when a test does not pass one. Any fixed value would do. */
 const DEFAULT_TESTING_SEED = 0x5eed;
 
-/** The message `failed()` carries in the `failed` state. */
-const FORCED_FAILURE = '[veneer] font failure forced by provideVeneerTesting()';
+/** What `failed()` carries in the `failed` state. */
+const FORCED_FAILURE: VeneerFailure = Object.freeze({
+  code: 'VNR010',
+  message: '[veneer] font failure forced by provideVeneerTesting()',
+});
 
 /** The most recently created stand-in, read by `decodeVeneer()` when no map is passed. */
 let current: VeneerTestingFontService | undefined;
@@ -75,6 +80,10 @@ export class VeneerTestingFontService implements VeneerFontState {
 
   readonly ready = computed(() => this.state() !== 'loading');
   readonly failed = computed(() => (this.state() === 'failed' ? FORCED_FAILURE : null));
+  readonly status = computed<VeneerStatus>(() => {
+    const state = this.state();
+    return state === 'ready' ? 'active' : state;
+  });
   readonly revealed = signal(false);
   readonly active = computed(() => this.state() === 'ready' || this.state() === 'loading');
   readonly fontStack = computed(() =>
@@ -122,6 +131,8 @@ export function provideVeneerTesting(options: VeneerTestingOptions = {}): Enviro
     hideUntilReady: true,
     disabled: options.state === 'disabled',
     seed: options.seed ?? DEFAULT_TESTING_SEED,
+    statusListeners: [],
+    statusAttribute: false,
   };
   return makeEnvironmentProviders([
     { provide: VENEER_CONFIG, useValue: config },

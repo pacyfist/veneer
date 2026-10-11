@@ -42,6 +42,7 @@ describe('provideVeneerTesting', () => {
 
   it('builds the cipher from the seed', () => {
     const { service } = setup({ seed: 7 });
+    expect(service.status()).toBe('active');
     expect([...service.map.forward]).toEqual([...buildScrambleMap(7).forward]);
     expect(service.familyName).toBe(`Veneer-${(7).toString(36)}`);
   });
@@ -73,7 +74,9 @@ describe('provideVeneerTesting', () => {
 
   it('fails open in the failed state', () => {
     const { el, service } = setup({ state: 'failed', fallbackFontFamily: 'serif' });
-    expect(service.failed()).toMatch(/forced/);
+    expect(service.failed()?.message).toMatch(/forced/);
+    expect(service.failed()?.code).toBe('VNR010');
+    expect(service.status()).toBe('failed');
     expect(service.active()).toBe(false);
     expect(el.textContent).toBe('Hello, world');
     expect(el.style.fontFamily).toBe('serif');

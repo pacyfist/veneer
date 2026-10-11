@@ -28,3 +28,12 @@ test('resolves the relative font path against <base href> and fetches it once', 
 
   expect(requests.filter((path) => path === FONT_PATH)).toHaveLength(1);
 });
+
+test('mirrors the shell status on <html data-veneer-status>', async ({ request, page }) => {
+  // Prerendered: the server never loads the font, so it records "loading".
+  const html = await (await request.get('./')).text();
+  expect(html).toMatch(/<html[^>]*data-veneer-status="loading"/);
+
+  await page.goto('./');
+  await expect(page.locator('html')).toHaveAttribute('data-veneer-status', 'active');
+});

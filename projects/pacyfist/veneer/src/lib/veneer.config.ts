@@ -1,6 +1,7 @@
 import { EnvironmentProviders, InjectionToken, makeEnvironmentProviders } from '@angular/core';
 import { DEFAULT_CHARSET } from '@pacyfist/veneer/core';
 import { VeneerFontService } from './veneer-font.service';
+import type { VeneerStatusListener } from './veneer-status';
 
 /** Where the base outlines come from. A URL, the bytes themselves, or a loader. */
 export type VeneerFontSource = string | ArrayBuffer | (() => Promise<ArrayBuffer>);
@@ -47,9 +48,64 @@ export interface VeneerConfig {
   disabled?: boolean;
 }
 
-/** Config with defaults applied, as injected. */
+/** Config with defaults applied and features folded in, as injected. */
 export type ResolvedVeneerConfig = Required<Omit<VeneerConfig, 'seed'>> &
-  Pick<VeneerConfig, 'seed'>;
+  Pick<VeneerConfig, 'seed'> & {
+    /** From `withStatusListener()`. */
+    readonly statusListeners: readonly VeneerStatusListener[];
+    /** From `withStatusAttribute()`. */
+    readonly statusAttribute: boolean;
+  };
+
+/** The features `provideVeneer` accepts after the config. */
+export type VeneerFeatureKind = 'statusListener' | 'statusAttribute';
+
+/**
+ * An optional addition to `provideVeneer(config, ...features)`, made by one of
+ * the `with*()` functions. Its members are internal.
+ */
+export interface VeneerFeature<K extends VeneerFeatureKind = VeneerFeatureKind> {
+  /** @internal */
+  readonly ɵkind: K;
+  /** @internal */
+  readonly ɵapply: (config: ResolvedVeneerConfig) => ResolvedVeneerConfig;
+}
+
+/**
+ * Call `listener` on every status change: `loading`, then `active` or `failed`
+ * (or `disabled` once). Use it to report fail-open to RUM or error tracking:
+ *
+ * ```ts
+ * provideVeneer(
+ *   { font: 'fonts/Roboto-Regular.ttf' },
+ *   withStatusListener(({ status, failure }) => {
+ *     if (status === 'failed') Sentry.captureMessage(`veneer ${failure!.code}: ${failure!.message}`);
+ *   }),
+ * );
+ * ```
+ *
+ * Runs in the browser only. An exception thrown by the listener is logged and
+ * otherwise ignored.
+ */
+export function withStatusListener(
+  listener: VeneerStatusListener,
+): VeneerFeature<'statusListener'> {
+  return {
+    ɵkind: 'statusListener',
+    ɵapply: (config) => ({ ...config, statusListeners: [...config.statusListeners, listener] }),
+  };
+}
+
+/**
+ * Mirror the status on `<html data-veneer-status="loading|active|failed|disabled">`,
+ * for CSS hooks and for monitoring that reads the DOM. Written during server
+ * rendering too.
+ *
+ * Use it on one instance only: several instances would overwrite each other.
+ */
+export function withStatusAttribute(): VeneerFeature<'statusAttribute'> {
+  return { ɵkind: 'statusAttribute', ɵapply: (config) => ({ ...config, statusAttribute: true }) };
+}
 
 export const VENEER_CONFIG = new InjectionToken<ResolvedVeneerConfig>('VENEER_CONFIG');
 
@@ -62,15 +118,22 @@ export const VENEER_CONFIG = new InjectionToken<ResolvedVeneerConfig>('VENEER_CO
  *   fallbackFontFamily: 'Roboto, sans-serif',
  * })
  * ```
+ *
+ * Optional features follow the config, e.g. `withStatusListener(fn)`.
  */
-export function provideVeneer(config: VeneerConfig): EnvironmentProviders {
-  const resolved: ResolvedVeneerConfig = {
+export function provideVeneer(
+  config: VeneerConfig,
+  ...features: VeneerFeature[]
+): EnvironmentProviders {
+  const resolved = features.reduce((current, feature) => feature.ɵapply(current), {
     fallbackFontFamily: 'sans-serif',
     charset: DEFAULT_CHARSET,
     hideUntilReady: true,
     disabled: false,
     ...config,
-  };
+    statusListeners: [],
+    statusAttribute: false,
+  } as ResolvedVeneerConfig);
   return makeEnvironmentProviders([
     { provide: VENEER_CONFIG, useValue: resolved },
     VeneerFontService,

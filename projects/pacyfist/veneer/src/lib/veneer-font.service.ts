@@ -9,6 +9,7 @@ import {
   inject,
   makeStateKey,
   signal,
+  untracked,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { VENEER_CONFIG } from './veneer.config';
@@ -21,7 +22,9 @@ import {
   scrambleText,
 } from '@pacyfist/veneer/core';
 import { VeneerFontState } from './veneer-font-state';
-import { loadBaseFont } from './base-font';
+import { FontSourceError, loadBaseFont } from './base-font';
+import { docsUrl } from './veneer-errors';
+import type { VeneerFailure, VeneerStatus } from './veneer-status';
 
 /**
  * Carries the seed from the server render to the client so both build the same
@@ -33,6 +36,26 @@ import { loadBaseFont } from './base-font';
  * does not defend against.
  */
 const SEED_KEY = makeStateKey<number>('veneerSeed');
+
+/** The attribute `withStatusAttribute()` maintains on `<html>`. */
+const STATUS_ATTRIBUTE = 'data-veneer-status';
+
+/** Which step of `load()` an error came from. */
+type Stage = 'source' | 'forge' | 'face';
+
+/** Turn whatever `load()` caught into a structured failure with a stable code. */
+function describeFailure(error: unknown, stage: Stage): VeneerFailure {
+  const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof FontSourceError) return { code: 'VNR010', message, cause: error };
+  if (stage === 'face') return { code: 'VNR013', message, cause: error };
+  // VeneerFontError lives in the lazily loaded forge, so it is recognised by
+  // shape rather than by class.
+  const missing = (error as { missing?: unknown } | null)?.missing;
+  if (Array.isArray(missing) && missing.length > 0) {
+    return { code: 'VNR012', message, missing: [...missing], cause: error };
+  }
+  return { code: 'VNR011', message, cause: error };
+}
 
 /**
  * Owns the cipher and the generated font.
@@ -54,6 +77,11 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   /** Set once `ngOnDestroy` runs, so a load already in flight knows not to register its face. */
   private destroyed = false;
 
+  /** The status listeners were last told about, so each change is reported once. */
+  private reported: VeneerStatus | undefined;
+
+  private readonly failure = signal<VeneerFailure | null>(null);
+
   /** The substitution in force for this page load. */
   readonly map: ScrambleMap;
 
@@ -64,7 +92,18 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   readonly ready = signal(false);
 
   /** Set when the font could not be built. The library fails open when this happens. */
-  readonly failed = signal<string | null>(null);
+  readonly failed = this.failure.asReadonly();
+
+  /** `loading`, `active`, `failed` or `disabled`. */
+  readonly status = computed<VeneerStatus>(() =>
+    this.config.disabled
+      ? 'disabled'
+      : this.failure()
+        ? 'failed'
+        : this.ready()
+          ? 'active'
+          : 'loading',
+  );
 
   /**
    * Demo/debug switch. When true the forged font is withheld, exposing the raw
@@ -105,12 +144,10 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
 
     if (this.config.disabled) {
       this.ready.set(true);
-      return;
-    }
-
-    if (this.isBrowser) {
+    } else if (this.isBrowser) {
       afterNextRender(() => void this.load());
     }
+    this.report();
   }
 
   /** Scramble a string, or return it untouched when protection is off or broken. */
@@ -119,9 +156,12 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   }
 
   private async load(): Promise<void> {
+    let stage: Stage = 'source';
     try {
       const base = await loadBaseFont(this.config.font, this.document.baseURI, parseBaseFont);
+      stage = 'forge';
       const forged = forgeScrambledFont(base, this.map, this.familyName);
+      stage = 'face';
       const face = new FontFace(this.familyName, forged);
       await face.load();
 
@@ -135,11 +175,39 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
       this.document.fonts.add(face);
       this.ready.set(true);
     } catch (error) {
+      if (this.destroyed) return;
       // Fail open. Unreadable content is worse than unprotected content, so
       // `active()` flips false and every directive restores its original text.
-      console.error('[veneer] disabled - could not build the protective font.', error);
-      this.failed.set((error as Error)?.message ?? String(error));
+      const failure = describeFailure(error, stage);
+      console.error(
+        `[veneer] disabled (${failure.code}) - could not build the protective font, so text ` +
+          `is shown readable. See ${docsUrl(failure.code)}`,
+        error,
+      );
+      this.failure.set(failure);
       this.ready.set(true);
+    }
+    this.report();
+  }
+
+  /** Tell the status attribute and the listeners about a status change. */
+  private report(): void {
+    const status = untracked(this.status);
+    if (status === this.reported) return;
+    this.reported = status;
+
+    if (this.config.statusAttribute) {
+      this.document.documentElement?.setAttribute(STATUS_ATTRIBUTE, status);
+    }
+    if (!this.isBrowser) return;
+
+    const event = { status, failure: untracked(this.failure), familyName: this.familyName };
+    for (const listener of this.config.statusListeners) {
+      try {
+        listener(event);
+      } catch (error) {
+        console.error('[veneer] a status listener threw.', error);
+      }
     }
   }
 
@@ -148,6 +216,9 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     if (this.face) {
       this.document.fonts.delete(this.face);
       this.face = undefined;
+    }
+    if (this.config.statusAttribute) {
+      this.document.documentElement?.removeAttribute(STATUS_ATTRIBUTE);
     }
   }
 }

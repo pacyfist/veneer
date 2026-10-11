@@ -158,12 +158,31 @@ import { VeneerFontService } from '@pacyfist/veneer';
 
 const veneer = inject(VeneerFontService);
 
+veneer.status(); // signal: 'loading' | 'active' | 'failed' | 'disabled'
 veneer.ready(); // signal<boolean>       - forged font registered
-veneer.failed(); // signal<string | null> - error message, or null
+veneer.failed(); // signal<VeneerFailure | null> - { code, message, missing? }, or null
 veneer.active(); // computed<boolean>     - protection actually in force
 veneer.hidden(); // computed<boolean>     - text held back to avoid a flash
 veneer.revealed.set(true); // withhold the font - show the raw scrambled characters
 ```
+
+To hear about failures in production (RUM, Sentry), add a status listener. To
+style or monitor by attribute, mirror the status on `<html data-veneer-status>`:
+
+```ts
+import { provideVeneer, withStatusAttribute, withStatusListener } from '@pacyfist/veneer';
+
+provideVeneer(
+  { font: 'fonts/Roboto-Regular.ttf' },
+  withStatusListener(({ status, failure }) => {
+    if (status === 'failed') reportToMonitoring(failure!.code, failure!.message);
+  }),
+  withStatusAttribute(), // one instance only; written during SSR too
+);
+```
+
+Listeners run in the browser only. Failure codes are listed under
+[Error codes](#error-codes).
 
 `revealed` is a demo and debugging switch: flipping it on renders exactly what a
 scraper receives, which is a convincing way to show the mechanism working.
@@ -211,11 +230,13 @@ protected text would be. Turn it off to accept the flash instead.
 
 ### Setup
 
-| Export                                                     | Description                                                    |
-| ---------------------------------------------------------- | -------------------------------------------------------------- |
-| `provideVeneer(config)`                                    | Returns `EnvironmentProviders`. Add to `providers`             |
-| `VENEER_CONFIG`                                            | `InjectionToken<ResolvedVeneerConfig>` for the resolved config |
-| `VeneerConfig`, `VeneerFontSource`, `ResolvedVeneerConfig` | Config types                                                   |
+| Export                                                     | Description                                                                   |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `provideVeneer(config, ...features)`                       | Returns `EnvironmentProviders`. Add to `providers`                            |
+| `withStatusListener(fn)`, `withStatusAttribute()`          | Features: report status changes; mirror status on `<html data-veneer-status>` |
+| `VeneerStatus`, `VeneerFailure`, `VeneerStatusEvent`       | Status types                                                                  |
+| `VENEER_CONFIG`                                            | `InjectionToken<ResolvedVeneerConfig>` for the resolved config                |
+| `VeneerConfig`, `VeneerFontSource`, `ResolvedVeneerConfig` | Config types                                                                  |
 
 ### Template pieces
 
@@ -234,17 +255,18 @@ input string never changed. The cost is one `Map` lookup per character per call.
 **`VeneerFontService`** - provided by `provideVeneer`. Its public shape is the
 exported `VeneerFontState` interface, which the testing stand-in implements too.
 
-| Member           | Type                      | Description                                          |
-| ---------------- | ------------------------- | ---------------------------------------------------- |
-| `map`            | `ScrambleMap`             | The substitution in force for this page load         |
-| `familyName`     | `string`                  | Family name of the forged font, unique per load      |
-| `ready`          | `Signal<boolean>`         | Font registered and text is safe to show             |
-| `failed`         | `Signal<string \| null>`  | Error message when the font could not be built       |
-| `revealed`       | `WritableSignal<boolean>` | Withhold the font, exposing raw scrambled characters |
-| `active`         | `Signal<boolean>`         | `!disabled && !failed`                               |
-| `fontStack`      | `Signal<string>`          | The `font-family` value protected elements use       |
-| `hidden`         | `Signal<boolean>`         | Protected text should stay hidden right now          |
-| `scramble(text)` | `string`                  | Scramble, or return unchanged when protection is off |
+| Member           | Type                            | Description                                                    |
+| ---------------- | ------------------------------- | -------------------------------------------------------------- |
+| `map`            | `ScrambleMap`                   | The substitution in force for this page load                   |
+| `familyName`     | `string`                        | Family name of the forged font, unique per load                |
+| `ready`          | `Signal<boolean>`               | Font registered and text is safe to show                       |
+| `status`         | `Signal<VeneerStatus>`          | `loading`, `active`, `failed` or `disabled`                    |
+| `failed`         | `Signal<VeneerFailure \| null>` | `{ code, message, missing? }` when the font could not be built |
+| `revealed`       | `WritableSignal<boolean>`       | Withhold the font, exposing raw scrambled characters           |
+| `active`         | `Signal<boolean>`               | `!disabled && !failed`                                         |
+| `fontStack`      | `Signal<string>`                | The `font-family` value protected elements use                 |
+| `hidden`         | `Signal<boolean>`               | Protected text should stay hidden right now                    |
+| `scramble(text)` | `string`                        | Scramble, or return unchanged when protection is off           |
 
 ### Framework-free core
 
@@ -354,9 +376,10 @@ technology needs alone.
 ## Failure behaviour
 
 If the font cannot be fetched, parsed, or forged, the library **fails open**:
-`active()` goes false, every directive restores its readable text, an error is
-logged, and the page renders normally. Unreadable content is worse than
-unprotected content.
+`active()` goes false, every directive restores its readable text, an error
+starting `[veneer] disabled (VNRxxx)` is logged, `failed()` holds
+`{ code, message, missing? }`, and the page renders normally. Unreadable content
+is worse than unprotected content. Use `withStatusListener()` to report it.
 
 `forgeScrambledFont` throws instead when the base font lacks a glyph for a
 charset character - silently dropping it would show readers the _wrong letter_
@@ -448,6 +471,24 @@ resolved URL and the status) or the `font` loader rejected. Check that the file 
 served at that URL. Use a relative path such as `'fonts/Roboto-Regular.ttf'`: it
 resolves against `<base href>`, while a leading slash ignores it and breaks subpath
 deploys. Protection fails open.
+
+### VNR011
+
+The base font bytes are not a font veneer can read (not `.ttf`, `.otf` or `.woff`,
+WOFF2, a collection, or a malformed table), or forging failed. The message says
+which. Protection fails open.
+
+### VNR012
+
+The base font has no glyph for some charset characters; `failed().missing` lists
+them. Narrow `charset` (see `charsetFromFont`) or use a fuller font. Protection
+fails open.
+
+### VNR013
+
+The browser rejected the forged font, or has no CSS Font Loading API (`FontFace`).
+Check the console for the browser's reason, and a `font-src` Content Security
+Policy. Protection fails open.
 
 ## Troubleshooting
 
