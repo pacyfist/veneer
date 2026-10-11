@@ -101,14 +101,19 @@ attribute.
 ## A speed bump, not a vault
 
 veneer makes lazy, bulk scraping pointless. It won't stop someone who is
-specifically after your content, and it doesn't pretend to.
+specifically after your content, and it doesn't pretend to. The full picture,
+with measured attack costs, is in [THREAT_MODEL.md](THREAT_MODEL.md).
 
-| Stops                                        | Doesn't stop                                           |
-| -------------------------------------------- | ------------------------------------------------------ |
-| Scripts that download your HTML and parse it | Screenshots run through OCR (the pixels are correct)   |
-| Crawlers that don't run JavaScript           | Someone who downloads the font and reverses the cipher |
-| Copy-pasting your page into a chatbot        | A determined person targeting your site in particular  |
-| Cheap bulk scraping for AI training sets     |                                                        |
+| Stops                                                                                                                         | Doesn't stop                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Crawlers that read your server-rendered or prerendered HTML without running JavaScript (with `provideVeneerServer()` for SSR) | Crawlers that also download your JS bundles: text written in your source (`<p veneer>Text</p>`, `signal('...')`, constants) ships there readable. Only runtime data (an API, a CMS) stays out |
+| Scripts that read `innerText` or `textContent` of the page                                                                    | Scrapers that know veneer: downloading the forged and base fonts recovers the cipher in about 15 lines, written once for every veneer site                                                    |
+| Copy-pasting your page into a chatbot                                                                                         | A headless browser that hooks `FontFace` and reads the font from memory                                                                                                                       |
+| Bulk scrapers that have never heard of veneer                                                                                 | Screenshots run through OCR or a vision model: the pixels are correct                                                                                                                         |
+|                                                                                                                               | A person targeting your site in particular                                                                                                                                                    |
+
+veneer works best while few sites use it: a generic decoder is cheap to write,
+and nobody writes one for a technique almost no site uses.
 
 **What it costs you**, on protected text only:
 

@@ -557,18 +557,27 @@ forges its own font, and `initialMap()` is that map from the start.
 
 ## What this defends against
 
-**Stops** bulk text extraction - `fetch` plus an HTML parse, `innerText`
-scraping, copy-pasting a page into a chat window, and crawlers that don't run
-JavaScript. With server rendering this needs `provideVeneerServer()`: the page then
-carries no seed or map, only the forged font's URL (see Server-side rendering).
+The short version is below. [THREAT_MODEL.md](https://github.com/pacyfist/veneer/blob/main/THREAT_MODEL.md)
+has the adversary tiers and the attack matrix the e2e suite measures.
 
-**Does not stop** a determined adversary. The generated font is downloadable and
-its `cmap` describes the substitution completely, so anyone willing to parse it
-can invert the cipher in a few lines. Rendering the page and running OCR defeats
-it too.
+| Reader                                                                   | Gets protected text?           | Why                                                                                                                                                                  |
+| ------------------------------------------------------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Crawler reading the server-rendered or prerendered HTML, no JavaScript   | **No**                         | Ciphertext and no key. Needs `provideVeneerServer()` on SSR; without it the server renders readable text ([VNR015](#vnr015))                                         |
+| Script reading `innerText`/`textContent`, copy-paste, find-in-page       | **No**                         | The DOM holds ciphertext                                                                                                                                             |
+| Crawler that also downloads your JS bundles as text                      | **Yes, for compile-time text** | `<p veneer>Text</p>`, `signal('...')` and constants compile into the bundle. Only text that is not in the source stays out ([details](#where-plaintext-still-leaks)) |
+| Veneer-aware crawler: downloads the forged and base fonts, no JavaScript | **Yes**                        | Comparing the two `cmap` tables recovers the cipher in about 15 lines. Written once, it works on every veneer site                                                   |
+| Headless browser hooking `FontFace`                                      | **Yes**                        | Once JavaScript runs, the forged font is the key, and it is in memory                                                                                                |
+| Screenshot plus OCR or a vision model                                    | **Yes**                        | The pixels are correct by design                                                                                                                                     |
+| A person targeting your site                                             | **Yes**                        | Any of the above                                                                                                                                                     |
+
+One cipher serves every visitor of a prerendered build, and every request a
+server process handles. A substitution solver can also break long passages from
+the ciphertext alone, since spaces and word lengths are kept.
 
 This raises the cost of scraping; it does not make content secret. **Do not use
-it as an access control.**
+it as an access control.** veneer works best while few sites use it: a generic
+decoder is cheap to write once, and nobody writes one for a technique almost no
+site uses.
 
 ## Accessibility
 
