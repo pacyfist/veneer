@@ -6,6 +6,9 @@ name: validate
 # major then builds the demo against that very build and runs the e2e suite in
 # Chromium, Firefox and WebKit.
 #
+# A second matrix installs the packed tarball into a small consumer app
+# (examples/basic-ssr) on every major.
+#
 # publish.yml calls this workflow (workflow_call) and publishes the `library`
 # artifact uploaded below only after every job here has passed.
 on:
@@ -46,12 +49,22 @@ jobs:
       - name: Bundle size budget
         run: npm run size
 
+      # npm pack into dist/pack, then publint and arethetypeswrong on that file.
+      - name: Pack and lint the tarball
+        run: npm run check:package
+
       - uses: actions/upload-artifact@v4
         with:
           name: library
           path: dist/pacyfist/veneer
           # The directory holds dotfiles (.npmignore) that npm publish reads.
           include-hidden-files: true
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: library-tarball
+          path: dist/pack/*.tgz
           if-no-files-found: error
 
   demo:
@@ -94,3 +107,37 @@ jobs:
         run: npm run e2e
         env:
           ANGULAR_MAJOR: ${{ matrix.angular }}
+
+  # A consumer app (examples/basic-ssr) installed from the packed tarball, not
+  # through workspace paths, with strict peer dependencies, on every major:
+  # an SSR build with zone.js, a zoneless SSR build and a CSR-only build.
+  example:
+    needs: library
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        angular: [20, 21, 22]
+    name: example (Angular ${{ matrix.angular }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Only for Playwright; the example installs its own dependencies.
+      - run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: library-tarball
+          path: dist/pack
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Install, build and test the example
+        run: node scripts/example-smoke.mjs --angular ${{ matrix.angular }}
+        env:
+          EXAMPLE_WORK_DIR: ${{ runner.temp }}/veneer-example
