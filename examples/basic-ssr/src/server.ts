@@ -4,6 +4,7 @@ import {
   isMainModule,
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
+import { veneerFontMiddleware } from '@pacyfist/veneer/server';
 import express from 'express';
 import { join } from 'node:path';
 
@@ -11,6 +12,9 @@ const browserDistFolder = join(import.meta.dirname, '../browser');
 
 const app = express();
 const angularApp = new AngularNodeAppEngine();
+
+// The fonts veneer forges while rendering, which the pages reference.
+app.use(veneerFontMiddleware());
 
 app.use(express.static(browserDistFolder, { maxAge: '1y', index: false, redirect: false }));
 

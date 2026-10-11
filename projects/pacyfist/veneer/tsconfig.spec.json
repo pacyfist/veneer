@@ -11,6 +11,7 @@
       "@pacyfist/veneer": ["./src/public-api.ts"],
       "@pacyfist/veneer/core": ["./core/src/public-api.ts"],
       "@pacyfist/veneer/forge": ["./forge/src/public-api.ts"],
+      "@pacyfist/veneer/server": ["./server/src/public-api.ts"],
       "@pacyfist/veneer/testing": ["./testing/src/public-api.ts"]
     }
   },

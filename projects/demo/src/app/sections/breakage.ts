@@ -72,7 +72,7 @@ export class Breakage {
       plain:
         "The font can't draw ƀ or ƃ, which the charset asks it to cover. Those two letters are left unscrambled and drawn in the fallback font; everything else stays protected.",
       detail:
-        'strictCoverage: false, the default. Once the font loads, the library drops the characters it has no glyph for, rebuilds the cipher from the same seed, re-scrambles the text and warns in dev mode (VNR014).',
+        'strictCoverage: false, the default. Once the font loads, the library drops the characters it has no glyph for, redraws the cipher without them, re-scrambles the text and warns in dev mode (VNR014).',
     },
     {
       id: 'strict' as const,

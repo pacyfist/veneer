@@ -4,6 +4,7 @@ import {
   isMainModule,
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
+import { veneerFontMiddleware } from '@pacyfist/veneer/server';
 import express from 'express';
 import { join } from 'node:path';
 
@@ -23,6 +24,12 @@ const angularApp = new AngularNodeAppEngine();
  * });
  * ```
  */
+
+/**
+ * Serve the fonts veneer forges while rendering on demand (the dev server).
+ * Prerendered pages reference fonts copied into /browser instead.
+ */
+app.use(veneerFontMiddleware());
 
 /**
  * Serve static files from /browser

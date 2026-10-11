@@ -13,5 +13,7 @@ export {
   coveredCodepoints,
   forgeScrambledFont,
   parseBaseFont,
+  parseBaseFontSync,
+  readScrambleMap,
 } from './font-forge';
 export type { BaseFont, ForgeMap } from './font-forge';

@@ -18,8 +18,13 @@ export type VeneerStatus = 'loading' | 'active' | 'failed' | 'disabled';
  * - `VNR012`: the base font has no glyph for some charset characters
  *   (only with `strictCoverage: true`; see `missing`).
  * - `VNR013`: the browser rejected the forged font, or has no `FontFace`.
+ * - `VNR015`: on the server: the cipher and forged font could not be built
+ *   (no `provideVeneerServer()`, or it could not read or forge the font), so
+ *   the server rendered protected text readable.
+ * - `VNR016`: in the browser: the forged font the server rendered with could
+ *   not be fetched, or does not decode against the base font.
  */
-export type VeneerFailureCode = 'VNR010' | 'VNR011' | 'VNR012' | 'VNR013';
+export type VeneerFailureCode = 'VNR010' | 'VNR011' | 'VNR012' | 'VNR013' | 'VNR015' | 'VNR016';
 
 /** A structured description of a failure, for logging and alerting. */
 export interface VeneerFailure {

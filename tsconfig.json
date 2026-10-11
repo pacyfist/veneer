@@ -7,6 +7,7 @@
       "@pacyfist/veneer": ["./dist/pacyfist/veneer"],
       "@pacyfist/veneer/core": ["./dist/pacyfist/veneer/core"],
       "@pacyfist/veneer/forge": ["./dist/pacyfist/veneer/forge"],
+      "@pacyfist/veneer/server": ["./dist/pacyfist/veneer/server"],
       "@pacyfist/veneer/testing": ["./dist/pacyfist/veneer/testing"]
     },
     "strict": true,

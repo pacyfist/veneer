@@ -55,7 +55,9 @@ export function copyReadable(document: Document, event: ClipboardEvent): void {
     for (const text of textNodesIn(document, range)) {
       if (swaps.has(text)) continue;
       const found = protectingHost(text);
-      if (!found?.host.copy || !found.host.state.active()) continue;
+      // Not before the font is ready: while hydrating, `map()` is not yet
+      // the map the server's text was scrambled with.
+      if (!found?.host.copy || !found.host.state.active() || !found.host.state.ready()) continue;
       const { state } = found.host;
       let inverse = inverses.get(state);
       if (!inverse) inverses.set(state, (inverse = invertScrambleMap(state.map())));

@@ -225,8 +225,12 @@ export class VeneerDirective implements OnInit, AfterViewChecked, OnDestroy {
     }
 
     // Readable mode cannot show the server's text until it can be inverted:
-    // in the fallback font it would be gibberish. Keep it hidden until then.
-    this.presentation.apply(this.serverTexts.length > 0 && this.service.readable());
+    // in the fallback font it would be gibberish. Keep it hidden until then,
+    // unless the font failed first: then the map never comes, and the text
+    // must not stay hidden (it stays as the server wrote it).
+    this.presentation.apply(
+      this.serverTexts.length > 0 && this.service.readable() && this.service.failed() === null,
+    );
 
     const fontStack = this.service.fontStack();
     // Opted-out text is readable, so it must not inherit the forged font,

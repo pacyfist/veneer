@@ -38,8 +38,8 @@ test('protected text is scrambled in the served HTML and visible once running', 
     expect(text).toHaveLength(SECRET.length);
 
     if (ssr) {
-      // Hydration reused the server's seed: the client shows the very
-      // ciphertext the server rendered.
+      // The client read the server's cipher out of the forged font, so it
+      // shows the very ciphertext the server rendered.
       const served = html.match(new RegExp(`<p id="${id}"[^>]*>([^<]*)</p>`))?.[1];
       expect(served && decodeHtml(served).trim()).toBe(text);
     }

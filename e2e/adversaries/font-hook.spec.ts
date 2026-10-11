@@ -11,8 +11,10 @@ import { recordCost } from './cost';
  * by glyph id. The forged font is the base font with only the cmap replaced,
  * so glyph ids line up and the inversion is exact.
  *
- * This attack is EXPECTED TO SUCCEED, now and after Next #2. Once JavaScript
- * runs, the forged font is the key. That is the documented limit of the
+ * This attack is EXPECTED TO SUCCEED, before and after Next #2. Once
+ * JavaScript runs, the forged font is the key. Since Next #2 the page fetches
+ * the forged font the server rendered with from a URL and hands its bytes to
+ * `FontFace`, so the same hook still captures it. That is the documented limit of the
  * technique; the test exists to record what the attack costs, and to notice if
  * it ever stops working (which would mean the font no longer decodes either).
  */
@@ -40,12 +42,15 @@ test.describe('adversary (c): FontFace hook in a real browser', () => {
         },
       });
     });
-    // 2. The base font crosses the network; keep it too.
-    const baseFont = page.waitForResponse((r) => r.url().endsWith('.ttf')).then((r) => r.body());
+    // 2. The base font crosses the network; keep it too. (So does the forged
+    // font the server rendered with, which the hook captures anyway.)
+    const baseFont = page
+      .waitForResponse((r) => r.url().endsWith('/Roboto-Regular.ttf'))
+      .then((r) => r.body());
 
     await page.goto('./');
     await page.waitForFunction(() => window.__veneerFonts.length > 0);
-    await page.waitForLoadState('networkidle');
+    await expect(page.locator('html')).toHaveAttribute('data-veneer-status', /^(active|failed)$/);
 
     // 3. Each captured font's bytes, and the text of the elements drawn in it.
     const { fonts, texts } = await page.evaluate(async () => {

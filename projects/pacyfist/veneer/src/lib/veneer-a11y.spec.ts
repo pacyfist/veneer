@@ -240,6 +240,25 @@ describe('readable mode', () => {
     expect(p.textContent).toBe('From the server');
     expect(p.style.visibility).toBe('');
   });
+
+  it('un-hides the server text if the font fails before the map is known', () => {
+    TestBed.configureTestingModule({ providers: [provideVeneerTesting({ seed: SEED })] });
+    const service = TestBed.inject(VeneerTestingFontService);
+    service.setInitialMap(null);
+    service.readable.set(true);
+    const fixture = TestBed.createComponent(EmptyPage);
+    const p = fixture.nativeElement.querySelector('p') as HTMLElement;
+    p.textContent = scramble('From the server');
+    p.setAttribute('data-veneer-ssr', '');
+    fixture.detectChanges();
+    expect(p.style.visibility).toBe('hidden');
+
+    service.setState('failed');
+    fixture.detectChanges();
+    // Unrecoverable without the map, but never left hidden.
+    expect(p.style.visibility).toBe('');
+    expect(p.textContent).toBe(scramble('From the server'));
+  });
 });
 
 @Component({ template: '<p veneer></p>', imports: [VeneerDirective] })

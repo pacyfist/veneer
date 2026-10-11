@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 import {
+  VeneerDirective,
   VeneerFontDirective,
   VeneerFontService,
   VeneerPipe,
@@ -100,7 +101,8 @@ describe('provideVeneerTesting', () => {
     const other = buildScrambleMap(8);
     service.setInitialMap(other);
     expect(service.initialMap()).toBe(other);
-    expect(service.map()).not.toBe(other);
+    // As in the real service, the server's map becomes the one in force.
+    expect(service.map()).toBe(other);
   });
 
   it('withholds the font while revealed', () => {
@@ -111,7 +113,37 @@ describe('provideVeneerTesting', () => {
   });
 });
 
+@Component({
+  template: `<p veneer>
+    Secret <code>npm i</code> and <span veneer-skip>Ada <b>L.</b></span> end
+  </p>`,
+  imports: [VeneerDirective],
+})
+class SkipHost {}
+
 describe('decodeVeneer', () => {
+  it('decodes only protected text nodes and leaves skipped subtrees as they are', () => {
+    TestBed.configureTestingModule({ providers: [provideVeneerTesting({ seed: 5 })] });
+    const fixture = TestBed.createComponent(SkipHost);
+    fixture.detectChanges();
+    const p = fixture.nativeElement.querySelector('p') as HTMLElement;
+
+    expect(p.textContent).not.toContain('Secret');
+    expect(decodeVeneer(p).trim()).toBe('Secret npm i and Ada L. end');
+    expect(decodeVeneer(p, buildScrambleMap(5)).trim()).toBe('Secret npm i and Ada L. end');
+  });
+
+  it('returns skipped and readable text untouched while protection is off', () => {
+    TestBed.configureTestingModule({
+      providers: [provideVeneerTesting({ seed: 5, state: 'failed' })],
+    });
+    const fixture = TestBed.createComponent(SkipHost);
+    fixture.detectChanges();
+    expect(decodeVeneer(fixture.nativeElement.querySelector('p')).trim()).toBe(
+      'Secret npm i and Ada L. end',
+    );
+  });
+
   it('decodes an element with the current stand-in cipher', () => {
     const { el } = setup({ seed: 99 });
     expect(decodeVeneer(el)).toBe('Hello, world');
@@ -133,5 +165,48 @@ describe('decodeVeneer', () => {
     setup({ seed: 1 });
     const other = buildScrambleMap(2);
     expect(decodeVeneer(scrambleText('Hello', other), other)).toBe('Hello');
+  });
+});
+
+@Component({ template: '<p veneer></p>', imports: [VeneerDirective] })
+class ElementHost {}
+
+describe('provideVeneerTesting: hydration', () => {
+  it('starts with initialMap equal to the map', () => {
+    const { service } = setup();
+    expect(service.initialMap()).toBe(service.map());
+  });
+
+  it('simulates a client that does not know the server map yet, then learns it', () => {
+    TestBed.configureTestingModule({ providers: [provideVeneerTesting({ initialMap: null })] });
+    const service = TestBed.inject(VeneerTestingFontService);
+    const serverMap = buildScrambleMap(1234);
+    const fixture = TestBed.createComponent(ElementHost);
+    const el = fixture.nativeElement.querySelector('p') as HTMLElement;
+    const ciphertext = scrambleText('Rendered on the server', serverMap);
+    el.textContent = ciphertext;
+    el.setAttribute('data-veneer-ssr', '');
+    fixture.detectChanges();
+
+    // The directive must not invert server ciphertext with an unknown map.
+    expect(service.initialMap()).toBeNull();
+    expect(el.textContent).toBe(ciphertext);
+
+    service.setInitialMap(serverMap);
+    fixture.detectChanges();
+    expect(service.map()).toBe(serverMap);
+    expect(el.textContent).toBe(ciphertext);
+    expect(decodeVeneer(el)).toBe('Rendered on the server');
+
+    service.setState('failed');
+    fixture.detectChanges();
+    expect(el.textContent).toBe('Rendered on the server');
+  });
+
+  it('can go back to an unknown server map', () => {
+    const { service } = setup();
+    service.setInitialMap(null);
+    expect(service.initialMap()).toBeNull();
+    expect(service.map()).toBeTruthy();
   });
 });

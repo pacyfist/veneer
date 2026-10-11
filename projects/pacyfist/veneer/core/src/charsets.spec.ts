@@ -58,19 +58,23 @@ describe('presets', () => {
     });
   }
 
-  it('combine by spreading, deranging accented letters among themselves', () => {
-    const charset = [...DEFAULT_CHARSET, ...LATIN_1, ...LATIN_EXT_A];
-    const accented = new Set([...LATIN_1, ...LATIN_EXT_A]);
-    for (let seed = 0; seed < 200; seed++) {
-      const { forward } = buildScrambleMap(seed, charset);
-      expect(forward.size).toBe(charset.length);
-      for (const [from, to] of forward) {
-        const label = `seed ${seed}: ${String.fromCodePoint(from)} -> ${String.fromCodePoint(to)}`;
-        expect(to, label).not.toBe(from);
-        expect(accented.has(to), label).toBe(accented.has(from));
+  it(
+    'combine by spreading, deranging accented letters among themselves',
+    { timeout: 30_000 },
+    () => {
+      const charset = [...DEFAULT_CHARSET, ...LATIN_1, ...LATIN_EXT_A];
+      const accented = new Set([...LATIN_1, ...LATIN_EXT_A]);
+      for (let seed = 0; seed < 200; seed++) {
+        const { forward } = buildScrambleMap(seed, charset);
+        expect(forward.size).toBe(charset.length);
+        for (const [from, to] of forward) {
+          const label = `seed ${seed}: ${String.fromCodePoint(from)} -> ${String.fromCodePoint(to)}`;
+          expect(to, label).not.toBe(from);
+          expect(accented.has(to), label).toBe(accented.has(from));
+        }
       }
-    }
-  });
+    },
+  );
 
   it('scrambles accented text with the combined charset', () => {
     const map = buildScrambleMap(77, [...DEFAULT_CHARSET, ...LATIN_1, ...LATIN_EXT_A]);

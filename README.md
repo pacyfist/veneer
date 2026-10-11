@@ -36,8 +36,12 @@ It's a secret code plus a font that decodes it.
 3. **Eyes decode, code doesn't.** Your screen draws shapes, so people read the
    words. Scrapers read characters, so they get the code.
 
-There's no server component and no third-party service. With SSR, the server
-writes the scrambled text into the HTML, so crawlers never see the real words.
+There's no third-party service. With SSR, add `provideVeneerServer()` from
+`@pacyfist/veneer/server`: the server forges the font itself and writes the
+scrambled text into the HTML, which carries only the font's URL, never the key.
+Crawlers that read the HTML see neither the real words nor a way to decode them,
+short of downloading and parsing the font. Prerendered sites share one cipher
+per build.
 
 ## Get started
 
@@ -126,7 +130,8 @@ specifically after your content, and it doesn't pretend to.
 
 If the font can't be fetched or built, protected text turns back into ordinary
 readable text and an error is logged. The worst case is unprotected, never
-unreadable.
+unreadable, with one exception: on a server-rendered page whose forged font
+cannot be fetched at all, the readable text is not in the page to turn back to.
 
 ## FAQ
 

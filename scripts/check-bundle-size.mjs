@@ -41,20 +41,31 @@ import { gzipSync } from 'node:zlib';
  * `.` 8,965 B (strictCoverage narrowing, withFaces, id), `./testing` 4,136 B
  * (findVeneerLeaks).
  *
- * `.` raised 2026-10-11 to 22,600 B after the directive and accessibility
- * work measured 20,468 B: the text-node walker and `veneerHtml`, hiding
- * without inline styles (CSP nonces, hashes), `translate="no"`, readable mode
- * and its toggle component, `withA11y`, `withReadableCopy` and the dev-mode
- * checks (VNR001, VNR002, VNR020, VNR021). About half of the FESM is doc
- * comments; minified, the entry went from 3,593 B to 7,798 B gzip with
- * `ngDevMode` off, before an app's tree-shaking drops the copy handler and
- * the toggle when unused.
+ * Raised 2026-10-11 when the key left the HTML (Next #2): `.` 10,866 B (the
+ * hydrate path that fetches the server's forged font and reads the map back,
+ * VNR015/VNR016), `./core` 5,507 B (randomScrambleMap), `./forge` 10,639 B
+ * (readScrambleMap, parseBaseFontSync), and the new server-only `./server`
+ * entry point at 4,311 B (provideVeneerServer, veneerFontMiddleware).
+ * `./testing` 4,325 B stays under its budget.
+ *
+ * `.` raised again 2026-10-11 by the directive and accessibility work
+ * (measured alone at 20,468 B, from 8,965 B): the text-node walker and
+ * `veneerHtml`, hiding without inline styles (CSP nonces, hashes),
+ * `translate="no"`, readable mode and its toggle component, `withA11y`,
+ * `withReadableCopy` and the dev-mode checks (VNR001, VNR002, VNR020,
+ * VNR021). About half of the FESM is doc comments; minified with `ngDevMode`
+ * off that work took the entry from 3,593 B to 7,798 B gzip, before an app's
+ * tree-shaking drops the copy handler and the toggle when unused. Combined
+ * with Next #2: `.` 22,141 B, budget 24,400 B; `./testing` 4,703 B (readable
+ * mode, a11y and copy options, `decodeVeneer` skipping readable subtrees),
+ * budget 5,200 B.
  */
 const BUDGETS = {
-  '.': 22_600,
-  './core': 5_500,
-  './forge': 10_800,
-  './testing': 4_600,
+  '.': 24_400,
+  './core': 6_100,
+  './forge': 11_700,
+  './server': 4_800,
+  './testing': 5_200,
 };
 
 const dist = process.argv[2] ?? 'dist/pacyfist/veneer';

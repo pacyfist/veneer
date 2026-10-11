@@ -218,12 +218,13 @@ describe('VeneerDirective text-node walker', () => {
       expect(texts(el)).toEqual(before);
     });
 
-    it('inverts with the initial map even when it differs from the current one', () => {
+    it('inverts with the initial map, which then becomes the map in force', () => {
       const serverMap = buildScrambleMap(99);
       const server = `${scrambleText('Hello ', serverMap)}<b>${scrambleText('x', serverMap)}</b>`;
-      const { el } = hydrate(server, (s) => s.setInitialMap(serverMap));
-      expect(el.textContent).toBe(scramble('Hello x'));
-      expect(scrambleText(el.textContent!, invertScrambleMap(MAP))).toBe('Hello x');
+      const { el, service } = hydrate(server, (s) => s.setInitialMap(serverMap));
+      expect(service.map()).toBe(serverMap);
+      expect(el.textContent).toBe(scrambleText('Hello x', serverMap));
+      expect(scrambleText(el.textContent!, invertScrambleMap(serverMap))).toBe('Hello x');
     });
 
     it('treats nodes added after the first pass as readable', () => {

@@ -238,17 +238,17 @@ provideVeneer({
 });
 ```
 
-| Option               | Type                                                  | Default                   | Purpose                                                                                            |
-| -------------------- | ----------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------- |
-| `font`               | `string \| ArrayBuffer \| () => Promise<ArrayBuffer>` | _required_                | Base font supplying the glyph outlines                                                             |
-| `fallbackFontFamily` | `string`                                              | `'sans-serif'`            | Used until the font is ready, when off, and for missing glyphs                                     |
-| `charset`            | `readonly number[]`                                   | `DEFAULT_CHARSET` (ASCII) | Codepoints the cipher covers                                                                       |
-| `seed`               | `number`                                              | random per page load      | Pins the cipher. Tests and reproducible builds only                                                |
-| `hideUntilReady`     | `boolean`                                             | `true`                    | Keep protected text invisible until the font lands                                                 |
-| `hideWith`           | `'stylesheet' \| 'hidden'`                            | `'stylesheet'`            | How server-rendered text is hidden; `'hidden'` needs no inline code under a CSP                    |
-| `disabled`           | `boolean`                                             | `false`                   | Turn everything off, per environment                                                               |
-| `strictCoverage`     | `boolean`                                             | `false`                   | Fail open on any glyph the font lacks, instead of leaving those characters unscrambled             |
-| `id`                 | `string`                                              | none                      | Namespaces the seed carried from server to client, for several implicit-seed instances on one page |
+| Option               | Type                                                  | Default                   | Purpose                                                                                           |
+| -------------------- | ----------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------- |
+| `font`               | `string \| ArrayBuffer \| () => Promise<ArrayBuffer>` | _required_                | Base font supplying the glyph outlines                                                            |
+| `fallbackFontFamily` | `string`                                              | `'sans-serif'`            | Used until the font is ready, when off, and for missing glyphs                                    |
+| `charset`            | `readonly number[]`                                   | `DEFAULT_CHARSET` (ASCII) | Codepoints the cipher covers                                                                      |
+| `seed`               | `number`                                              | none (CSPRNG, no seed)    | Pins the cipher. Tests and reproducible builds only; solvable                                     |
+| `hideUntilReady`     | `boolean`                                             | `true`                    | Keep protected text invisible until the font lands                                                |
+| `hideWith`           | `'stylesheet' \| 'hidden'`                            | `'stylesheet'`            | How server-rendered text is hidden; `'hidden'` needs no inline code under a CSP                   |
+| `disabled`           | `boolean`                                             | `false`                   | Turn everything off, per environment                                                              |
+| `strictCoverage`     | `boolean`                                             | `false`                   | Fail open on any glyph the font lacks, instead of leaving those characters unscrambled            |
+| `id`                 | `string`                                              | none                      | Namespaces the forged-font state carried from server to client, for several instances on one page |
 
 **`charset`** defaults to `DEFAULT_CHARSET`: the 84 printable ASCII characters
 the cipher can swap without moving a line break. The browser wraps lines based on
@@ -278,20 +278,23 @@ Accented letters swap only with other accented letters. `charsetFromText(text,
 pasting into the config at build time. Text is NFC-normalized before it is
 scrambled, so `e` + U+0301 is protected like `é`.
 
-**`seed`** should normally be left alone. A constant seed means every visitor and
-every crawl sees the same substitution, which is solvable once by frequency
-analysis and reusable forever after.
+**`seed`** should normally be left alone. Without it the cipher is drawn from the
+CSPRNG with no seed at all (`randomScrambleMap`), on the server and in the
+browser. A fixed seed is solvable: it is in your JavaScript bundle, and even
+without it, a 32-bit seed fed to the public `buildScrambleMap` can be found by
+trying all of them against some ciphertext (about 48 CPU-hours untuned). Every
+visitor and every crawl then sees the same substitution.
 
 **`strictCoverage`** decides what happens when the base font has no glyph for
 some charset characters. Off (the default), they are dropped from the cipher once
-the font has loaded: the map is rebuilt from the same seed without them, protected
-text is re-scrambled, those characters show as themselves in the fallback font,
+the font has loaded (on the server, before rendering): the map is redrawn without
+them, protected text is re-scrambled, those characters show as themselves in the fallback font,
 and a dev-mode warning ([VNR014](#vnr014)) lists them. On, the instance fails open
 instead ([VNR012](#vnr012)).
 
 **Bold and italic faces.** `font` is the regular face. Without more faces, bold
 or italic protected text is synthesized by the browser from it. Add real faces
-with `withFaces()`; they are forged with the same seed under the same family name,
+with `withFaces()`; they are forged from the same map under the same family name,
 with matching `FontFace` descriptors:
 
 ```ts
@@ -307,9 +310,9 @@ provideVeneer(
 Every face must load, or the instance fails open. Characters any face lacks are
 dropped from the cipher (see `strictCoverage`).
 
-**`id`** matters only when several `provideVeneer` instances without a `seed`
-render on one server page (for example in lazy routes). Each publishes its seed
-for hydration; give each a distinct `id` so they don't overwrite one another.
+**`id`** matters only when several `provideVeneer` instances render on one server
+page (for example in lazy routes). Each publishes its forged fonts' URLs for
+hydration; give each a distinct `id` so they don't overwrite one another.
 
 **`hideUntilReady`** keeps scrambled characters from flashing on screen before
 the forged font is ready. Turn it off to accept the flash instead. The served
@@ -397,8 +400,8 @@ exported `VeneerFontState` interface, which the testing stand-in implements too.
 | Member           | Type                            | Description                                                                  |
 | ---------------- | ------------------------------- | ---------------------------------------------------------------------------- |
 | `map`            | `Signal<ScrambleMap>`           | The substitution in force. Narrowed once after load if the font lacks glyphs |
-| `initialMap`     | `Signal<ScrambleMap \| null>`   | The map server-rendered text used; null until the client knows it            |
-| `familyName`     | `string`                        | Family name of the forged font, unique per load                              |
+| `initialMap`     | `Signal<ScrambleMap \| null>`   | The map server-rendered text uses; `null` until the forged font is read      |
+| `familyName`     | `string`                        | Family name of the forged font: random, says nothing about the cipher        |
 | `ready`          | `Signal<boolean>`               | Font registered and text is safe to show                                     |
 | `status`         | `Signal<VeneerStatus>`          | `loading`, `active`, `failed` or `disabled`                                  |
 | `failed`         | `Signal<VeneerFailure \| null>` | `{ code, message, missing? }` when the font could not be built               |
@@ -422,14 +425,17 @@ when the font is built, and bundlers emit it as a lazy chunk (about 5 KB gzip).
 | ------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `DEFAULT_CHARSET`                           | The 84 ASCII characters that are safe to swap (see `charset`)                          |
 | `buildScrambleMap(seed, charset?)`          | Derange per class. Throws if nothing in the charset can be swapped                     |
+| `randomScrambleMap(charset?)`               | The same, drawn from the CSPRNG with no seed. What veneer uses by default              |
 | `isScramblable(codepoint)`                  | Whether a codepoint can take part in the cipher                                        |
 | `LATIN_1`, `LATIN_EXT_A`                    | Letter presets: U+00C0-U+00FF (no `×` `÷`) and U+0100-U+017F                           |
 | `charsetFromText(text, { base? })`          | The scramblable codepoints in `text`, sorted, plus `base`                              |
 | `scrambleText(text, map, { normalize? })`   | Apply a map, NFC first; unmapped characters pass through                               |
 | `invertScrambleMap(map)`                    | The reverse substitution - decode your own output                                      |
-| `randomSeed()`                              | A seed from the CSPRNG when there is one                                               |
-| `ScrambleMap`                               | `{ seed, forward: ReadonlyMap<number, number>, inverse? }`                             |
+| `randomSeed()`                              | A 32-bit seed from the CSPRNG. Searchable: prefer `randomScrambleMap`                  |
+| `ScrambleMap`                               | `{ seed?, forward: ReadonlyMap<number, number>, inverse? }`                            |
 | `parseBaseFont(buffer)`                     | `/forge`. Async. Parse a `.ttf`/`.otf`/`.woff` into a `BaseFont`                       |
+| `parseBaseFontSync(buffer)`                 | `/forge`. The same for `.ttf`/`.otf`, without waiting (no WOFF)                        |
+| `readScrambleMap(base, forged)`             | `/forge`. Read the cipher back out of a forged font, given its base font               |
 | `BaseFont`                                  | `/forge`. `{ outlines, unitsPerEm, numGlyphs, familyName, glyphId(cp), codepoints() }` |
 | `forgeScrambledFont(base, map, familyName)` | `/forge`. Produce the font binary whose `cmap` is scrambled                            |
 | `coveredCodepoints(base, candidate)`        | `/forge`. The candidate codepoints the base font has a glyph for                       |
@@ -456,24 +462,86 @@ expect(decodeVeneer(el)).toBe('Hello, world');
 TestBed.inject(VeneerTestingFontService).setState('failed'); // simulate a font failure
 ```
 
-| Export                           | Description                                                                               |
-| -------------------------------- | ----------------------------------------------------------------------------------------- |
-| `provideVeneerTesting(options?)` | Provides a deterministic `VeneerFontService` stand-in                                     |
-| `VeneerTestingOptions`           | `{ seed?, state?, charset?, fallbackFontFamily? }`                                        |
-| `VeneerTestingState`             | `'ready'` (default), `'loading'`, `'failed'` or `'disabled'`                              |
-| `VeneerTestingFontService`       | The stand-in. Implements `VeneerFontState`; `setState(state)` changes state mid-test      |
-| `decodeVeneer(elOrText, map?)`   | Readable text of a protected element or string. Defaults to the current stand-in's cipher |
-| `findVeneerLeaks(text, list)`    | Protected originals, or runs of 4+ of their words, readable in HTML, JSON or a JS bundle  |
+| Export                           | Description                                                                                                     |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `provideVeneerTesting(options?)` | Provides a deterministic `VeneerFontService` stand-in                                                           |
+| `VeneerTestingOptions`           | `{ seed?, state?, charset?, fallbackFontFamily?, initialMap? }`; `initialMap: null` hydrates                    |
+| `VeneerTestingState`             | `'ready'` (default), `'loading'`, `'failed'` or `'disabled'`                                                    |
+| `VeneerTestingFontService`       | The stand-in. `setState(state)` changes state; `setInitialMap(map \| null)` simulates the server's map arriving |
+| `decodeVeneer(elOrText, map?)`   | Readable text of a protected element or string. Defaults to the current stand-in's cipher                       |
+| `findVeneerLeaks(text, list)`    | Protected originals, or runs of 4+ of their words, readable in HTML, JSON or a JS bundle                        |
 
 ## Server-side rendering
 
 Supported, and this is where the technique earns its keep: most crawlers read the
-server-rendered HTML and never execute JavaScript.
+server-rendered HTML and never execute JavaScript. The server needs
+`@pacyfist/veneer/server` (Node only), so it can forge the font itself and keep
+the key out of the page:
 
-The cipher is built synchronously from a seed, so the server renders scrambled
-text directly into the HTML. The seed travels to the client through Angular's
-`TransferState` (under a key namespaced by `id`, when set), both sides derive the
-same cipher, and hydration sees identical text.
+```ts
+// app.config.server.ts
+import { provideVeneerServer } from '@pacyfist/veneer/server';
+
+providers: [
+  provideServerRendering(withRoutes(serverRoutes)),
+  // Where the server reads the base font: the folder the `font` URL is served
+  // from. Here the browser build output, next to the server bundle.
+  provideVeneerServer({ fonts: join(import.meta.dirname, '../browser') }),
+];
+
+// server.ts, before the Angular handler
+import { veneerFontMiddleware } from '@pacyfist/veneer/server';
+app.use(veneerFontMiddleware());
+```
+
+How it works:
+
+1. During the render the server draws the cipher from the CSPRNG (no seed
+   exists), forges the font (the base font with only its `cmap` replaced) and
+   scrambles the text with it. The page carries only the forged font's URL
+   (`veneer/<random id>.ttf`, relative to `<base href>`) and a random family name,
+   in `TransferState` under a key namespaced by `id`. No seed, no map.
+2. In the browser, `initialMap()` stays `null` and protected text stays hidden
+   (with `hideUntilReady`) while the service fetches the forged font, reads the
+   cipher back out of its `cmap` against the base font (`readScrambleMap`), and
+   registers it. Then directives recover the readable text from the server's
+   ciphertext, and the page shows exactly what the server rendered.
+
+A crawler that reads the HTML gets ciphertext and no key. To decode it, it has to
+fetch the forged font and the base font and compare their `cmap` tables, which is
+what a browser does. That is the bar: a font parser and two downloads, not a regex.
+Once JavaScript runs, the forged font is the key; see what this does not stop below.
+
+**One cipher per server process.** Each `provideVeneer` configuration is forged
+once per process and shared by every request, so visitors fetch and cache the font
+once (it is served as immutable). A fresh cipher per request would cost every page
+view a ~124 KB font download, and the server would have to keep every page's font
+in memory until it is fetched, or re-forge it on demand. The fonts live in the
+process's memory: behind a load balancer, route a page's font request to the
+instance that rendered it (sticky sessions), or prerender. If the font cannot be
+fetched (for example after a restart, for a page rendered before it), the
+server's ciphertext cannot be decoded and stays visible as gibberish
+([VNR016](#vnr016)).
+
+**Prerendering (SSG).** One cipher per build, shared by every visitor until the
+next build. No server is left to serve the fonts, so write them to a folder and
+copy it into the browser output after the build. The folder must be outside the
+build output, which the Angular builder empties after prerendering:
+
+```ts
+provideVeneerServer({ fonts: 'public', emitDir: 'dist/veneer-fonts' });
+```
+
+```sh
+rm -rf dist/veneer-fonts && ng build && cp -r dist/veneer-fonts/. dist/my-app/browser/
+```
+
+**Without `provideVeneerServer()`** the server cannot scramble without putting the
+key into the page, so it renders protected text readable and logs
+[VNR015](#vnr015). The exception is a fixed `seed`, which both sides know from the
+app's code (solvable; tests and reproducible builds only). The server reads `.ttf`
+or `.otf` base fonts; a `font` given as a loader function or a WOFF file needs
+`fonts` as a function that returns `.ttf` bytes.
 
 Elements the server scrambled carry a `data-veneer-ssr` attribute. The `veneer`
 directive in its element-content form (`<p veneer>Text</p>`) takes the element's
@@ -481,16 +549,18 @@ own text as the original, and on a hydrating page that text is _already_
 ciphertext - scrambling it again would leave the reader looking at the server's
 output, since the font undoes only one layer. The attribute is how a hydrating
 element is told apart from one the browser rendered itself, such as a `@defer`
-block whose text is still the readable template content.
+block whose text is still the readable template content. Such an element is
+inverted only once `initialMap()` is known.
 
-The seed is visible in the page source. That costs nothing: the forged font is
-downloadable and its `cmap` already describes the substitution completely.
+Without server rendering, nothing changes: the browser draws its own cipher and
+forges its own font, and `initialMap()` is that map from the start.
 
 ## What this defends against
 
 **Stops** bulk text extraction - `fetch` plus an HTML parse, `innerText`
 scraping, copy-pasting a page into a chat window, and crawlers that don't run
-JavaScript.
+JavaScript. With server rendering this needs `provideVeneerServer()`: the page then
+carries no seed or map, only the forged font's URL (see Server-side rendering).
 
 **Does not stop** a determined adversary. The generated font is downloadable and
 its `cmap` describes the substitution completely, so anyone willing to parse it
@@ -585,6 +655,10 @@ If the font cannot be fetched, parsed, or forged, the library **fails open**:
 starting `[veneer] disabled (VNRxxx)` is logged, `failed()` holds
 `{ code, message, missing? }`, and the page renders normally. Unreadable content
 is worse than unprotected content. Use `withStatusListener()` to report it.
+
+One case cannot fail open: a server-rendered page whose forged font never arrives
+([VNR016](#vnr016)). The readable text of server-rendered element content is not
+in the page, by design, so it stays as the server rendered it.
 
 A base font without a glyph for some charset characters does not fail by default:
 those characters are left out of the cipher (see `strictCoverage`). The forge
@@ -725,6 +799,25 @@ Protection stays on for everything else. Narrow `charset` to the characters the
 font covers (see `charsetFromFont`) to silence it, or set `strictCoverage: true`
 to fail instead.
 
+### VNR015
+
+On the server: the cipher and forged font could not be built, so the server
+rendered protected text **readable**. Either `provideVeneerServer()` from
+`@pacyfist/veneer/server` is missing from the server config (without it the server
+cannot scramble without writing the key into the page), or it could not read the
+base font (check `fonts` points at the folder the `font` URL is served from) or
+forge it. The server log has the reason.
+
+### VNR016
+
+In the browser: the forged font the server rendered with could not be fetched, or
+does not decode against the base font. The server's ciphertext cannot be decoded
+without it, so server-rendered element content stays unreadable (bound text,
+`veneerHtml` and the pipe fall back to readable). Check that server.ts mounts
+`veneerFontMiddleware()`, that a load balancer sends the font request to the
+instance that rendered the page, or for prerendered pages that the `emitDir`
+folder was copied into the browser output.
+
 ### VNR020
 
 Dev-mode warning: protected text is styled with `text-transform` (other than
@@ -756,6 +849,8 @@ out of protected elements, or rely on readable mode for that content.
 | Text renders readable, protection seems off     | The library failed open. Inspect `failed()`, or `disabled` is set                                              |
 | Protected text is in the wrong typeface         | `fallbackFontFamily` doesn't name the same typeface as `font`                                                  |
 | Reader sees gibberish after hydration           | Interpolating into an element that also has `veneer` ([VNR001](#vnr001)). Use the pipe + `veneerFont`          |
+| Server HTML has readable protected text         | `provideVeneerServer()` is missing or cannot read the font ([VNR015](#vnr015)). Check the server log           |
+| `VNR016 ... forged font request ... failed`     | The server's forged font is not served. Mount `veneerFontMiddleware()`, or copy `emitDir` after prerendering   |
 
 ## Contributing
 

@@ -50,4 +50,13 @@ export * from '@pacyfist/veneer/core';
 // semver and may change in any release.
 export { VENEER_CONFIG as ɵVENEER_CONFIG } from './lib/veneer.config';
 export { installReadableCopy as ɵinstallReadableCopy } from './lib/veneer-copy';
+export { isSkippedElement as ɵisSkippedElement } from './lib/veneer-hosts';
 export type { ResolvedVeneerConfig as ɵResolvedVeneerConfig } from './lib/veneer.config';
+
+// Internal. Exported only for `@pacyfist/veneer/server`; not covered by
+// semver and may change in any release.
+export { VENEER_SERVER_FORGE as ɵVENEER_SERVER_FORGE } from './lib/veneer-server';
+export type {
+  VeneerServerCipher as ɵVeneerServerCipher,
+  VeneerServerForge as ɵVeneerServerForge,
+} from './lib/veneer-server';

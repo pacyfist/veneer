@@ -137,15 +137,27 @@ export const DEFAULT_CHARSET: readonly number[] = Object.freeze(
 
 /** A bijective, fixed-point-free codepoint substitution. */
 export interface ScrambleMap {
-  /** The value the map was derived from. The same seed always yields the same map. */
-  readonly seed: number;
+  /**
+   * The seed the map was derived from with {@link buildScrambleMap}; the same
+   * seed always yields the same map. Absent on maps drawn from the CSPRNG
+   * ({@link randomScrambleMap}) or read back from a forged font, which have no
+   * seed.
+   */
+  readonly seed?: number;
   /** Readable codepoint -> codepoint that appears in the DOM. */
   readonly forward: ReadonlyMap<number, number>;
   /** Set by {@link invertScrambleMap}: decoding must not normalize ciphertext. */
   readonly inverse?: boolean;
 }
 
-/** A seed drawn from the CSPRNG when there is one, so page loads don't share a cipher. */
+/**
+ * A 32-bit seed drawn from the CSPRNG when there is one.
+ *
+ * Only 2^32 maps can come from a seed, and `buildScrambleMap` is public, so a
+ * map built from a seed can be found by trying every seed against some
+ * ciphertext (about 48 CPU-hours untuned). Use {@link randomScrambleMap} for a
+ * cipher that has to resist that.
+ */
 export function randomSeed(): number {
   const c: Crypto | undefined = globalThis.crypto;
   if (c?.getRandomValues) {
@@ -185,6 +197,50 @@ export function buildScrambleMap(
   seed: number,
   charset: readonly number[] = DEFAULT_CHARSET,
 ): ScrambleMap {
+  return { seed, forward: derangeClasses(charset, mulberry32(seed)) };
+}
+
+/** Random numbers in [0, 1) from the CSPRNG, drawn in batches of 32-bit words. */
+function cryptoRandom(): () => number {
+  const c: Crypto | undefined = globalThis.crypto;
+  if (!c?.getRandomValues) {
+    throw new Error(
+      '[veneer] randomScrambleMap needs crypto.getRandomValues, which this environment lacks.',
+    );
+  }
+  const words = new Uint32Array(256);
+  let next = words.length;
+  return () => {
+    if (next === words.length) {
+      c.getRandomValues(words);
+      next = 0;
+    }
+    return words[next++] / 4294967296;
+  };
+}
+
+/**
+ * Build a substitution for `charset` from the CSPRNG instead of a seed.
+ *
+ * Same classes and guarantees as {@link buildScrambleMap}, but every shuffle
+ * step takes 32 fresh random bits, so there is no seed to leak or search: the
+ * map carries as much randomness as its classes allow (about 225 bits for the
+ * letters of `DEFAULT_CHARSET` alone). What the server and the client agree on
+ * is then the forged font, not a seed.
+ *
+ * `random` replaces the CSPRNG (numbers in [0, 1)). Tests only.
+ *
+ * @throws if no class has at least 2 codepoints, or there is no CSPRNG.
+ */
+export function randomScrambleMap(
+  charset: readonly number[] = DEFAULT_CHARSET,
+  random: () => number = cryptoRandom(),
+): ScrambleMap {
+  return { forward: derangeClasses(charset, random) };
+}
+
+/** The class-preserving derangement both map builders share. */
+function derangeClasses(charset: readonly number[], rand: () => number): Map<number, number> {
   const classes = new Map<string, number[]>();
   for (const cp of [...new Set(charset)].sort((a, b) => a - b)) {
     const key = classOf(cp);
@@ -195,7 +251,6 @@ export function buildScrambleMap(
   }
 
   // Sorted input fixes the class order, and so the PRNG stream.
-  const rand = mulberry32(seed);
   const forward = new Map<number, number>();
   for (const members of classes.values()) {
     if (members.length < 2) continue;
@@ -209,7 +264,7 @@ export function buildScrambleMap(
         `or interchangeable punctuation); nothing in it can be scrambled.`,
     );
   }
-  return { seed, forward };
+  return forward;
 }
 
 /** Options for {@link scrambleText}. */
@@ -241,5 +296,6 @@ export function scrambleText(
 export function invertScrambleMap(map: ScrambleMap): ScrambleMap {
   const forward = new Map<number, number>();
   for (const [from, to] of map.forward) forward.set(to, from);
-  return map.inverse ? { seed: map.seed, forward } : { seed: map.seed, forward, inverse: true };
+  const seed = map.seed === undefined ? {} : { seed: map.seed };
+  return map.inverse ? { ...seed, forward } : { ...seed, forward, inverse: true };
 }
