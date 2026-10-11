@@ -1,5 +1,6 @@
 import { Pipe, PipeTransform, inject } from '@angular/core';
 import { VeneerFontService } from './veneer-font.service';
+import { VeneerFontState } from './veneer-font-state';
 
 /**
  * Scrambles a bound string.
@@ -18,7 +19,7 @@ import { VeneerFontService } from './veneer-font.service';
  */
 @Pipe({ name: 'veneer', pure: false })
 export class VeneerPipe implements PipeTransform {
-  private readonly service = inject(VeneerFontService);
+  private readonly service: VeneerFontState = inject(VeneerFontService);
 
   transform(value: string | null | undefined): string {
     return value == null ? '' : this.service.scramble(value);

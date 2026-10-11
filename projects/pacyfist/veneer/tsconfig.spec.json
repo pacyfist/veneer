@@ -4,7 +4,14 @@
   "extends": "../../../tsconfig.json",
   "compilerOptions": {
     "outDir": "../../../out-tsc/spec",
-    "types": ["vitest/globals", "node"]
+    "types": ["vitest/globals", "node"],
+    // Specs compile against the library sources, not dist/, so a spec and the
+    // entry points it imports share one copy of every class and DI token.
+    "paths": {
+      "@pacyfist/veneer": ["./src/public-api.ts"],
+      "@pacyfist/veneer/core": ["./core/src/public-api.ts"],
+      "@pacyfist/veneer/testing": ["./testing/src/public-api.ts"]
+    }
   },
-  "include": ["src/**/*.d.ts", "src/**/*.spec.ts"]
+  "include": ["**/src/**/*.d.ts", "**/src/**/*.spec.ts"]
 }

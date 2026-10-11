@@ -9,7 +9,8 @@
  * Framework-free, like scramble-map.ts. Only opentype.js is required.
  */
 
-import { Font, Glyph, Path, parse } from 'opentype.js';
+import type { Font, Glyph } from 'opentype.js';
+import { opentype } from './opentype';
 import type { ScrambleMap } from './scramble-map';
 
 /** Thrown when the base font cannot back the configured charset. */
@@ -26,7 +27,7 @@ export class VeneerFontError extends Error {
 /** Parse a base font binary. Accepts TrueType or CFF OpenType, not WOFF/WOFF2. */
 export function parseBaseFont(buffer: ArrayBuffer): Font {
   try {
-    return parse(buffer);
+    return opentype.parse(buffer);
   } catch (cause) {
     throw new VeneerFontError(
       `[veneer] could not parse the base font. It must be a .ttf or .otf file — ` +
@@ -46,7 +47,12 @@ export function parseBaseFont(buffer: ArrayBuffer): Font {
 export function forgeScrambledFont(base: Font, map: ScrambleMap, familyName: string): ArrayBuffer {
   const notdefWidth = Math.round(base.unitsPerEm / 2);
   const glyphs: Glyph[] = [
-    new Glyph({ name: '.notdef', unicode: 0, advanceWidth: notdefWidth, path: new Path() }),
+    new opentype.Glyph({
+      name: '.notdef',
+      unicode: 0,
+      advanceWidth: notdefWidth,
+      path: new opentype.Path(),
+    }),
   ];
 
   const missing: string[] = [];
@@ -59,7 +65,7 @@ export function forgeScrambledFont(base: Font, map: ScrambleMap, familyName: str
       continue;
     }
     glyphs.push(
-      new Glyph({
+      new opentype.Glyph({
         name: `uni${scrambled.toString(16).padStart(4, '0')}`,
         unicode: scrambled,
         advanceWidth: source.advanceWidth ?? notdefWidth,
@@ -77,7 +83,7 @@ export function forgeScrambledFont(base: Font, map: ScrambleMap, familyName: str
     );
   }
 
-  return new Font({
+  return new opentype.Font({
     familyName,
     styleName: 'Regular',
     unitsPerEm: base.unitsPerEm,

@@ -4,7 +4,9 @@
   "compileOnSave": false,
   "compilerOptions": {
     "paths": {
-      "@pacyfist/veneer": ["./dist/pacyfist/veneer"]
+      "@pacyfist/veneer": ["./dist/pacyfist/veneer"],
+      "@pacyfist/veneer/core": ["./dist/pacyfist/veneer/core"],
+      "@pacyfist/veneer/testing": ["./dist/pacyfist/veneer/testing"]
     },
     "strict": true,
     "noImplicitOverride": true,

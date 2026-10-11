@@ -8,6 +8,7 @@
     "start": "npm run build:lib && ng serve demo --port 4321",
     "watch": "ng build demo --watch --configuration development",
     "test": "npm run build:lib && ng test @pacyfist/veneer --watch=false",
+    "test:node-core": "npm run build:lib && node scripts/node-core-smoke.mjs",
     "build:pages": "npm run build:lib && ng build demo --configuration production,github-pages",
     "use-angular": "node scripts/use-angular.mjs",
     "e2e": "playwright test",

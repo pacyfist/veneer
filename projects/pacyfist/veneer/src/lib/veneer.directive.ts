@@ -10,7 +10,8 @@ import {
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { VeneerFontService } from './veneer-font.service';
-import { invertScrambleMap, scrambleText } from './scramble-map';
+import { VeneerFontState } from './veneer-font-state';
+import { invertScrambleMap, scrambleText } from '@pacyfist/veneer/core';
 
 /**
  * Marks an element whose text was scrambled during server rendering.
@@ -43,7 +44,7 @@ export class VeneerDirective implements OnInit {
 
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly renderer = inject(Renderer2);
-  private readonly service = inject(VeneerFontService);
+  private readonly service: VeneerFontState = inject(VeneerFontService);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   /** The readable text. Held so the directive can restore it if the font fails. */

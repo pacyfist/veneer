@@ -1,5 +1,5 @@
 import { EnvironmentProviders, InjectionToken, makeEnvironmentProviders } from '@angular/core';
-import { DEFAULT_CHARSET } from './scramble-map';
+import { DEFAULT_CHARSET } from '@pacyfist/veneer/core';
 import { VeneerFontService } from './veneer-font.service';
 
 /** Where the base outlines come from. A URL, the bytes themselves, or a loader. */

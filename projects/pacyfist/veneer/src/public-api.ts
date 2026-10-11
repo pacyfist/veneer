@@ -13,15 +13,8 @@ export { VeneerPipe } from './lib/veneer.pipe';
 
 // Runtime state: font readiness, failures, and the reveal toggle
 export { VeneerFontService } from './lib/veneer-font.service';
+export type { VeneerFontState } from './lib/veneer-font-state';
 
-// The framework-free core, exported so the cipher can be reused outside Angular
-// — pre-scrambling static content in a build script, for example.
-export {
-  DEFAULT_CHARSET,
-  buildScrambleMap,
-  invertScrambleMap,
-  randomSeed,
-  scrambleText,
-} from './lib/scramble-map';
-export type { ScrambleMap } from './lib/scramble-map';
-export { VeneerFontError, forgeScrambledFont, parseBaseFont } from './lib/font-forge';
+// The framework-free core, also published on its own as `@pacyfist/veneer/core`
+// so it can be used outside Angular without pulling in `@angular/core`.
+export * from '@pacyfist/veneer/core';

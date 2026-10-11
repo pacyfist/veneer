@@ -1,5 +1,6 @@
 import { Directive, ElementRef, OnInit, Renderer2, effect, inject } from '@angular/core';
 import { VeneerFontService } from './veneer-font.service';
+import { VeneerFontState } from './veneer-font-state';
 
 /**
  * Points an element at the forged font without touching its text.
@@ -17,7 +18,7 @@ import { VeneerFontService } from './veneer-font.service';
 export class VeneerFontDirective implements OnInit {
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly renderer = inject(Renderer2);
-  private readonly service = inject(VeneerFontService);
+  private readonly service: VeneerFontState = inject(VeneerFontService);
 
   constructor() {
     effect(() => {

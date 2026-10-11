@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { VeneerFontService } from './veneer-font.service';
 import { VeneerConfig, provideVeneer } from './veneer.config';
-import { scrambleText } from './scramble-map';
+import { scrambleText } from '@pacyfist/veneer/core';
 
 @Component({ template: '<p>host</p>' })
 class Host {}

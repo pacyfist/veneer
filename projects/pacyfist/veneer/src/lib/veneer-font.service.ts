@@ -12,8 +12,15 @@ import {
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { VENEER_CONFIG, VeneerFontSource } from './veneer.config';
-import { ScrambleMap, buildScrambleMap, randomSeed, scrambleText } from './scramble-map';
-import { forgeScrambledFont, parseBaseFont } from './font-forge';
+import {
+  ScrambleMap,
+  buildScrambleMap,
+  forgeScrambledFont,
+  parseBaseFont,
+  randomSeed,
+  scrambleText,
+} from '@pacyfist/veneer/core';
+import { VeneerFontState } from './veneer-font-state';
 
 /**
  * Carries the seed from the server render to the client so both build the same
@@ -45,7 +52,7 @@ async function resolveFontSource(source: VeneerFontSource): Promise<ArrayBuffer>
  * Only the font is loaded asynchronously, and only in a browser.
  */
 @Injectable()
-export class VeneerFontService implements OnDestroy {
+export class VeneerFontService implements VeneerFontState, OnDestroy {
   private readonly config = inject(VENEER_CONFIG);
   private readonly document = inject(DOCUMENT);
   private readonly transferState = inject(TransferState);

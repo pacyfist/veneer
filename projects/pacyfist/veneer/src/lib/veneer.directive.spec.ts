@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 import { VeneerDirective } from './veneer.directive';
 import { VeneerFontService } from './veneer-font.service';
-import { buildScrambleMap, scrambleText } from './scramble-map';
+import { buildScrambleMap, scrambleText } from '@pacyfist/veneer/core';
 
 const MAP = buildScrambleMap(2024);
 
