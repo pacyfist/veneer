@@ -8,3 +8,4 @@
 export { VeneerTestingFontService, provideVeneerTesting } from './veneer-testing';
 export type { VeneerTestingOptions, VeneerTestingState } from './veneer-testing';
 export { decodeVeneer } from './decode-veneer';
+export { findVeneerLeaks, type FindVeneerLeaksOptions, type VeneerLeak } from './find-veneer-leaks';

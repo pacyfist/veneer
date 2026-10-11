@@ -313,6 +313,7 @@ TestBed.inject(VeneerTestingFontService).setState('failed'); // simulate a font 
 | `VeneerTestingState`             | `'ready'` (default), `'loading'`, `'failed'` or `'disabled'`                              |
 | `VeneerTestingFontService`       | The stand-in. Implements `VeneerFontState`; `setState(state)` changes state mid-test      |
 | `decodeVeneer(elOrText, map?)`   | Readable text of a protected element or string. Defaults to the current stand-in's cipher |
+| `findVeneerLeaks(text, list)`    | Protected originals, or runs of 4+ of their words, readable in HTML, JSON or a JS bundle  |
 
 ## Server-side rendering
 
