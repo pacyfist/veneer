@@ -92,6 +92,15 @@ const loggedServerFailures = new Set<string>();
 /** Dropped-character sets already warned about, so each is reported once per page. */
 const warnedUncovered = new Set<string>();
 
+/**
+ * Forget which dropped-character sets were warned about. Tests only: the set is
+ * module-level, so specs that drop the same characters would otherwise depend on
+ * the order they run in. Not exported from the package.
+ */
+export function resetUncoveredWarnings(): void {
+  warnedUncovered.clear();
+}
+
 /** Turn whatever `load()` caught into a structured failure with a stable code. */
 function describeFailure(error: unknown, stage: Stage): VeneerFailure {
   const message = error instanceof Error ? error.message : String(error);

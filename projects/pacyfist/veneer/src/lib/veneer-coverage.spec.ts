@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_CHARSET, scrambleText } from '@pacyfist/veneer/core';
 import { parseBaseFont } from '@pacyfist/veneer/forge';
 import { VeneerDirective } from './veneer.directive';
-import { VeneerFontService } from './veneer-font.service';
+import { VeneerFontService, resetUncoveredWarnings } from './veneer-font.service';
 import { VeneerConfig, provideVeneer } from './veneer.config';
 
 /**
@@ -39,6 +39,8 @@ class FakeFontFace {
 let registered: FakeFontFace[];
 
 beforeEach(() => {
+  // Other spec files drop the same characters; start each test with a clean slate.
+  resetUncoveredWarnings();
   registered = [];
   vi.stubGlobal('FontFace', FakeFontFace);
   Object.defineProperty(document, 'fonts', {
