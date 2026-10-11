@@ -47,3 +47,21 @@ the `test.fail()` line in that change.
 `leaks.spec.ts` marks the bundle check of each specimen `test.fail()`, since every demo specimen
 is a compile-time string. A specimen that stops leaking shows up as "expected to fail, but
 passed".
+
+## Leak table
+
+From `../leaks.spec.ts` on the prerendered demo. "Bundle" is `main-*.js`, the only script the page
+loads. No specimen leaks through the title, meta and OG tags, JSON-LD (the demo has none),
+`alt`/`aria-label`/`title` attributes or the ng-state JSON (the demo makes no HttpClient calls).
+
+| Specimen (form)                                      | Served HTML                                 | Bundle                                      |
+| ---------------------------------------------------- | ------------------------------------------- | ------------------------------------------- |
+| hero "This paragraph looks perfectly…" (element)     | clean                                       | leaks, twice (template text and a constant) |
+| try-it "Copy this sentence and…" (element)           | clean                                       | leaks                                       |
+| try-it "Find the word haystack…" (element)           | clean                                       | leaks                                       |
+| apply-tabs "Protected by element content." (element) | document text: the demo's own code sample   | leaks, twice                                |
+| apply-tabs "Protected from a bound signal." (bound)  | clean (inactive tab)                        | leaks (`signal('…')` literal)               |
+| apply-tabs "Protected through the pipe." (pipe)      | clean (inactive tab)                        | leaks                                       |
+| try-it "My secret sauce recipe" (pipe)               | `<input value>`: the demo pre-fills the box | leaks                                       |
+| bench "Rendered with the settings…" (bound)          | clean (rendered in the browser only)        | leaks                                       |
+| breakage "The page stays usable…" (bound)            | clean (rendered in the browser only)        | leaks                                       |
