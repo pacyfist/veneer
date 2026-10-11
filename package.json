@@ -5,6 +5,7 @@
   "scripts": {
     "ng": "ng",
     "build:lib": "ng build @pacyfist/veneer && node -e \"const fs = require('fs'); fs.copyFileSync('LICENSE', 'dist/pacyfist/veneer/LICENSE'); fs.copyFileSync('projects/pacyfist/veneer/CHANGELOG.md', 'dist/pacyfist/veneer/CHANGELOG.md')\"",
+    "size": "node scripts/check-bundle-size.mjs",
     "build": "npm run build:lib && ng build demo",
     "start": "npm run build:lib && ng serve demo --port 4321",
     "watch": "ng build demo --watch --configuration development",
