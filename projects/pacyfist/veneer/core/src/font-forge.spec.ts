@@ -140,6 +140,17 @@ describe('parseBaseFont', () => {
   });
 });
 
+describe('parseBaseFont on a malformed font', () => {
+  it('reports a truncated cmap subtable as a VeneerFontError', async () => {
+    const sfnt = readSfnt(loadFixture());
+    const tables = new Map(sfnt.tables);
+    tables.set('cmap', sfnt.tables.get('cmap')!.subarray(0, 40));
+    const broken = writeSfnt({ flavor: sfnt.flavor, tables });
+    await expect(parseBaseFont(broken)).rejects.toThrow(VeneerFontError);
+    await expect(parseBaseFont(broken)).rejects.toThrow(/malformed/);
+  });
+});
+
 describe('forgeScrambledFont (TrueType)', async () => {
   const bytes = loadFixture();
   const base = await parseBaseFont(toArrayBuffer(bytes));

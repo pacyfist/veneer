@@ -69,6 +69,18 @@ const WOFF2_HELP =
   'or decode it in the app and pass the bytes through the loader: ' +
   '`font: () => fetch(url).then((r) => r.arrayBuffer()).then(myWoff2Decoder)`.';
 
+/** Run `work`, reporting a malformed table (a read past its end) as a VeneerFontError. */
+function guarded<T>(what: string, work: () => T): T {
+  try {
+    return work();
+  } catch (cause) {
+    if (cause instanceof VeneerFontError) throw cause;
+    throw new VeneerFontError(
+      `[veneer] could not ${what}: the base font is malformed (${(cause as Error)?.message ?? cause}).`,
+    );
+  }
+}
+
 function toBytes(buffer: ArrayBuffer | Uint8Array): Uint8Array {
   return buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
 }
@@ -102,7 +114,7 @@ export async function parseBaseFont(buffer: ArrayBuffer | Uint8Array): Promise<B
       '[veneer] could not parse the base font. It must be a .ttf, .otf or .woff file.',
     );
   }
-  return describe(sfnt);
+  return guarded('parse the base font', () => describe(sfnt));
 }
 
 function describe(sfnt: Sfnt): BaseFont {
@@ -228,13 +240,15 @@ export function forgeScrambledFont(
       };
     }) ?? null;
 
-  const tables = new Map<string, Uint8Array>();
-  for (const [tag, data] of sfnt.tables) {
-    if (DROPPED_TABLES.has(tag)) continue;
-    if (tag === 'cmap') tables.set(tag, writeCmap({ glyphs, variations }));
-    else if (tag === 'name') tables.set(tag, renameFamily(data, familyName));
-    else if (tag === 'post' && data.byteLength >= 32) tables.set(tag, stripGlyphNames(data));
-    else tables.set(tag, data);
-  }
-  return writeSfnt({ flavor: sfnt.flavor, tables });
+  return guarded('forge the font', () => {
+    const tables = new Map<string, Uint8Array>();
+    for (const [tag, data] of sfnt.tables) {
+      if (DROPPED_TABLES.has(tag)) continue;
+      if (tag === 'cmap') tables.set(tag, writeCmap({ glyphs, variations }));
+      else if (tag === 'name') tables.set(tag, renameFamily(data, familyName));
+      else if (tag === 'post' && data.byteLength >= 32) tables.set(tag, stripGlyphNames(data));
+      else tables.set(tag, data);
+    }
+    return writeSfnt({ flavor: sfnt.flavor, tables });
+  });
 }
