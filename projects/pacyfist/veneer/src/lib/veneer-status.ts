@@ -3,7 +3,8 @@
  *
  * - `loading`: text is scrambled and the forged font is on its way (and,
  *   during server rendering, always, since the server never loads the font).
- * - `active`: the forged font is registered; protection is in force.
+ * - `active`: the forged font is registered; protection is in force, unless
+ *   the visitor switched on readable mode (`readable()`, see `active()`).
  * - `failed`: the font could not be built; text is shown readable (fail open).
  * - `disabled`: `disabled: true` in the config; text is never scrambled.
  */

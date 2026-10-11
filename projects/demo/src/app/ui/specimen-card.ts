@@ -7,9 +7,10 @@ import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
  * Instantiated once per child EnvironmentInjector, so `VeneerDirective` inside it
  * resolves that injector's `VeneerFontService` rather than the shell's.
  *
- * `aria-hidden` is applied only while this instance actually ciphers. A
- * disabled or failed instance renders ordinary readable text, and hiding that
- * from assistive technology would impose the cost without the protection.
+ * `aria-hidden` comes from `withA11y('hide')` on the instance (see
+ * IsolatedInstance): set only while the instance actually ciphers, so a
+ * disabled or failed instance's readable text stays available to assistive
+ * technology.
  */
 @Component({
   selector: 'app-specimen-card',
@@ -34,11 +35,7 @@ import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
           A protected sample follows. It is stored scrambled and repaired on screen by a generated
           font.
         </p>
-        <p
-          class="text-lg leading-relaxed"
-          [attr.aria-hidden]="veneer.active() ? 'true' : null"
-          [veneer]="text()"
-        ></p>
+        <p class="text-lg leading-relaxed" [veneer]="text()"></p>
         <div class="rounded-field border-secondary/30 bot-scan border p-3">
           <p class="text-secondary text-xs font-bold tracking-widest uppercase">A bot reads</p>
           <p class="text-secondary mt-1 font-mono text-sm break-all">{{ botReads() }}</p>

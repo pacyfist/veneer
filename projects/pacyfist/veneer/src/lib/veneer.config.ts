@@ -116,10 +116,18 @@ export type ResolvedVeneerConfig = Required<Omit<VeneerConfig, 'seed' | 'id'>> &
     readonly statusListeners: readonly VeneerStatusListener[];
     /** From `withStatusAttribute()`. */
     readonly statusAttribute: boolean;
+    /** From `withA11y()`. */
+    readonly a11y: VeneerA11yMode | 'none';
+    /** From `withReadableCopy()`. */
+    readonly readableCopy: boolean;
   };
 
+/** What `withA11y()` does to protected elements. */
+export type VeneerA11yMode = 'hide';
+
 /** The features `provideVeneer` accepts after the config. */
-export type VeneerFeatureKind = 'statusListener' | 'statusAttribute' | 'faces';
+export type VeneerFeatureKind =
+  'statusListener' | 'statusAttribute' | 'faces' | 'a11y' | 'readableCopy';
 
 /**
  * An optional addition to `provideVeneer(config, ...features)`, made by one of
@@ -196,6 +204,49 @@ export function withStatusAttribute(): VeneerFeature<'statusAttribute'> {
 }
 
 /**
+ * Hide protected text from assistive technology while it is scrambled:
+ * `aria-hidden="true"` on every `veneer` and `veneerFont` element, set only
+ * while protection is active and removed when it fails open, is disabled, or
+ * the visitor switches on readable mode.
+ *
+ * ```ts
+ * provideVeneer({ font: 'fonts/Roboto-Regular.ttf' }, withA11y('hide'));
+ * ```
+ *
+ * This keeps screen readers from reading gibberish aloud. It does not make the
+ * text accessible: it removes it. Pair it with readable mode
+ * (`VeneerReadableToggle`), which is what lets those readers get the text.
+ * An element that is or contains something focusable (a link, a button) is
+ * left alone, because hiding focusable content breaks keyboard and screen
+ * reader navigation; development builds warn (VNR021).
+ */
+export function withA11y(mode: VeneerA11yMode): VeneerFeature<'a11y'> {
+  return { ɵkind: 'a11y', ɵapply: (config) => ({ ...config, a11y: mode }) };
+}
+
+/**
+ * Copy readable text. When a visitor copies a selection that includes
+ * protected text, the clipboard gets the words they see instead of the
+ * scrambled characters:
+ *
+ * ```ts
+ * provideVeneer({ font: 'fonts/Roboto-Regular.ttf' }, withReadableCopy());
+ * ```
+ *
+ * One `copy` listener on `document` (a selection that starts outside a
+ * protected element never reaches that element's own listener) decodes only
+ * the text nodes inside this instance's protected elements, so the rest of the
+ * selection is copied as it is. Both `text/plain` and `text/html` are
+ * replaced. Applies to copy only: scripts reading the DOM still get the
+ * scrambled text, which is the point. It does make your protected text one
+ * Ctrl+C away from a chatbot, so turn it on only where sharing quotes matters
+ * more than that.
+ */
+export function withReadableCopy(): VeneerFeature<'readableCopy'> {
+  return { ɵkind: 'readableCopy', ɵapply: (config) => ({ ...config, readableCopy: true }) };
+}
+
+/**
  * The resolved config of the nearest `provideVeneer`.
  *
  * @internal Exported as `ɵVENEER_CONFIG` for the testing entry point only.
@@ -229,6 +280,8 @@ export function provideVeneer(
     faces: [],
     statusListeners: [],
     statusAttribute: false,
+    a11y: 'none',
+    readableCopy: false,
   } as ResolvedVeneerConfig);
   return makeEnvironmentProviders([
     { provide: VENEER_CONFIG, useValue: resolved },

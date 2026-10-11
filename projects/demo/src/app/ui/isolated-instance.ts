@@ -12,7 +12,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { VeneerConfig, provideVeneer, randomSeed } from '@pacyfist/veneer';
+import { VeneerConfig, VeneerFeature, provideVeneer, randomSeed, withA11y } from '@pacyfist/veneer';
 import { SpecimenCard } from './specimen-card';
 
 /**
@@ -54,6 +54,8 @@ import { SpecimenCard } from './specimen-card';
 export class IsolatedInstance {
   readonly text = input.required<string>();
   readonly config = input<Partial<VeneerConfig>>({});
+  /** Features beyond `withA11y('hide')`, which every instance gets. */
+  readonly features = input<readonly VeneerFeature[]>([]);
 
   protected readonly card = SpecimenCard;
   protected readonly injector = signal<EnvironmentInjector | null>(null);
@@ -69,25 +71,30 @@ export class IsolatedInstance {
     effect(() => {
       if (!browserReady()) return;
       const config = this.config();
-      untracked(() => this.rebuild(config));
+      const features = this.features();
+      untracked(() => this.rebuild(config, features));
     });
 
     destroyRef.onDestroy(() => untracked(this.injector)?.destroy());
   }
 
-  private rebuild(config: Partial<VeneerConfig>): void {
+  private rebuild(config: Partial<VeneerConfig>, features: readonly VeneerFeature[]): void {
     untracked(this.injector)?.destroy();
 
     const child = createEnvironmentInjector(
       [
-        provideVeneer({
-          // The library fetches and parses each URL once per page, so every
-          // instance shares the shell's download.
-          font: 'fonts/Roboto-Regular.ttf',
-          fallbackFontFamily: "'Roboto', sans-serif",
-          seed: randomSeed(),
-          ...config,
-        }),
+        provideVeneer(
+          {
+            // The library fetches and parses each URL once per page, so every
+            // instance shares the shell's download.
+            font: 'fonts/Roboto-Regular.ttf',
+            fallbackFontFamily: "'Roboto', sans-serif",
+            seed: randomSeed(),
+            ...config,
+          },
+          withA11y('hide'),
+          ...features,
+        ),
       ],
       this.parent,
     );

@@ -77,7 +77,7 @@ const SNIPPETS = {
           @case ('static') {
             <app-code-block [lines]="snippets.static" />
             <div class="rounded-box border-base-300 border p-3" [class.border-warning]="isEmpty()">
-              <p class="text-lg" aria-hidden="true" veneer #specimen>${STATIC_TEXT}</p>
+              <p class="text-lg" veneer #specimen>${STATIC_TEXT}</p>
             </div>
             <p class="text-base-content/70">
               For words written straight into the template. The most common case, and it is
@@ -87,14 +87,14 @@ const SNIPPETS = {
           @case ('bound') {
             <app-code-block [lines]="snippets.bound" />
             <div class="rounded-box border-base-300 border p-3" [class.border-warning]="isEmpty()">
-              <p class="text-lg" aria-hidden="true" [veneer]="bound()" #specimen></p>
+              <p class="text-lg" [veneer]="bound()" #specimen></p>
             </div>
             <p class="text-base-content/70">{{ boundNote }}</p>
           }
           @case ('pipe') {
             <app-code-block [lines]="snippets.pipe" />
             <div class="rounded-box border-base-300 border p-3" [class.border-warning]="isEmpty()">
-              <h3 class="text-lg" aria-hidden="true" veneerFont #specimen>
+              <h3 class="text-lg" veneerFont #specimen>
                 {{ piped() | veneer }}
               </h3>
             </div>
@@ -110,7 +110,7 @@ const SNIPPETS = {
               [class.border-warning]="isEmpty()"
               [class.border-base-300]="!isEmpty()"
             >
-              <p class="text-lg" aria-hidden="true" veneer #specimen>{{ trap() }}</p>
+              <p class="text-lg" veneer #specimen>{{ trap() }}</p>
             </div>
             <button type="button" class="btn btn-sm self-start" (click)="changeTrap()">
               Change the text

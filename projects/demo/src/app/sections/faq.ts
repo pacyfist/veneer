@@ -26,7 +26,7 @@ const QUESTIONS: readonly Question[] = [
   },
   {
     q: 'Is it accessible?',
-    a: 'Not on its own. Screen readers, find-in-page and copy-paste all see the scrambled text. That is the same mechanism as the protection, not a bug. Leave anything assistive technology needs unprotected, and pair protected text with a readable alternative.',
+    a: "Not on its own. Screen readers, find-in-page and copy-paste all see the scrambled text: that is the protection. Opt-in helpers: withA11y('hide') keeps screen readers from reading gibberish (it hides the text, it does not make it accessible), and readable mode, the Readable text switch at the top of this page, turns scrambling off for visitors who need the real text. Leave links, labels and navigation unprotected.",
   },
   {
     q: 'What if the font fails to load?',

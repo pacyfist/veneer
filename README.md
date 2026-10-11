@@ -110,8 +110,12 @@ specifically after your content, and it doesn't pretend to.
 
 - Ctrl+F can't find it.
 - Your human readers get gibberish when they copy it, too.
-- Screen readers read the scrambled text. Hide it with `aria-hidden` and offer
-  a readable alternative.
+- Screen readers read the scrambled text. `withA11y('hide')` hides it from them
+  with `aria-hidden`, which hides it rather than making it accessible. The route
+  to WCAG conformance is readable mode: a `<button veneerReadableToggle>` that
+  switches scrambling off for the page. Affected criteria include 1.3.1, 1.1.1,
+  and for links inside protected text 2.4.4, 2.5.3 and 4.1.2. See
+  [Accessibility](projects/pacyfist/veneer/README.md#accessibility).
 - Search engines index the scrambled text.
 
 **Good use:** article bodies, recipes, lyrics, product descriptions.

@@ -13,6 +13,14 @@
         <a class="link link-hover" href="#faq">FAQ</a>
       </nav>
       <div class="ml-auto flex items-center gap-4">
+        <button
+          veneerReadableToggle
+          class="btn btn-sm btn-ghost"
+          [class.btn-active]="veneer.readable()"
+          title="Switch scrambling off on this page, for screen readers, copying and translation"
+        >
+          Readable text
+        </button>
         <label
           class="flex cursor-pointer items-center gap-2 text-sm"
           title="Turn off the decoder font everywhere on this page"

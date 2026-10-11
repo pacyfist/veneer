@@ -40,6 +40,7 @@ innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
 - [API reference](#api-reference)
 - [Server-side rendering](#server-side-rendering)
 - [What this defends against](#what-this-defends-against)
+- [Accessibility](#accessibility)
 - [Trade-offs](#trade-offs)
 - [Failure behaviour](#failure-behaviour)
 - [WOFF2 and Google Fonts](#woff2-and-google-fonts)
@@ -196,6 +197,7 @@ veneer.ready(); // signal<boolean>       - forged font registered
 veneer.failed(); // signal<VeneerFailure | null> - { code, message, missing? }, or null
 veneer.active(); // computed<boolean>     - protection actually in force
 veneer.hidden(); // computed<boolean>     - text held back to avoid a flash
+veneer.readable.set(true); // readable mode: scrambling off for the page, remembered
 veneer.revealed.set(true); // withhold the font - show the raw scrambled characters
 ```
 
@@ -365,6 +367,9 @@ protected text is never visible before the forged font is loaded.
 | `provideVeneer(config, ...features)`                 | Returns `EnvironmentProviders`. Add to `providers`                                                           |
 | `withStatusListener(fn)`, `withStatusAttribute()`    | Features: report status changes; mirror status on `<html data-veneer-status>`                                |
 | `withFaces(...faces)`                                | Feature: bold, italic or other faces of the base family (`VeneerFace`: `{ src, weight?, style?, stretch? }`) |
+| `withA11y('hide')`                                   | Feature: `aria-hidden` on protected elements while they are scrambled. See [Accessibility](#accessibility)   |
+| `withReadableCopy()`                                 | Feature: copying protected text puts the readable words on the clipboard                                     |
+| `VENEER_CSP_HASHES`                                  | `{ script, style }` CSP hashes of the inline hiding code, for pages without a nonce                          |
 | `VeneerStatus`, `VeneerFailure`, `VeneerStatusEvent` | Status types                                                                                                 |
 | `VeneerConfig`, `VeneerFontSource`, `VeneerFeature`  | Config types                                                                                                 |
 
@@ -373,11 +378,12 @@ Exports whose names start with `ɵ` are internal (they exist for
 
 ### Template pieces
 
-| Export                | Selector       | Description                                            |
-| --------------------- | -------------- | ------------------------------------------------------ |
-| `VeneerDirective`     | `[veneer]`     | Scrambles the element's text and applies the font      |
-| `VeneerFontDirective` | `[veneerFont]` | Applies the font only, leaves text alone               |
-| `VeneerPipe`          | `\| veneer`    | Scrambles a bound string. Impure by design (see below) |
+| Export                 | Selector                       | Description                                                                       |
+| ---------------------- | ------------------------------ | --------------------------------------------------------------------------------- |
+| `VeneerDirective`      | `[veneer]`, `[veneerHtml]`     | Scrambles the element's text nodes (or bound string or HTML) and applies the font |
+| `VeneerFontDirective`  | `[veneerFont]`                 | Applies the font only, leaves text alone                                          |
+| `VeneerPipe`           | `\| veneer`                    | Scrambles a bound string. Impure by design (see below)                            |
+| `VeneerReadableToggle` | `button[veneerReadableToggle]` | A toggle button for readable mode (`aria-pressed`)                                |
 
 `VeneerPipe` is impure because protection has to switch off the instant the font
 fails to load, and a pure pipe would keep serving its cached scramble since the
@@ -391,13 +397,14 @@ exported `VeneerFontState` interface, which the testing stand-in implements too.
 | Member           | Type                            | Description                                                                  |
 | ---------------- | ------------------------------- | ---------------------------------------------------------------------------- |
 | `map`            | `Signal<ScrambleMap>`           | The substitution in force. Narrowed once after load if the font lacks glyphs |
-| `initialMap`     | `ScrambleMap`                   | The map built at startup; server-rendered text uses it                       |
+| `initialMap`     | `Signal<ScrambleMap \| null>`   | The map server-rendered text used; null until the client knows it            |
 | `familyName`     | `string`                        | Family name of the forged font, unique per load                              |
 | `ready`          | `Signal<boolean>`               | Font registered and text is safe to show                                     |
 | `status`         | `Signal<VeneerStatus>`          | `loading`, `active`, `failed` or `disabled`                                  |
 | `failed`         | `Signal<VeneerFailure \| null>` | `{ code, message, missing? }` when the font could not be built               |
 | `revealed`       | `WritableSignal<boolean>`       | Withhold the font, exposing raw scrambled characters                         |
-| `active`         | `Signal<boolean>`               | `!disabled && !failed`                                                       |
+| `readable`       | `WritableSignal<boolean>`       | Readable mode: scrambling off for the page, remembered in `localStorage`     |
+| `active`         | `Signal<boolean>`               | `!disabled && !failed && !readable`                                          |
 | `fontStack`      | `Signal<string>`                | The `font-family` value protected elements use                               |
 | `hidden`         | `Signal<boolean>`               | Protected text should stay hidden right now                                  |
 | `scramble(text)` | `string`                        | Scramble, or return unchanged when protection is off                         |
@@ -493,11 +500,62 @@ it too.
 This raises the cost of scraping; it does not make content secret. **Do not use
 it as an access control.**
 
+## Accessibility
+
+Scrambled text is not accessible, and veneer does not pretend otherwise. Screen
+readers, braille displays, find-in-page, translation and copy-paste all get the
+scrambled characters, because that is the protection.
+
+What veneer offers, all opt-in:
+
+- **Readable mode** - `VeneerFontService.readable`, a signal that switches
+  scrambling off for every protected element on the page, remembered in
+  `localStorage` (where storage works). `VeneerReadableToggle` is a ready-made
+  toggle button for it:
+
+  ```html
+  <button veneerReadableToggle>Readable text</button>
+  ```
+
+  Put it early in the page, outside protected content, so keyboard and screen
+  reader users reach it first. **This is the route to conformance**: a visitor who
+  needs the text switches it on and gets ordinary text, accessible like the rest
+  of your page. WCAG lets a page conform through a conforming alternate version
+  reached by an accessible mechanism; whether a toggle on the same page satisfies
+  your audit is for your auditor to decide.
+
+- **`withA11y('hide')`** - sets `aria-hidden="true"` on protected elements while
+  they are scrambled, and removes it when protection fails open, is disabled, or
+  the visitor switches on readable mode. Say it plainly: `aria-hidden` **hides**
+  the content from assistive technology. It does not make it accessible. It stops
+  a screen reader from reading gibberish aloud, and the reader then gets nothing
+  instead. Use it together with readable mode, never as the whole answer. It
+  skips elements that are or contain something focusable (a link, a button),
+  because hiding focusable content breaks keyboard and screen reader navigation;
+  development builds warn ([VNR021](#vnr021)).
+
+- **`withReadableCopy()`** - copying a selection that includes protected text puts
+  the readable words on the clipboard (`text/plain` and `text/html`). Off by
+  default, because it also makes the text one Ctrl+C away from a chatbot.
+
+WCAG 2.2 success criteria that scrambled text affects, while readable mode is off:
+
+| Criterion                       | Level | Why                                                                                                               |
+| ------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------- |
+| 1.3.1 Info and Relationships    | A     | The words on screen come from the font, not the text; they cannot be programmatically determined                  |
+| 1.1.1 Non-text Content          | A     | Like an icon font, the visible words are glyphs standing in for other characters, with no text alternative        |
+| 2.4.4 Link Purpose (In Context) | A     | A link inside protected text has a scrambled name                                                                 |
+| 2.5.3 Label in Name             | A     | The visible label of a link or control inside protected text does not match its accessible name                   |
+| 4.1.2 Name, Role, Value         | A     | The same, for the name of any control; and `aria-hidden` over focusable content (which `withA11y('hide')` avoids) |
+
+Keep navigation, headings, form labels, links and controls unprotected. Protect
+long-form content, and offer readable mode wherever you protect.
+
 ## Trade-offs
 
 On protected text only:
 
-- **Screen readers announce gibberish**
+- **Screen readers announce gibberish** - see [Accessibility](#accessibility)
 - **Find-in-page (Ctrl+F) does not match**
 - **Copy-paste yields the scrambled string**
 - **The forged font is the key** - it is the base font with only the `cmap`
@@ -676,6 +734,15 @@ glyph and draws the wrong one. Change the case in the text itself, or keep the
 style off protected text. Small caps are safe only when the font has real
 small-cap glyphs (the `smcp` feature), which the forge keeps, and the browser does
 not synthesize them.
+
+### VNR021
+
+Dev-mode warning: `withA11y('hide')` did not hide a protected element because it is
+or contains something focusable (a link, a button, a form control, an element
+with `tabindex`). `aria-hidden` over focusable content leaves keyboard stops that
+assistive technology cannot describe (WCAG 4.1.2), so veneer leaves the element
+exposed and screen readers will read its scrambled text. Keep links and controls
+out of protected elements, or rely on readable mode for that content.
 
 ## Troubleshooting
 

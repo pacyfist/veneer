@@ -41,10 +41,12 @@ export interface Specimen {
 const BINDINGS: Record<string, readonly { file: string; name: string }[]> = {
   'sections/apply-tabs.ts: [veneer]="bound()"': [{ file: 'sections/apply-tabs.ts', name: 'bound' }],
   'sections/apply-tabs.ts: piped() | veneer': [{ file: 'sections/apply-tabs.ts', name: 'piped' }],
-  // SpecimenCard renders IsolatedInstance's [text], which bench and breakage pass in.
+  // SpecimenCard renders IsolatedInstance's [text], which bench, breakage and
+  // trade-offs (the readable-copy sample) pass in.
   'ui/specimen-card.ts: [veneer]="text()"': [
     { file: 'sections/bench.ts', name: 'SAMPLE' },
     { file: 'sections/breakage.ts', name: 'SAMPLE' },
+    { file: 'sections/trade-offs.ts', name: 'COPY_SAMPLE' },
   ],
   // MirrorPanel renders TryIt's typed text, which starts out as this default.
   'ui/mirror-panel.ts: readable() | veneer': [{ file: 'sections/try-it.ts', name: 'text' }],

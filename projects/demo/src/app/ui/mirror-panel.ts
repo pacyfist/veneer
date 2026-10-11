@@ -19,7 +19,7 @@ import { VeneerFontDirective, VeneerPipe } from '@pacyfist/veneer';
     <div class="grid gap-3 sm:grid-cols-2">
       <div class="rounded-box border-primary/30 bg-primary/5 border p-4">
         <p class="text-primary mb-2 text-xs font-bold tracking-widest uppercase">You see</p>
-        <p class="min-h-6 text-lg leading-relaxed break-words" aria-hidden="true" veneerFont>
+        <p class="min-h-6 text-lg leading-relaxed break-words" veneerFont>
           {{ readable() | veneer }}
         </p>
         <p class="sr-only">

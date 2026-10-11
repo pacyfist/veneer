@@ -46,6 +46,12 @@ export interface VeneerTestingOptions {
 
   /** As `hideWith` in `provideVeneer()`. Defaults to `'stylesheet'`. */
   hideWith?: 'stylesheet' | 'hidden';
+
+  /** As `withA11y()`: `'hide'` sets `aria-hidden` on protected elements while active. */
+  a11y?: 'hide';
+
+  /** As `withReadableCopy()`: decode protected text on copy. */
+  readableCopy?: boolean;
 }
 
 /** Seed used when a test does not pass one. Any fixed value would do. */
@@ -98,7 +104,10 @@ export class VeneerTestingFontService implements VeneerFontState {
     return state === 'ready' ? 'active' : state;
   });
   readonly revealed = signal(false);
-  readonly active = computed(() => this.state() === 'ready' || this.state() === 'loading');
+  readonly readable = signal(false);
+  readonly active = computed(
+    () => (this.state() === 'ready' || this.state() === 'loading') && !this.readable(),
+  );
   readonly fontStack = computed(() =>
     this.active() && !this.revealed()
       ? `"${this.familyName}", ${this.fallbackFontFamily}`
@@ -168,6 +177,8 @@ export function provideVeneerTesting(options: VeneerTestingOptions = {}): Enviro
     faces: [],
     statusListeners: [],
     statusAttribute: false,
+    a11y: options.a11y ?? 'none',
+    readableCopy: options.readableCopy ?? false,
   };
   return makeEnvironmentProviders([
     { provide: VENEER_CONFIG, useValue: config },

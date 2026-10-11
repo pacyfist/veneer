@@ -92,7 +92,7 @@ const LENS = 90;
             A protected sample paragraph follows. It is stored scrambled and repaired on screen by a
             generated font.
           </p>
-          <p class="text-2xl leading-snug md:text-[1.7rem]" aria-hidden="true" veneer>
+          <p class="text-2xl leading-snug md:text-[1.7rem]" veneer>
             This paragraph looks perfectly normal to you. Copy it, search it, or feed it to a
             scraper, and all you get is gibberish.
           </p>

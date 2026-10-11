@@ -17,7 +17,7 @@ import {
 import { isPlatformBrowser } from '@angular/common';
 import { injectVeneerState } from './veneer-inject';
 import { VeneerFontState } from './veneer-font-state';
-import { registerHost, unregisterHost, walkTextNodes } from './veneer-hosts';
+import { walkTextNodes } from './veneer-hosts';
 import { VeneerHtml, sanitizeHtml } from './veneer-sanitize';
 import { VENEER_CONFIG } from './veneer.config';
 import { HostPresentation } from './veneer-presentation';
@@ -90,7 +90,11 @@ export class VeneerDirective implements OnInit, AfterViewChecked, OnDestroy {
   private readonly sanitizer = inject(Sanitizer, { optional: true });
   private readonly service: VeneerFontState = injectVeneerState('The veneer directive');
   private readonly config = inject(VENEER_CONFIG);
-  private readonly presentation = new HostPresentation(this.element.nativeElement, this.service);
+  private readonly presentation = new HostPresentation(
+    this.element.nativeElement,
+    this.service,
+    'text',
+  );
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   /**
@@ -138,12 +142,6 @@ export class VeneerDirective implements OnInit, AfterViewChecked, OnDestroy {
   private serverTexts: Text[] = [];
 
   constructor() {
-    registerHost(this.element.nativeElement, {
-      state: this.service,
-      kind: 'text',
-      copy: false,
-    });
-
     effect(() => {
       this.veneer();
       this.veneerHtml();
@@ -182,7 +180,7 @@ export class VeneerDirective implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    unregisterHost(this.element.nativeElement);
+    this.presentation.destroy();
   }
 
   private mode(): Mode {
@@ -220,7 +218,9 @@ export class VeneerDirective implements OnInit, AfterViewChecked, OnDestroy {
       this.written.set(text, value);
     }
 
-    this.presentation.apply();
+    // Readable mode cannot show the server's text until it can be inverted:
+    // in the fallback font it would be gibberish. Keep it hidden until then.
+    this.presentation.apply(this.serverTexts.length > 0 && this.service.readable());
 
     const fontStack = this.service.fontStack();
     // Opted-out text is readable, so it must not inherit the forged font,

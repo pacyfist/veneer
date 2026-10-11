@@ -30,6 +30,8 @@ describe('provideVeneer', () => {
       faces: [],
       statusListeners: [],
       statusAttribute: false,
+      a11y: 'none',
+      readableCopy: false,
     });
   });
 

@@ -43,6 +43,7 @@
     "@angular/cli": "^21.2.11",
     "@angular/compiler-cli": "^21.2.0",
     "@arethetypeswrong/cli": "^0.18.5",
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.62.1",
     "@types/express": "^5.0.1",
     "@types/node": "^20.17.19",

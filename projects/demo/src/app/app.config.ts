@@ -7,7 +7,7 @@ import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
-import { provideVeneer, withStatusAttribute } from '@pacyfist/veneer';
+import { provideVeneer, withA11y, withStatusAttribute } from '@pacyfist/veneer';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -27,6 +27,9 @@ export const appConfig: ApplicationConfig = {
       },
       // <html data-veneer-status="..."> for the shell instance; e2e reads it.
       withStatusAttribute(),
+      // aria-hidden on protected elements while they are scrambled. The navbar's
+      // "Readable text" switch is what gives screen reader users the text.
+      withA11y('hide'),
     ),
   ],
 };

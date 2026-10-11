@@ -1,8 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { VeneerFontService } from '@pacyfist/veneer';
+import { VeneerFontService, withReadableCopy } from '@pacyfist/veneer';
 import { SectionHeading } from '../ui/section-heading';
+import { IsolatedInstance } from '../ui/isolated-instance';
 
 const SPOKEN = 'Protect article bodies, not navigation.';
+
+const COPY_SAMPLE = 'Copy me and paste me: you get these very words back.';
 
 /**
  * What it stops, what it does not, and what it costs.
@@ -13,7 +16,7 @@ const SPOKEN = 'Protect article bodies, not navigation.';
 @Component({
   selector: 'app-trade-offs',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SectionHeading],
+  imports: [SectionHeading, IsolatedInstance],
   template: `
     <app-section-heading eyebrow="The honest part" title="A speed bump, not a vault">
       veneer makes lazy, bulk scraping pointless. It won't stop someone who is specifically after
@@ -66,7 +69,7 @@ const SPOKEN = 'Protect article bodies, not navigation.';
           <h4 class="card-title">Copy and paste</h4>
           <p class="text-base-content/70">
             Your human readers get gibberish when they copy a quote, too. Don't protect text people
-            are meant to share.
+            are meant to share, or opt in to readable copies (below).
           </p>
         </div>
       </div>
@@ -79,10 +82,28 @@ const SPOKEN = 'Protect article bodies, not navigation.';
           </p>
           <p class="text-secondary font-mono break-all">{{ spoken() }}</p>
           <p class="text-base-content/70">
-            Hide protected text from it with <code>aria-hidden</code> and offer a readable summary.
+            <code>withA11y('hide')</code> hides protected text from it while it is scrambled. That
+            hides the text, it doesn't make it accessible: the <strong>Readable text</strong> switch
+            at the top of this page turns scrambling off, and that is what gives these readers the
+            words.
           </p>
         </div>
       </div>
+    </div>
+
+    <div class="mt-6 grid items-start gap-4 md:grid-cols-2">
+      <div class="card bg-base-100 border-base-300 border">
+        <div class="card-body">
+          <h4 class="card-title">Opt in: copy readable text</h4>
+          <p id="copy-explainer" class="text-base-content/70">
+            With <code>withReadableCopy()</code>, copying a selection that includes protected text
+            puts the words people see on the clipboard. Scripts reading the page still get
+            gibberish. Select the sample, from the text above it if you like, and paste it
+            somewhere.
+          </p>
+        </div>
+      </div>
+      <app-isolated-instance [text]="copySample" [features]="copyFeatures" />
     </div>
 
     <div class="rounded-box border-base-300 bg-base-200 mt-6 border p-5 text-lg">
@@ -98,6 +119,9 @@ const SPOKEN = 'Protect article bodies, not navigation.';
 })
 export class TradeOffs {
   private readonly veneer = inject(VeneerFontService);
+
+  protected readonly copySample = COPY_SAMPLE;
+  protected readonly copyFeatures = [withReadableCopy()];
 
   protected readonly stops = [
     'Scripts that download your HTML and parse it',

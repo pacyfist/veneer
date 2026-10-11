@@ -9,7 +9,6 @@ import {
 } from '@angular/core';
 import { injectVeneerState } from './veneer-inject';
 import { VeneerFontState } from './veneer-font-state';
-import { registerHost, unregisterHost } from './veneer-hosts';
 import { warnCaseStyles } from './veneer-dev';
 import { HostPresentation } from './veneer-presentation';
 
@@ -31,11 +30,13 @@ declare const ngDevMode: boolean | undefined;
 export class VeneerFontDirective implements OnInit, OnDestroy {
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly service: VeneerFontState = injectVeneerState('The veneerFont directive');
-  private readonly presentation = new HostPresentation(this.element.nativeElement, this.service);
+  private readonly presentation = new HostPresentation(
+    this.element.nativeElement,
+    this.service,
+    'font',
+  );
 
   constructor() {
-    registerHost(this.element.nativeElement, { state: this.service, kind: 'font', copy: false });
-
     effect(() => {
       this.service.fontStack();
       this.service.hidden();
@@ -54,7 +55,7 @@ export class VeneerFontDirective implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    unregisterHost(this.element.nativeElement);
+    this.presentation.destroy();
   }
 
   private apply(): void {

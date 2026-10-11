@@ -5,11 +5,14 @@
 // Setup
 export {
   provideVeneer,
+  withA11y,
   withFaces,
+  withReadableCopy,
   withStatusAttribute,
   withStatusListener,
 } from './lib/veneer.config';
 export type {
+  VeneerA11yMode,
   VeneerConfig,
   VeneerFace,
   VeneerFeature,
@@ -25,6 +28,8 @@ export { VENEER_CSP_HASHES } from './lib/veneer-hide';
 export { VeneerDirective } from './lib/veneer.directive';
 export { VeneerFontDirective } from './lib/veneer-font.directive';
 export { VeneerPipe } from './lib/veneer.pipe';
+export { VeneerReadableToggle } from './lib/veneer-readable-toggle';
+export type { VeneerHtml } from './lib/veneer-sanitize';
 
 // Runtime state: font readiness, failures, and the reveal toggle
 export { VeneerFontService } from './lib/veneer-font.service';

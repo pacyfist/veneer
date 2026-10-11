@@ -17,6 +17,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { VENEER_CONFIG, VeneerFace } from './veneer.config';
 import { ScrambleMap, buildScrambleMap, randomSeed, scrambleText } from '@pacyfist/veneer/core';
 import { VeneerFontState } from './veneer-font-state';
+import { readableMode } from './veneer-readable';
 import { Forge, FontSourceError, loadBaseFont, loadForge } from './base-font';
 import type { BaseFont } from '@pacyfist/veneer/forge';
 import { docsUrl, veneerMessage } from './veneer-errors';
@@ -145,8 +146,17 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
    */
   readonly revealed = signal(false);
 
-  /** Whether scrambling applies at all. */
-  readonly active = computed(() => !this.config.disabled && this.failed() === null);
+  /**
+   * Readable mode: the visitor's choice to switch scrambling off, shared by
+   * every instance on the page and remembered in `localStorage`. Offer it
+   * with `VeneerReadableToggle`. Always false during server rendering.
+   */
+  readonly readable: WritableSignal<boolean> = readableMode(this.document, this.isBrowser);
+
+  /** Whether scrambling applies at all: not disabled, not failed, not in readable mode. */
+  readonly active = computed(
+    () => !this.config.disabled && this.failed() === null && !this.readable(),
+  );
 
   /** The `font-family` value protected elements should use. */
   readonly fontStack = computed(() =>

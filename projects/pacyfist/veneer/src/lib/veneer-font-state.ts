@@ -43,11 +43,18 @@ export interface VeneerFontState {
 
   /**
    * Demo/debug switch. When true the forged font is withheld, exposing the raw
-   * scrambled characters. The only writable part of the state.
+   * scrambled characters.
    */
   readonly revealed: WritableSignal<boolean>;
 
-  /** Whether scrambling applies at all. */
+  /**
+   * Readable mode: the visitor's choice to switch scrambling off for the
+   * page, remembered in `localStorage`. Writable; `VeneerReadableToggle`
+   * flips it.
+   */
+  readonly readable: WritableSignal<boolean>;
+
+  /** Whether scrambling applies at all: not disabled, not failed, not in readable mode. */
   readonly active: Signal<boolean>;
 
   /** The `font-family` value protected elements should use. */

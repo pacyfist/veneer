@@ -46,13 +46,7 @@ const NEEDLE = 'haystack';
           <!-- Element content, not an interpolation: {{ }} inside a veneer element
                is the documented trap. The constant is spliced in at compile time
                so this and the clipboard readout cannot drift apart. -->
-          <p
-            #copyTarget
-            class="rounded-field bg-base-200 p-3 text-lg"
-            aria-hidden="true"
-            veneer
-            (copy)="onCopy()"
-          >
+          <p #copyTarget class="rounded-field bg-base-200 p-3 text-lg" veneer (copy)="onCopy()">
             ${COPY_ME}
           </p>
           <div class="flex items-center gap-3">
@@ -80,7 +74,7 @@ const NEEDLE = 'haystack';
         <div class="card-body">
           <h3 class="card-title">2. Search for it</h3>
           <p class="sr-only">A protected sentence naming a word to search for follows.</p>
-          <p class="rounded-field bg-base-200 p-3 text-lg" aria-hidden="true" veneer>
+          <p class="rounded-field bg-base-200 p-3 text-lg" veneer>
             Find the word haystack on this page.
           </p>
           <p class="text-base-content/70">

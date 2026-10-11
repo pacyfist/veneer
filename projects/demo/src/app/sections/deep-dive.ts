@@ -55,7 +55,7 @@ import { CipherTable } from './cipher-table';
             </div>
             <div>
               <div class="text-base-content/50 text-xs tracking-widest uppercase">generated</div>
-              <div class="text-5xl" aria-hidden="true" veneerFont>{{ kernSample() }}</div>
+              <div class="text-5xl" veneerFont>{{ kernSample() }}</div>
             </div>
           </div>
         </div>
