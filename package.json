@@ -16,7 +16,8 @@
     "use-angular": "node scripts/use-angular.mjs",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "serve:ssr:demo": "node dist/demo/server/server.mjs"
+    "serve:ssr:demo": "node dist/demo/server/server.mjs",
+    "format:check": "prettier --check ."
   },
   "license": "AGPL-3.0-only",
   "packageManager": "npm@11.14.1",

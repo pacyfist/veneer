@@ -1,0 +1,31 @@
+# Weekly dependency updates. Angular packages move together in one PR, since a
+# partial Angular upgrade does not install. The Angular majors the library
+# supports are tested by the validate workflow (scripts/use-angular.mjs), not
+# by bumping the workspace.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      angular:
+        patterns:
+          - '@angular/*'
+          - '@angular-devkit/*'
+          - 'ng-packagr'
+    ignore:
+      # Each Angular major accepts only a narrow TypeScript range (see
+      # scripts/use-angular.mjs), so TypeScript moves by hand with Angular.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - '*'

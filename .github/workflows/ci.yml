@@ -17,6 +17,10 @@ on:
   pull_request:
   workflow_dispatch:
   workflow_call:
+  # Weekly, to catch drift: each major resolves its newest release at install
+  # time (scripts/use-angular.mjs), and the example app has no lockfile.
+  schedule:
+    - cron: '23 5 * * 1'
 
 permissions:
   contents: read
@@ -40,6 +44,9 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Formatting
+        run: npm run format:check
 
       - run: node scripts/use-angular.mjs 20
 

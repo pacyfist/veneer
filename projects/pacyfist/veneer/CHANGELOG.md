@@ -12,7 +12,7 @@ such as `^0.0.2` only matches that exact version.
 
 ### Features
 
-- support Angular 20, 21 and 22: the peer dependency ranges for
+* support Angular 20, 21 and 22: the peer dependency ranges for
   `@angular/core` and `@angular/common` are now `^20.0.0 || ^21.0.0 || ^22.0.0`
   instead of `^21.2.0`, and the published package is built with Angular 20,
   the oldest supported major ([3f1b59e](https://github.com/pacyfist/veneer/commit/3f1b59e))
@@ -24,19 +24,19 @@ First release on npm. The library was developed as `no-ai` and renamed to
 
 ### Features
 
-- `veneer` directive, `veneerFont` directive, `veneer` pipe and
+* `veneer` directive, `veneerFont` directive, `veneer` pipe and
   `provideVeneer()`: text is scrambled in the DOM and drawn readable by a font
   forged at runtime with opentype.js, with server-side rendering and hydration
   support ([f86b505](https://github.com/pacyfist/veneer/commit/f86b505))
-- the package ships its LICENSE file ([d213f6b](https://github.com/pacyfist/veneer/commit/d213f6b))
+* the package ships its LICENSE file ([d213f6b](https://github.com/pacyfist/veneer/commit/d213f6b))
 
 ### Bug Fixes
 
-- stop double scrambling static text on hydration ([77039dc](https://github.com/pacyfist/veneer/commit/77039dc))
-- only publish the implicit seed to transfer state ([7f4f19d](https://github.com/pacyfist/veneer/commit/7f4f19d))
-- remove the registered font face when the service is destroyed ([012eefb](https://github.com/pacyfist/veneer/commit/012eefb))
+* stop double scrambling static text on hydration ([77039dc](https://github.com/pacyfist/veneer/commit/77039dc))
+* only publish the implicit seed to transfer state ([7f4f19d](https://github.com/pacyfist/veneer/commit/7f4f19d))
+* remove the registered font face when the service is destroyed ([012eefb](https://github.com/pacyfist/veneer/commit/012eefb))
 
 ### Documentation
 
-- license is AGPL-3.0-only ([f611226](https://github.com/pacyfist/veneer/commit/f611226))
-- rewrite the library README ([11145d3](https://github.com/pacyfist/veneer/commit/11145d3))
+* license is AGPL-3.0-only ([f611226](https://github.com/pacyfist/veneer/commit/f611226))
+* rewrite the library README ([11145d3](https://github.com/pacyfist/veneer/commit/11145d3))
