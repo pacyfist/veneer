@@ -105,8 +105,13 @@ jobs:
         if: matrix.angular >= 21
         run: npx ng test @pacyfist/veneer --watch=false
 
+      # The demo is prerendered, so the fonts veneer forges during the build
+      # are copied into the browser output afterwards (see build:pages).
       - name: Build static site
-        run: npx ng build demo --configuration production,github-pages
+        run: |
+          node scripts/demo-veneer-fonts.mjs clean
+          npx ng build demo --configuration production,github-pages
+          node scripts/demo-veneer-fonts.mjs copy
 
       - run: npx playwright install --with-deps chromium firefox webkit
 

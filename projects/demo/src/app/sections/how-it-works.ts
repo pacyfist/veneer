@@ -11,9 +11,9 @@ interface Pair {
  * The mechanism in three beats, driven by the page's own cipher.
  *
  * Uses the shell service's map directly instead of `scramble()`, so the
- * illustration keeps working even if the font fails to load. The map's seed
- * travels from server to client, so the prerendered example and the hydrated
- * one agree.
+ * illustration keeps working even if the font fails to load. On the client
+ * the map is the server's once its forged font has been read, so the
+ * prerendered example and the hydrated one agree.
  */
 @Component({
   selector: 'app-how-it-works',

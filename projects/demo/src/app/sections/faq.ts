@@ -38,7 +38,7 @@ const QUESTIONS: readonly Question[] = [
   },
   {
     q: 'Does it work with server-side rendering?',
-    a: 'Yes, and that is where it matters most. The server writes the scrambled text into the HTML, and the browser rebuilds the matching font from the same seed.',
+    a: 'Yes, and that is where it matters most. With provideVeneerServer() the server forges the font itself and writes the scrambled text into the HTML, which carries only the font URL, never the key. The browser fetches that font and reads the cipher back from it. A prerendered site like this one shares one cipher per build.',
   },
   {
     q: 'Can I use any of it outside Angular?',

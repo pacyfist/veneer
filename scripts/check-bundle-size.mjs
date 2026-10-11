@@ -40,11 +40,19 @@ import { gzipSync } from 'node:zlib';
  * `.` and `./testing` raised 2026-10-11 at the end of the runtime work:
  * `.` 8,965 B (strictCoverage narrowing, withFaces, id), `./testing` 4,136 B
  * (findVeneerLeaks).
+ *
+ * Raised 2026-10-11 when the key left the HTML (Next #2): `.` 10,785 B (the
+ * hydrate path that fetches the server's forged font and reads the map back,
+ * VNR015/VNR016), `./core` 5,507 B (randomScrambleMap), `./forge` 10,639 B
+ * (readScrambleMap, parseBaseFontSync), and the new server-only `./server`
+ * entry point at 4,311 B (provideVeneerServer, veneerFontMiddleware).
+ * `./testing` 4,325 B stays under its budget.
  */
 const BUDGETS = {
-  '.': 9_900,
-  './core': 5_500,
-  './forge': 10_800,
+  '.': 11_900,
+  './core': 6_100,
+  './forge': 11_700,
+  './server': 4_800,
   './testing': 4_600,
 };
 

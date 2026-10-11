@@ -98,7 +98,10 @@ test('fetches the forged font once and never shows text before it is ready', asy
   });
   const fonts: string[] = [];
   page.on('request', (request) => {
-    if (request.url().endsWith('.ttf')) fonts.push(new URL(request.url()).pathname);
+    // Only veneer's own fetches; the page's @font-face loads Roboto as well.
+    if (request.url().endsWith('.ttf') && request.resourceType() === 'fetch') {
+      fonts.push(new URL(request.url()).pathname);
+    }
   });
 
   const response = await page.goto('./');

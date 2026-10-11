@@ -36,6 +36,9 @@ const {
   forgeScrambledFont,
   coveredCodepoints,
   charsetFromFont,
+  randomScrambleMap,
+  readScrambleMap,
+  parseBaseFontSync,
 } = core;
 
 // Cipher round trip.
@@ -73,6 +76,20 @@ const charset = new Set(DEFAULT_CHARSET);
 for (const cp of base.codepoints()) {
   if (!charset.has(cp)) assert.equal(forged.glyphId(cp), base.glyphId(cp), `U+${cp.toString(16)}`);
 }
+
+// What a browser hydrating a server render does: read the map back out of
+// the forged font. Here with a CSPRNG map, as the server entry point draws.
+const drawn = randomScrambleMap();
+assert.equal(drawn.seed, undefined, 'a CSPRNG map carries a seed');
+const read = readScrambleMap(
+  parseBaseFontSync(bytes),
+  parseBaseFontSync(forgeScrambledFont(base, drawn, 'Veneer-read')),
+);
+assert.deepEqual(
+  [...read.forward].sort((a, b) => a[0] - b[0]),
+  [...drawn.forward].sort((a, b) => a[0] - b[0]),
+  'the map read back from the forged font differs',
+);
 
 // DecompressionStream exists in Node 18+, so WOFF input must work here too.
 assert.deepEqual(coveredCodepoints(base, [0x61, 0x4e2d]), [0x61]);
