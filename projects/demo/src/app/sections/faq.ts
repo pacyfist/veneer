@@ -26,7 +26,7 @@ const QUESTIONS: readonly Question[] = [
   },
   {
     q: 'Will it hurt my SEO?',
-    a: 'For the protected text, yes. Search engines index the server-rendered HTML, and for protected text that is gibberish. Protect article bodies, not the titles, headings and summaries you want to rank for, and keep meta descriptions to a summary.',
+    a: 'For the protected text, yes. Search engines index the server-rendered HTML, and for protected text that is gibberish. Protect article bodies, not the titles, headings and summaries you want to rank for, and keep meta descriptions to a summary. A server-rendered app can serve readable text to search crawlers it has verified by DNS, through the shouldProtect hook; a prerendered site like this one cannot.',
   },
   {
     q: 'Is it accessible?',

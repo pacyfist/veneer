@@ -43,6 +43,11 @@ A break of something veneer claims to do. For example:
   protected element in the browser, without `status()` becoming `failed` or
   `disabled` and without an error being logged (other than readable mode and
   the documented interpolation mistake, [VNR001](projects/pacyfist/veneer/README.md#vnr001)).
+- **A `verifyCrawler()` bypass.** A request that is not from a crawler's
+  documented address space passing `verifyCrawler()` or `createCrawlerVerifier()`
+  (with the app's proxy trust set correctly), so that `shouldProtect` serves it
+  readable text; or a hook that throws being rendered readable instead of
+  protected.
 - **Ordinary web vulnerabilities in veneer's code.** Script injection through
   `[veneerHtml]` (it must sanitize like `[innerHTML]`), path traversal or
   arbitrary file reads through `veneerFontMiddleware()` or the server's font
@@ -70,7 +75,9 @@ vulnerabilities:
   HttpClient transfer cache, or quoted elsewhere on the page.
 - **Shared ciphers.** One cipher per build on prerendered sites, and one per
   server process and config with `provideVeneerServer()`.
-- **Choices the app makes.** A fixed `seed`; rendering without
+- **Choices the app makes.** A fixed `seed`; a `shouldProtect` hook that
+  returns `false` on a weak signal (a header, the user agent), or a `trust proxy`
+  setting that lets clients choose their IP; rendering without
   `provideVeneerServer()` (protected text is then served readable and VNR015 is
   logged); readable mode and `withReadableCopy()`, which hand out readable text
   on purpose; CFF (`.otf`) base fonts keeping glyph names in the `CFF` table.

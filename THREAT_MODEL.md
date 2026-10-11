@@ -20,13 +20,14 @@ their `cmap` tables.
 
 ## What is protected, and for how long
 
-| Deployment                          | Cipher lifetime                                               | Key in the HTML?                     |
-| ----------------------------------- | ------------------------------------------------------------- | ------------------------------------ |
-| SSR with `provideVeneerServer()`    | One per server process and `provideVeneer` config             | No, only the forged font's URL       |
-| Prerendered (SSG)                   | One per build, shared by every visitor until the next build   | No, only the forged font's URL       |
-| Client-only rendering (no SSR)      | One per page load, drawn in the browser                       | No text in the HTML at all           |
-| SSR without `provideVeneerServer()` | None: protected text is rendered **readable** (VNR015)        | Not applicable, the text is readable |
-| Any setup with a fixed `seed`       | Fixed. The seed is in the JS bundle and 32 bits is searchable | Effectively yes                      |
+| Deployment                            | Cipher lifetime                                               | Key in the HTML?                     |
+| ------------------------------------- | ------------------------------------------------------------- | ------------------------------------ |
+| SSR with `provideVeneerServer()`      | One per server process and `provideVeneer` config             | No, only the forged font's URL       |
+| Prerendered (SSG)                     | One per build, shared by every visitor until the next build   | No, only the forged font's URL       |
+| Client-only rendering (no SSR)        | One per page load, drawn in the browser                       | No text in the HTML at all           |
+| SSR, `shouldProtect` returned `false` | None for that response: rendered **readable** on purpose      | Not applicable, the text is readable |
+| SSR without `provideVeneerServer()`   | None: protected text is rendered **readable** (VNR015)        | Not applicable, the text is readable |
+| Any setup with a fixed `seed`         | Fixed. The seed is in the JS bundle and 32 bits is searchable | Effectively yes                      |
 
 Only the text of elements marked with `veneer`, `[veneer]`, `[veneerHtml]` or
 the `veneer` pipe is protected. Everything else on the page, and every copy of
@@ -70,6 +71,25 @@ That calculation changes as adoption grows. Plan for the day a generic decoder
 exists, and treat veneer as one layer next to robots.txt, AI-preference signals
 and bot management (see
 [Where veneer fits](projects/pacyfist/veneer/README.md#where-veneer-fits)).
+
+## `shouldProtect`: a deliberate bypass
+
+On dynamic SSR, `provideVeneerServer({ shouldProtect })` can render a page
+readable for some requests, typically search crawlers verified with
+`verifyCrawler()` (reverse DNS, then forward DNS back to the same IP). That is a
+bypass by design, so it is attack surface:
+
+- **Spoofing the check.** The user agent proves nothing; the DNS round trip is
+  what counts. An attacker who controls the client IP the server sees gets
+  readable pages: behind a proxy or CDN, `trust proxy` must trust exactly your
+  proxies, or a forged `X-Forwarded-For` header is enough.
+- **Your own hook.** Whatever the app's `shouldProtect` returns `false` for gets
+  readable text. A hook keyed on a header, a cookie or the user agent is as weak
+  as that signal.
+- **The crawler's operator.** Text served readable to a verified crawler is plain
+  text to whoever runs it, for search and for anything else they do with it.
+- **Fails closed.** A hook that throws or rejects renders the page protected
+  (VNR017). Prerendered pages never call the hook.
 
 ## Attack matrix
 

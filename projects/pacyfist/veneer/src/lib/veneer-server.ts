@@ -33,6 +33,14 @@ export interface VeneerServerCipher {
  */
 export interface VeneerServerForge {
   /**
+   * Whether this render is protected at all. False only when the app's
+   * `shouldProtect` hook returned false for the current request; the
+   * instance then renders readable text, forges nothing, and tells the
+   * client to stay unprotected (`VeneerTransfer`).
+   */
+  protects(): boolean;
+
+  /**
    * Synchronous, because the first render scrambles synchronously. Throws when
    * the fonts cannot be read or forged; the instance then fails open.
    */
@@ -50,8 +58,10 @@ export const VENEER_SERVER_FORGE = new InjectionToken<VeneerServerForge>('VENEER
  * What travels from the server to the client in TransferState: no seed and no
  * map, only where the forged fonts are. The client has to fetch and parse one
  * to learn the cipher, which is exactly what an attacker has to do too.
+ *
+ * Or, when `shouldProtect` turned protection off for the request, only
+ * `{ protect: false }`, so the hydrating client keeps the readable text the
+ * server rendered instead of scrambling it itself. It carries no secret.
  */
-export interface VeneerTransfer {
-  readonly family: string;
-  readonly fonts: readonly string[];
-}
+export type VeneerTransfer =
+  { readonly family: string; readonly fonts: readonly string[] } | { readonly protect: false };

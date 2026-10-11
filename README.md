@@ -46,7 +46,7 @@ Read this before you install. Each answer links to the details.
 | Question               | Answer                                                                                                                                                                                                                                                                                                     |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **License**            | AGPL-3.0-only. On a public website, your site's source has to be available under the same license. Your font's license must allow modified versions ([checklist](projects/pacyfist/veneer/README.md#font-license-checklist))                                                                               |
-| **SEO**                | Search engines index protected text as gibberish. Protect bodies, not what you want to rank for ([SEO](projects/pacyfist/veneer/README.md#search-engines-and-seo))                                                                                                                                         |
+| **SEO**                | Search engines index protected text as gibberish. Protect bodies, not what you want to rank for. On dynamic SSR, `shouldProtect` can serve verified crawlers readable text ([SEO](projects/pacyfist/veneer/README.md#search-engines-and-shouldprotect))                                                    |
 | **Accessibility**      | Scrambled text is not accessible. Readable mode (a toggle button) is the route to WCAG conformance; `withA11y('hide')` only hides it from screen readers ([details](projects/pacyfist/veneer/README.md#accessibility))                                                                                     |
 | **Browsers**           | Chromium and Firefox measured in e2e on Linux; WebKit tested in CI only. Anything without `FontFace` falls back to readable text ([support](projects/pacyfist/veneer/README.md#browsers))                                                                                                                  |
 | **Prerendered sites**  | One cipher per build, shared by every visitor until the next build. Server rendering uses one per server process                                                                                                                                                                                           |
@@ -168,7 +168,8 @@ and nobody writes one for a technique almost no site uses.
 - Search engines index the scrambled text.
 
 **Good use:** article bodies, recipes, lyrics, product descriptions.
-**Leave alone:** menus, headings, form labels, and anything you want to rank.
+**Leave alone:** menus, headings, form labels, and anything you want to rank
+(see [Search engines and `shouldProtect`](projects/pacyfist/veneer/README.md#search-engines-and-shouldprotect)).
 **Never:** secrets. This is not encryption.
 
 ## It fails safe

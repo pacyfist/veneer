@@ -2,7 +2,15 @@
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
-import { EnvironmentProviders, makeEnvironmentProviders } from '@angular/core';
+import {
+  EnvironmentProviders,
+  InjectionToken,
+  REQUEST,
+  REQUEST_CONTEXT,
+  inject,
+  makeEnvironmentProviders,
+  provideAppInitializer,
+} from '@angular/core';
 import {
   type VeneerFontSource,
   type ɵResolvedVeneerConfig as ResolvedVeneerConfig,
@@ -22,6 +30,18 @@ import { storeFont } from './font-store';
 
 /** Reads a base font on the server, given the source written in `provideVeneer()`. */
 export type VeneerServerFontReader = (source: VeneerFontSource) => ArrayBuffer | Uint8Array;
+
+/**
+ * Decides, per request, whether a dynamic server render is protected. Gets the
+ * request Angular renders (`REQUEST`) and whatever server.ts passed as the
+ * second argument of `angularApp.handle(req, context)` (`REQUEST_CONTEXT`).
+ * Return (or resolve to) `false` to render that page readable; anything else
+ * protects it.
+ */
+export type VeneerShouldProtect = (
+  request: Request,
+  context: unknown,
+) => boolean | Promise<boolean>;
 
 export interface VeneerServerOptions {
   /**
@@ -54,6 +74,74 @@ export interface VeneerServerOptions {
    * output after prerendering.
    */
   emitDir?: string;
+
+  /**
+   * Decide per request whether to protect the page, typically to serve
+   * verified search crawlers readable text (see `verifyCrawler()`).
+   *
+   * Dynamic SSR only (`RenderMode.Server`, with `AngularNodeAppEngine` or
+   * `AngularAppEngine`). It is never called when there is no request:
+   * prerendered (SSG) pages, route extraction at build time, and
+   * `CommonEngine`, which provides no `REQUEST`. Those are always protected,
+   * so a prerendered page cannot be unprotected for a crawler.
+   *
+   * When it returns `false` the render scrambles nothing, forges no font,
+   * puts no font URL in the page, and the browser that hydrates the page
+   * keeps the text readable (status `disabled`). Only an explicit `false`
+   * turns protection off. If it throws or rejects, the page is protected
+   * (VNR017): an error means the visitor could not be verified, and failing
+   * towards readable text would let anyone who can make the check fail read
+   * the page. Protected pages look the same to people, so the cost of that
+   * choice is a crawler occasionally seeing protected text.
+   *
+   * The request Angular sees is a Fetch `Request`, without the client's IP
+   * address. To check the IP, do it in server.ts and pass the result as
+   * context: `angularApp.handle(req, { crawler: await verifyCrawler(...) })`.
+   *
+   * Serving crawlers something users do not get can count as cloaking. Here
+   * the visible text is the same, only its encoding differs, but whether a
+   * search engine agrees is its call: verify with your SEO team. And text you
+   * unprotect for a crawler is also readable to that operator's other uses,
+   * such as AI training.
+   */
+  shouldProtect?: VeneerShouldProtect;
+}
+
+/** Whether this application's render is protected; one per application (request). */
+interface ProtectDecision {
+  protect: boolean;
+}
+
+const PROTECT_DECISION = new InjectionToken<ProtectDecision>('VENEER_PROTECT_DECISION');
+
+/** shouldProtect errors already logged, so each is reported once per process. */
+const loggedHookErrors = new Set<string>();
+
+/**
+ * Runs the hook for this application's request, before the app renders.
+ * Without a request (prerendering, build-time route extraction, CommonEngine)
+ * it does nothing, and the page stays protected.
+ */
+async function decide(shouldProtect: VeneerShouldProtect): Promise<void> {
+  const decision = inject(PROTECT_DECISION);
+  const request = inject(REQUEST, { optional: true });
+  if (!request) return;
+  const context = inject(REQUEST_CONTEXT, { optional: true });
+  try {
+    decision.protect = (await shouldProtect(request, context)) !== false;
+  } catch (error) {
+    decision.protect = true;
+    const key = error instanceof Error ? error.message : String(error);
+    if (!loggedHookErrors.has(key)) {
+      loggedHookErrors.add(key);
+      if (loggedHookErrors.size > 64) loggedHookErrors.clear();
+      console.error(
+        '[veneer] VNR017: shouldProtect threw, so this page is rendered protected. See ' +
+          'https://github.com/pacyfist/veneer/blob/main/projects/pacyfist/veneer/README.md#vnr017',
+        error,
+      );
+    }
+  }
 }
 
 /** Parsed base fonts per absolute path: one read and one parse per process. */
@@ -252,7 +340,7 @@ export function provideVeneerServer(options: VeneerServerOptions): EnvironmentPr
     return id;
   };
 
-  const forge: VeneerServerForge = {
+  const forge: Omit<VeneerServerForge, 'protects'> = {
     prepare(config) {
       const key = fingerprint(config, idOf);
       const cached = ciphers.get(key);
@@ -282,5 +370,25 @@ export function provideVeneerServer(options: VeneerServerOptions): EnvironmentPr
       return cipher;
     },
   };
-  return makeEnvironmentProviders([{ provide: VENEER_SERVER_FORGE, useValue: forge }]);
+
+  const shouldProtect = options.shouldProtect;
+  if (!shouldProtect) {
+    return makeEnvironmentProviders([
+      { provide: VENEER_SERVER_FORGE, useValue: { ...forge, protects: () => true } },
+    ]);
+  }
+  return makeEnvironmentProviders([
+    // A fresh decision per application, and the server bootstraps one
+    // application per request. Protected until the hook says otherwise, so
+    // anything that renders before it settles is protected.
+    { provide: PROTECT_DECISION, useFactory: (): ProtectDecision => ({ protect: true }) },
+    {
+      provide: VENEER_SERVER_FORGE,
+      useFactory: (): VeneerServerForge => {
+        const decision = inject(PROTECT_DECISION);
+        return { ...forge, protects: () => decision.protect };
+      },
+    },
+    provideAppInitializer(() => decide(shouldProtect)),
+  ]);
 }

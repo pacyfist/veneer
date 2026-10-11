@@ -59,12 +59,16 @@ import { gzipSync } from 'node:zlib';
  * with Next #2: `.` 22,141 B, budget 24,400 B; `./testing` 4,703 B (readable
  * mode, a11y and copy options, `decodeVeneer` skipping readable subtrees),
  * budget 5,200 B.
+ *
+ * `./server` raised 2026-10-11 by the SEO work (Next #12): 7,256 B with the
+ * per-request `shouldProtect` hook and `verifyCrawler` (reverse and forward
+ * DNS, cache, timeouts), most of the growth being their doc comments.
  */
 const BUDGETS = {
   '.': 24_400,
   './core': 6_100,
   './forge': 11_700,
-  './server': 4_800,
+  './server': 8_000,
   './testing': 5_200,
 };
 

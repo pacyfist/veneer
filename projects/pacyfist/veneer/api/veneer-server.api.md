@@ -10,10 +10,45 @@ import type { ServerResponse } from 'node:http';
 import { VeneerFontSource } from '@pacyfist/veneer';
 
 // @public
+export interface CrawlerDnsResolver {
+    // (undocumented)
+    resolve4(hostname: string): Promise<string[]>;
+    // (undocumented)
+    resolve6(hostname: string): Promise<string[]>;
+    // (undocumented)
+    reverse(ip: string): Promise<string[]>;
+}
+
+// @public
+export type CrawlerVerifier = (ip: string, userAgent?: string | null) => Promise<VerifiedCrawler | null>;
+
+// @public (undocumented)
+export interface CrawlerVerifierOptions {
+    crawlers?: readonly VeneerCrawler[];
+    maxEntries?: number;
+    resolver?: CrawlerDnsResolver;
+    timeout?: number;
+    ttl?: number;
+}
+
+// @public
+export function createCrawlerVerifier(options?: CrawlerVerifierOptions): CrawlerVerifier;
+
+// @public
 export function getVeneerFont(path: string): Uint8Array | undefined;
 
 // @public
+export const KNOWN_CRAWLERS: readonly VeneerCrawler[];
+
+// @public
 export function provideVeneerServer(options: VeneerServerOptions): EnvironmentProviders;
+
+// @public
+export interface VeneerCrawler {
+    readonly domains: readonly string[];
+    readonly name: string;
+    readonly userAgent: RegExp;
+}
 
 // @public
 export function veneerFontMiddleware(): (req: IncomingMessage, res: ServerResponse, next?: (error?: unknown) => void) => void;
@@ -26,7 +61,20 @@ export interface VeneerServerOptions {
     emitDir?: string;
     fonts: string | VeneerServerFontReader;
     path?: string;
+    shouldProtect?: VeneerShouldProtect;
 }
+
+// @public
+export type VeneerShouldProtect = (request: Request, context: unknown) => boolean | Promise<boolean>;
+
+// @public
+export interface VerifiedCrawler {
+    readonly hostname: string;
+    readonly name: string;
+}
+
+// @public
+export function verifyCrawler(ip: string, userAgent?: string | null): Promise<VerifiedCrawler | null>;
 
 // (No @packageDocumentation comment for this package)
 

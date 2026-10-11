@@ -8,5 +8,17 @@
  */
 
 export { provideVeneerServer } from './provide-veneer-server';
-export type { VeneerServerOptions, VeneerServerFontReader } from './provide-veneer-server';
+export type {
+  VeneerServerOptions,
+  VeneerServerFontReader,
+  VeneerShouldProtect,
+} from './provide-veneer-server';
 export { veneerFontMiddleware, getVeneerFont } from './font-store';
+export { KNOWN_CRAWLERS, createCrawlerVerifier, verifyCrawler } from './verify-crawler';
+export type {
+  CrawlerDnsResolver,
+  CrawlerVerifier,
+  CrawlerVerifierOptions,
+  VeneerCrawler,
+  VerifiedCrawler,
+} from './verify-crawler';

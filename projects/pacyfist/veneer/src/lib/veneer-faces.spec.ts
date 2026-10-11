@@ -155,6 +155,7 @@ describe('withFaces', () => {
 
 describe('id', () => {
   const forge = {
+    protects: () => true,
     prepare: () => ({
       map: buildScrambleMap(1),
       familyName: 'Veneer-test',

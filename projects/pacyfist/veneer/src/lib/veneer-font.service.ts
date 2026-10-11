@@ -92,6 +92,15 @@ const loggedServerFailures = new Set<string>();
 /** Dropped-character sets already warned about, so each is reported once per page. */
 const warnedUncovered = new Set<string>();
 
+/**
+ * Forget which dropped-character sets were warned about. Tests only: the set is
+ * module-level, so specs that drop the same characters would otherwise depend on
+ * the order they run in. Not exported from the package.
+ */
+export function resetUncoveredWarnings(): void {
+  warnedUncovered.clear();
+}
+
 /** Turn whatever `load()` caught into a structured failure with a stable code. */
 function describeFailure(error: unknown, stage: Stage): VeneerFailure {
   const message = error instanceof Error ? error.message : String(error);
@@ -136,6 +145,13 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
 
   private readonly mode: Mode;
 
+  /**
+   * Protection is off for this instance: `disabled` in the config, or the
+   * server's `shouldProtect` hook said no for this page's request (on the
+   * server, and in the browser that hydrates that page).
+   */
+  private readonly off: boolean;
+
   /** When hydrating: the URLs of the server's forged faces. */
   private readonly serverFonts: readonly string[] = [];
 
@@ -174,13 +190,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
 
   /** `loading`, `active`, `failed` or `disabled`. */
   readonly status = computed<VeneerStatus>(() =>
-    this.config.disabled
-      ? 'disabled'
-      : this.failure()
-        ? 'failed'
-        : this.ready()
-          ? 'active'
-          : 'loading',
+    this.off ? 'disabled' : this.failure() ? 'failed' : this.ready() ? 'active' : 'loading',
   );
 
   /**
@@ -197,9 +207,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   readonly readable: WritableSignal<boolean> = readableMode(this.document, this.isBrowser);
 
   /** Whether scrambling applies at all: not disabled, not failed, not in readable mode. */
-  readonly active = computed(
-    () => !this.config.disabled && this.failed() === null && !this.readable(),
-  );
+  readonly active = computed(() => !this.off && this.failed() === null && !this.readable());
 
   /** The `font-family` value protected elements should use. */
   readonly fontStack = computed(() =>
@@ -218,15 +226,21 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     let familyName = randomFamilyName();
     let known: ScrambleMap | null;
     let failure: VeneerFailure | null = null;
+    let off = this.config.disabled;
 
-    if (this.config.disabled) {
+    if (off) {
       this.mode = 'client';
       known = this.drawMap(this.config.charset);
     } else if (!this.isBrowser) {
       this.mode = 'server';
       const forge = inject(VENEER_SERVER_FORGE, { optional: true });
       known = null;
-      if (forge) {
+      if (forge && !forge.protects()) {
+        // shouldProtect said no for this request: readable text, no font, and
+        // a note so the hydrating client does not scramble it either.
+        off = true;
+        this.transferState.set(key, { protect: false });
+      } else if (forge) {
         try {
           const prepared = forge.prepare(this.config);
           known = prepared.map;
@@ -269,10 +283,18 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
         // created later in the browser (with the same id or none) did not
         // render on the server and draws its own cipher.
         this.transferState.remove(key);
-        this.mode = 'hydrate';
-        familyName = transfer.family;
-        this.serverFonts = transfer.fonts;
-        known = null;
+        if ('protect' in transfer) {
+          // The server left this page unprotected (shouldProtect): keep its
+          // readable text as it is, with no font and no hiding.
+          this.mode = 'client';
+          off = true;
+          known = this.drawMap(this.config.charset);
+        } else {
+          this.mode = 'hydrate';
+          familyName = transfer.family;
+          this.serverFonts = transfer.fonts;
+          known = null;
+        }
       } else {
         this.mode = 'client';
         known = this.drawMap(this.config.charset);
@@ -284,9 +306,10 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     this.currentMap = signal(known ?? this.drawMap(this.config.charset));
     this.map = this.currentMap.asReadonly();
     this.familyName = familyName;
+    this.off = off;
     if (failure) this.failure.set(failure);
 
-    if (this.config.disabled) {
+    if (off) {
       this.isReady.set(true);
     } else if (this.isBrowser) {
       afterNextRender(() => void (this.mode === 'hydrate' ? this.hydrate() : this.load()));

@@ -11,7 +11,12 @@ const serverConfig: ApplicationConfig = {
     // The server forges the font and serves it (veneerFontMiddleware() in
     // server.ts); the page only carries its URL. It reads the base font from
     // the browser build output, next to the server bundle.
-    provideVeneerServer({ fonts: join(import.meta.dirname, '../browser') }),
+    provideVeneerServer({
+      fonts: join(import.meta.dirname, '../browser'),
+      // Verified search crawlers (server.ts passes the verifyCrawler() result
+      // as the request context) get readable text. Dynamic SSR only.
+      shouldProtect: (_request, context) => !(context as { crawler?: unknown } | null)?.crawler,
+    }),
   ],
 };
 

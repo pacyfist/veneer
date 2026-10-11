@@ -46,7 +46,7 @@ innerText:  XdU LeqNs zKhZP Thl reFYC hQUK wdU kRBu Ahf;
 - [What this defends against](#what-this-defends-against)
 - [Where plaintext still leaks](#where-plaintext-still-leaks)
 - [Where veneer fits](#where-veneer-fits)
-- [Search engines and SEO](#search-engines-and-seo)
+- [Search engines and `shouldProtect`](#search-engines-and-shouldprotect)
 - [Accessibility](#accessibility)
 - [Trade-offs](#trade-offs)
 - [Failure behaviour](#failure-behaviour)
@@ -417,6 +417,19 @@ protected text is never visible before the forged font is loaded.
 
 Exports whose names start with `ɵ` are internal (they exist for
 `@pacyfist/veneer/testing`) and may change in any release.
+
+### Server
+
+`@pacyfist/veneer/server`, Node only. See [Server-side rendering](#server-side-rendering)
+and [Search engines](#search-engines-and-shouldprotect).
+
+| Export                                                                          | Description                                                                                   |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `provideVeneerServer({ fonts, path?, emitDir?, shouldProtect? })`               | Forge the font during server rendering; `shouldProtect(request, context)` decides per request |
+| `veneerFontMiddleware()`, `getVeneerFont(path)`                                 | Serve the forged fonts (Express/Connect middleware, or the bytes for any server)              |
+| `verifyCrawler(ip, userAgent?)`                                                 | `Promise<{ name, hostname } \| null>`: a search crawler verified by reverse and forward DNS   |
+| `createCrawlerVerifier(options?)`, `KNOWN_CRAWLERS`                             | A verifier with its own crawler list, resolver, timeout and cache; the default list           |
+| `VeneerShouldProtect`, `VeneerCrawler`, `VerifiedCrawler`, `CrawlerDnsResolver` | Types                                                                                         |
 
 ### Template pieces
 
@@ -967,21 +980,111 @@ identify, and veneer to make what slips through less useful. Policies of
 individual crawler operators change often; check them yourself rather than
 trusting a README.
 
-## Search engines and SEO
+## Search engines and `shouldProtect`
 
-<!-- SEO section stub: the server-evaluated `shouldProtect` hook and the
-     reverse/forward-DNS crawler verification helper in
-     `@pacyfist/veneer/server` are documented here once they land. -->
+Search engines index what the served HTML contains, and for protected text that
+is ciphertext, so by default protected text does not rank. Protect article
+bodies, not the titles, headings and summaries you want to rank for, and keep
+meta descriptions to a summary. A home-grown bypass keyed on the user agent
+risks being treated as cloaking, and anyone can send a crawler's user agent.
 
-> [!NOTE]
-> This section is a stub. It will document a server-side hook that decides per
-> request whether to protect a page, and a helper that verifies search engine
-> crawlers by reverse and forward DNS.
+`shouldProtect` lets the server decide per request, for example to give verified
+search crawlers readable text:
 
-Until then: search engines index what the served HTML contains, and for protected
-text that is ciphertext. Protect article bodies, not the titles, headings and
-summaries you want to rank for, and keep meta descriptions to a summary. A
-home-grown bypass keyed on the user agent risks being treated as cloaking.
+```ts
+// app.config.server.ts
+provideVeneerServer({
+  fonts: join(import.meta.dirname, '../browser'),
+  // `context` is the second argument server.ts passes to angularApp.handle().
+  shouldProtect: (request, context) => !(context as { crawler?: unknown })?.crawler,
+});
+```
+
+- **Dynamic SSR only.** It runs for routes rendered per request
+  (`RenderMode.Server` with `AngularNodeAppEngine`/`AngularAppEngine`), where
+  Angular provides `REQUEST`. Prerendered (SSG) pages, build-time route
+  extraction and `CommonEngine` have no request: the hook is not called and the
+  page is protected. A prerendered page cannot be unprotected for a crawler.
+- **`false` means readable.** That render scrambles nothing, forges no font and
+  puts no font URL in the page; `TransferState` carries only
+  `{ protect: false }`, so the browser that hydrates it keeps the readable text
+  (status `disabled`, nothing hidden, nothing fetched). Only an explicit `false`
+  unprotects; anything else protects.
+- **Errors protect.** If the hook throws or rejects, the page is rendered
+  protected and the server logs [VNR017](#vnr017). An error means the visitor
+  could not be verified; failing towards readable text would hand the page to
+  anyone who can make the check fail. People see the same page either way, so
+  the cost is a crawler occasionally getting protected text.
+- **It may be async**, and the render waits for it, so keep it fast (the crawler
+  check below caches and times out).
+
+**Verifying crawlers.** Never trust the user-agent: anyone can send `Googlebot`.
+`verifyCrawler(ip, userAgent?)` does what Google and Bing document: the IP's
+reverse DNS name must end in the crawler's domain (`googlebot.com` or
+`google.com`, `search.msn.com`, `applebot.apple.com`) and that name must resolve
+forward to the same IP. The user-agent only skips the lookups for requests that
+do not claim to be a known crawler. Results are cached per IP for an hour; a
+lookup that fails or takes over two seconds counts as "not a crawler" and is
+not cached. It never rejects. The Fetch `Request` Angular renders has no client
+IP, so call it in server.ts and pass the result as the request context:
+
+```ts
+// server.ts
+import { veneerFontMiddleware, verifyCrawler } from '@pacyfist/veneer/server';
+
+// Behind a proxy or CDN, trust exactly your proxies so req.ip is the client's
+// address. An X-Forwarded-For header from anyone else is attacker-controlled.
+app.set('trust proxy', 'loopback');
+
+app.use(async (req, res, next) => {
+  const crawler = await verifyCrawler(req.ip ?? '', req.get('user-agent'));
+  angularApp
+    .handle(req, { crawler })
+    .then((response) => (response ? writeResponseToNodeResponse(response, res) : next()))
+    .catch(next);
+});
+```
+
+`createCrawlerVerifier({ crawlers?, resolver?, timeout?, ttl?, maxEntries? })`
+builds one with its own cache, list (`KNOWN_CRAWLERS` is the default) or DNS
+resolver (inject a fake one in tests).
+
+**Cloaking: verify with your SEO team.** Search engines penalise serving
+crawlers different content from users. Here people and verified crawlers get
+the same visible text: people see it drawn by the forged font, crawlers get it
+as plain characters. Only the encoding in the HTML differs. That is an argument,
+not a guarantee: an engine that also fetches the page as an ordinary visitor
+gets different bytes, and how it judges that is up to it. Keep every protected
+page fully readable to people, and leave anything you need to rank (titles,
+headings, summaries, navigation) unprotected in the first place.
+
+**Structured data for gated content: verify with your SEO team.** For content
+hidden from users but shown to crawlers, Google documents schema.org markup
+that declares it: `isAccessibleForFree: false` on the page, plus a `hasPart`
+`WebPageElement` whose `cssSelector` names the class of the gated element.
+Protected text is not gated (people can read it), so whether this markup fits is
+a judgement call, not a recipe:
+
+```html
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "isAccessibleForFree": false,
+    "hasPart": {
+      "@type": "WebPageElement",
+      "isAccessibleForFree": false,
+      "cssSelector": ".protected-body"
+    }
+  }
+</script>
+```
+
+**Unprotected for a crawler means unprotected for its operator.** Text you serve
+readable to a crawler is plain text to whoever runs it. Search is not
+necessarily the only use: what the operator may also do with it, AI training
+included, is governed by their policies and by robots.txt and AI-preference
+signals, not by veneer. Decide per crawler, not "all bots".
 
 ## Accessibility
 
@@ -1245,6 +1348,12 @@ without it, so server-rendered element content stays unreadable (bound text,
 `veneerFontMiddleware()`, that a load balancer sends the font request to the
 instance that rendered the page, or for prerendered pages that the `emitDir`
 folder was copied into the browser output.
+
+### VNR017
+
+On the server: the `shouldProtect` hook given to `provideVeneerServer()` threw or
+rejected, so the page was rendered **protected**. Logged once per distinct error.
+The server log has the error; a common cause is a DNS lookup in the hook failing.
 
 ### VNR020
 

@@ -206,6 +206,7 @@ export interface ɵVeneerServerCipher {
 // @internal
 export interface ɵVeneerServerForge {
     prepare(config: ɵResolvedVeneerConfig): ɵVeneerServerCipher;
+    protects(): boolean;
 }
 
 
