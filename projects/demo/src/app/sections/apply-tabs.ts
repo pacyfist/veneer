@@ -110,14 +110,17 @@ const SNIPPETS = {
               [class.border-warning]="isEmpty()"
               [class.border-base-300]="!isEmpty()"
             >
-              <p class="text-lg" aria-hidden="true" veneer #specimen>{{ piped() }}</p>
+              <p class="text-lg" aria-hidden="true" veneer #specimen>{{ trap() }}</p>
             </div>
+            <button type="button" class="btn btn-sm self-start" (click)="changeTrap()">
+              Change the text
+            </button>
             <div class="alert alert-error alert-soft">
               <span>
-                The <code>veneer</code> attribute scrambles the element first, then
-                <code>{{ braces }}</code> writes the readable words over it. Bots read them in plain
-                form, and the decoder font turns them into gibberish for people. Development builds
-                warn about it (VNR001). Use the "Inside {{ braces }}" form instead.
+                It looks fine at first. But when the value changes, <code>{{ braces }}</code> writes
+                the new words over the scrambled ones: bots read them in plain form, and the decoder
+                font turns them into gibberish for people. Development builds warn about it
+                (VNR001). Use the "Inside {{ braces }}" form instead.
               </span>
             </div>
           }
@@ -163,6 +166,17 @@ export class ApplyTabs {
   protected readonly bound = signal('Protected from a bound signal.');
   protected readonly piped = signal('Protected through the pipe.');
 
+  /** The trap's interpolated text, which the "Change the text" button swaps. */
+  protected readonly trap = signal('Interpolated inside veneer.');
+
+  protected changeTrap(): void {
+    this.trap.update((t) =>
+      t === 'Interpolated inside veneer.'
+        ? 'Changed after the first render.'
+        : 'Interpolated inside veneer.',
+    );
+  }
+
   /** The currently rendered specimen. Only one `@switch` case is in the DOM at a time. */
   private readonly specimen = viewChild<ElementRef<HTMLElement>>('specimen');
 
@@ -183,6 +197,7 @@ export class ApplyTabs {
       read: () => {
         this.veneer.fontStack();
         this.veneer.hidden();
+        this.trap();
         const el = this.specimen()?.nativeElement;
         this.readout.set(el ? el.innerText : null);
       },

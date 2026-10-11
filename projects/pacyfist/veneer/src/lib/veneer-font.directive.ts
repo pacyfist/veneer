@@ -1,7 +1,19 @@
-import { Directive, ElementRef, OnDestroy, OnInit, Renderer2, effect, inject } from '@angular/core';
+import {
+  Directive,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  Renderer2,
+  afterNextRender,
+  effect,
+  inject,
+} from '@angular/core';
 import { injectVeneerState } from './veneer-inject';
 import { VeneerFontState } from './veneer-font-state';
 import { registerHost, unregisterHost } from './veneer-hosts';
+import { warnCaseStyles } from './veneer-dev';
+
+declare const ngDevMode: boolean | undefined;
 
 /**
  * Points an element at the forged font without touching its text.
@@ -29,6 +41,12 @@ export class VeneerFontDirective implements OnInit, OnDestroy {
       this.service.hidden();
       this.apply();
     });
+
+    if (typeof ngDevMode === 'undefined' || ngDevMode) {
+      afterNextRender(() => {
+        if (this.service.active()) warnCaseStyles([this.element.nativeElement]);
+      });
+    }
   }
 
   ngOnInit(): void {

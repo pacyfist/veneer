@@ -40,9 +40,8 @@ const texts = (el: Node): string[] => {
 };
 
 @Component({
-  template: `<p veneer>
-    Read <a href="/more">the rest</a> with <strong>care</strong> and <em>joy</em>.
-  </p>`,
+  // prettier-ignore
+  template: `<p veneer>Read <a href="/more">the rest</a> with <strong>care</strong> and <em>joy</em>.</p>`,
   imports: [VeneerDirective],
 })
 class RichHost {}

@@ -468,7 +468,8 @@ On protected text only:
 - **`text-transform` and `small-caps` paint the wrong letters** - the browser
   changes the case of the scrambled codepoints, and the forged font then draws
   whatever readable letter sits at the new codepoint. Style protected text with
-  real capitals in the source instead.
+  real capitals in the source instead. Development builds warn
+  ([VNR020](#vnr020)).
 
 These are the same mechanism as the protection, not bugs to be fixed. Protect
 article bodies. Leave navigation, headings, form labels, and anything assistive
@@ -560,6 +561,25 @@ Useful for pre-scrambling static content in a build step, paired with
 ## Error codes
 
 Every message veneer logs or throws starts with `[veneer] VNRxxx:` and links here.
+Dev-mode warnings are left out of production builds.
+
+### VNR001
+
+Dev-mode warning: text inside a `veneer` element changed after the directive
+scrambled it, usually an interpolation (`<p veneer>{{ title() }}</p>`) or an
+`@if` inside the element. That text is readable to scrapers and drawn as
+gibberish for people until protection next changes. Use the pipe with
+`veneerFont` (`<p veneerFont>{{ title() | veneer }}</p>`), or bind the string
+(`<p [veneer]="title()"></p>`) or the HTML (`[veneerHtml]`).
+
+### VNR002
+
+Dev-mode warning: the `veneer` pipe's output was rendered in an element that is
+not drawn with the forged font, so readers see it scrambled. Put `veneerFont` on
+the element that renders it. A pipe is not told where its result goes, so the
+check looks for the output in the page's text nodes after rendering and checks
+that they sit inside a `veneerFont` or `veneer` element (or an element whose
+`font-family` names the forged font). Output used in an attribute is not checked.
 
 ### VNR003
 
@@ -602,6 +622,16 @@ Protection stays on for everything else. Narrow `charset` to the characters the
 font covers (see `charsetFromFont`) to silence it, or set `strictCoverage: true`
 to fail instead.
 
+### VNR020
+
+Dev-mode warning: protected text is styled with `text-transform` (other than
+`none`) or small caps. CSS case changes apply to the characters in the DOM, which
+are the scrambled ones, so the forged font is asked for a different letter's
+glyph and draws the wrong one. Change the case in the text itself, or keep the
+style off protected text. Small caps are safe only when the font has real
+small-cap glyphs (the `smcp` feature), which the forge keeps, and the browser does
+not synthesize them.
+
 ## Troubleshooting
 
 | Symptom                                         | Cause                                                                                                          |
@@ -613,7 +643,7 @@ to fail instead.
 | Protected text is invisible and never appears   | The font never loaded and JS is disabled, or `hideUntilReady` is on while the request hangs. Check the console |
 | Text renders readable, protection seems off     | The library failed open. Inspect `failed()`, or `disabled` is set                                              |
 | Protected text is in the wrong typeface         | `fallbackFontFamily` doesn't name the same typeface as `font`                                                  |
-| Reader sees gibberish after hydration           | Interpolating into an element that also has `veneer`. Use the pipe + `veneerFont`                              |
+| Reader sees gibberish after hydration           | Interpolating into an element that also has `veneer` ([VNR001](#vnr001)). Use the pipe + `veneerFont`          |
 
 ## Contributing
 
