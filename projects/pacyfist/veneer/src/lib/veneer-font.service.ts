@@ -416,9 +416,10 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
 
   /**
    * The initial map, or when a face lacks glyphs for some of its characters,
-   * a map redrawn without them (from the same seed, when one is configured). Those characters then pass
-   * through unscrambled and render in the fallback font. With several faces,
-   * only characters every face can draw stay in the cipher.
+   * a map redrawn without them (from the same seed, when one is configured).
+   * Those characters then pass through unscrambled and render in the fallback
+   * font. With several faces, only characters every face can draw stay in the
+   * cipher.
    */
   private narrow(
     coveredCodepoints: Forge['coveredCodepoints'],
