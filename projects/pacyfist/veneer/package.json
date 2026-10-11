@@ -4,11 +4,20 @@
   "description": "Angular directives that scramble text in the DOM and render it correctly with a font generated at runtime, so scrapers, scripts and copy-paste get gibberish.",
   "keywords": [
     "angular",
-    "scraping",
+    "angular-library",
+    "ssr",
     "anti-scraping",
+    "scraping",
+    "web-scraping",
+    "ai-crawlers",
+    "ai-scraping",
+    "content-protection",
+    "text-obfuscation",
+    "obfuscation",
+    "copy-protection",
     "font",
     "opentype",
-    "obfuscation"
+    "cmap"
   ],
   "license": "AGPL-3.0-only",
   "repository": {

@@ -7,10 +7,13 @@
 Angular directives that keep text readable for people while scrapers, scripts
 and copy-paste get gibberish.
 
-Text is stored in the DOM as a substitution cipher. A font generated in the
-browser at page load maps the scrambled codepoints back to the correct glyph
-outlines. A reader sees the original words; anything reading `textContent` gets
-noise.
+Text is stored in the DOM as a substitution cipher. A font forged from your own
+font (in the browser, or on the server for server-rendered pages) maps the
+scrambled codepoints back to the correct glyph outlines. A reader sees the
+original words; anything reading `textContent` gets noise.
+
+This README is the single reference for the library. The
+[demo site](https://pacyfist.github.io/veneer/) mirrors it.
 
 ```html
 <p veneer>The quick brown fox jumps over the lazy dog.</p>
@@ -18,7 +21,7 @@ noise.
 
 ```
 on screen:  The quick brown fox jumps over the lazy dog.
-innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
+innerText:  XdU LeqNs zKhZP Thl reFYC hQUK wdU kRBu Ahf;
 ```
 
 **Live demo:** https://pacyfist.github.io/veneer/
@@ -39,13 +42,17 @@ innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
 - [Configuration](#configuration)
 - [API reference](#api-reference)
 - [Server-side rendering](#server-side-rendering)
+- [Recipes](#recipes)
 - [What this defends against](#what-this-defends-against)
 - [Where plaintext still leaks](#where-plaintext-still-leaks)
+- [Where veneer fits](#where-veneer-fits)
+- [Search engines and SEO](#search-engines-and-seo)
 - [Accessibility](#accessibility)
 - [Trade-offs](#trade-offs)
 - [Failure behaviour](#failure-behaviour)
 - [WOFF2 and Google Fonts](#woff2-and-google-fonts)
 - [Using the cipher outside Angular](#using-the-cipher-outside-angular)
+- [Error codes](#error-codes)
 - [Troubleshooting](#troubleshooting)
 - [Stability and support](#stability-and-support)
 - [Contributing](#contributing)
@@ -114,8 +121,36 @@ export class Article {
 }
 ```
 
-That is the whole setup. No stylesheet to import - the directives set
-`font-family` on the element through `Renderer2`.
+No stylesheet to import - the directives set `font-family` on the element
+through `Renderer2`. For a browser-only app, that is the whole setup.
+
+**3. Server-rendered app? Add the server half**, or the server renders protected
+text readable ([VNR015](#vnr015)). The server forges the font itself and serves
+it; the page carries only its URL, never the key:
+
+```ts
+// app.config.server.ts
+import { provideVeneerServer } from '@pacyfist/veneer/server';
+import { join } from 'node:path';
+
+const serverConfig: ApplicationConfig = {
+  providers: [
+    provideServerRendering(withRoutes(serverRoutes)),
+    provideVeneerServer({ fonts: join(import.meta.dirname, '../browser') }),
+  ],
+};
+```
+
+```ts
+// server.ts, before the Angular request handler
+import { veneerFontMiddleware } from '@pacyfist/veneer/server';
+
+app.use(veneerFontMiddleware());
+```
+
+`fonts` is the folder the `font` URL is served from: here the browser build
+output, next to the server bundle. Prerendered pages need one more step, see
+[Prerendering (SSG)](#prerendering-ssg).
 
 ## Usage
 
@@ -179,9 +214,11 @@ with `veneerFont`:
 
 > [!WARNING]
 > Do not interpolate inside a `veneer` element (`<p veneer>{{ title() }}</p>`).
-> The directive scrambles first and the interpolation then writes readable text
-> over it, in the forged font. Interpolation → pipe; everything else →
-> directive. Development builds warn ([VNR001](#vnr001)).
+> The first value is protected, but every later change is written over the
+> scrambled text in plain form: scrapers read it, and people see it as gibberish,
+> because it is drawn with the forged font. It stays that way until protection
+> next changes. Interpolation → pipe; everything else → directive. Development
+> builds warn ([VNR001](#vnr001)).
 
 `veneerFont` on its own only applies the font, without touching text - use it on
 any element that renders already-scrambled content.
@@ -514,23 +551,57 @@ fetch the forged font and the base font and compare their `cmap` tables, which i
 what a browser does. That is the bar: a font parser and two downloads, not a regex.
 Once JavaScript runs, the forged font is the key; see what this does not stop below.
 
-**One cipher per server process.** Each `provideVeneer` configuration is forged
-once per process and shared by every request, so visitors fetch and cache the font
-once (it is served as immutable). A fresh cipher per request would cost every page
-view a ~124 KB font download, and the server would have to keep every page's font
-in memory until it is fetched, or re-forge it on demand. The fonts live in the
-process's memory: behind a load balancer, route a page's font request to the
-instance that rendered it (sticky sessions), or prerender. If the font cannot be
-fetched (for example after a restart, for a page rendered before it), the
-server's ciphertext cannot be decoded and stays visible as gibberish
-([VNR016](#vnr016)).
+### One cipher per server process
 
-**Prerendering (SSG).** One cipher per build, shared by every visitor until the
-next build. No server is left to serve the fonts, so write them to a folder and
-copy it into the browser output after the build. The folder must be outside the
-build output, which the Angular builder empties after prerendering:
+Each `provideVeneer` configuration is forged once per process and shared by every
+request, so visitors fetch and cache the font once (it is served as immutable). A
+fresh cipher per request would cost every page view a ~124 KB font download, and
+the server would have to keep every page's font in memory until it is fetched, or
+re-forge it on demand.
+
+### Load balancers and restarts
+
+The forged fonts live in the memory of the process that rendered the page, and a
+page can only be decoded with the font it was rendered with. If its font request
+reaches another instance, or the same instance after a restart, the request
+fails, and the server's ciphertext stays on screen as gibberish
+([VNR016](#vnr016)). This is the one case veneer cannot fail open from, because
+the readable text is not in the page. Pick one:
+
+- **Sticky sessions.** Route a visitor's requests to the instance that rendered
+  their page.
+- **A shared font folder.** `emitDir` also works for dynamic SSR: every instance
+  writes the fonts it forges to `<emitDir>/<path>/<id>.ttf`. Point it at storage
+  all instances share and serve that folder as static files (or upload it to your
+  CDN), so any instance, before or after a restart, can serve any page's font:
+
+  ```ts
+  provideVeneerServer({
+    fonts: join(import.meta.dirname, '../browser'),
+    emitDir: '/srv/veneer-fonts',
+  });
+  ```
+
+  ```ts
+  // server.ts: the fonts of every instance, then this process's own
+  app.use(express.static('/srv/veneer-fonts', { maxAge: '1y', immutable: true }));
+  app.use(veneerFontMiddleware());
+  ```
+
+- **Prerender** the pages you protect, so the fonts are static files.
+
+Also keep cached HTML (a CDN, a service worker) no longer than the fonts it
+references stay available.
+
+### Prerendering (SSG)
+
+One cipher per build, shared by every visitor until the next build. No server is
+left to serve the fonts, so write them to a folder and copy it into the browser
+output after the build. The folder must be outside the build output, which the
+Angular builder empties after prerendering:
 
 ```ts
+// app.config.server.ts; the build runs from the workspace root
 provideVeneerServer({ fonts: 'public', emitDir: 'dist/veneer-fonts' });
 ```
 
@@ -538,12 +609,34 @@ provideVeneerServer({ fonts: 'public', emitDir: 'dist/veneer-fonts' });
 rm -rf dist/veneer-fonts && ng build && cp -r dist/veneer-fonts/. dist/my-app/browser/
 ```
 
-**Without `provideVeneerServer()`** the server cannot scramble without putting the
+Or as a cross-platform script, the way the demo does it
+([`scripts/demo-veneer-fonts.mjs`](https://github.com/pacyfist/veneer/blob/main/scripts/demo-veneer-fonts.mjs)
+also checks that every font a page references was copied):
+
+```js
+// scripts/veneer-fonts.mjs: `node scripts/veneer-fonts.mjs clean` before
+// `ng build`, `node scripts/veneer-fonts.mjs copy` after it.
+import { cpSync, existsSync, rmSync } from 'node:fs';
+
+const EMIT = 'dist/veneer-fonts';
+const BROWSER = 'dist/my-app/browser';
+
+if (process.argv[2] === 'clean') rmSync(EMIT, { recursive: true, force: true });
+if (process.argv[2] === 'copy' && existsSync(EMIT)) cpSync(EMIT, BROWSER, { recursive: true });
+```
+
+Forgetting the copy shows up in the browser as [VNR016](#vnr016).
+
+### Without `provideVeneerServer()`
+
+The server cannot scramble without putting the
 key into the page, so it renders protected text readable and logs
 [VNR015](#vnr015). The exception is a fixed `seed`, which both sides know from the
 app's code (solvable; tests and reproducible builds only). The server reads `.ttf`
 or `.otf` base fonts; a `font` given as a loader function or a WOFF file needs
 `fonts` as a function that returns `.ttf` bytes.
+
+### Hydration
 
 Elements the server scrambled carry a `data-veneer-ssr` attribute. The `veneer`
 directive in its element-content form (`<p veneer>Text</p>`) takes the element's
@@ -556,6 +649,164 @@ inverted only once `initialMap()` is known.
 
 Without server rendering, nothing changes: the browser draws its own cipher and
 forges its own font, and `initialMap()` is that map from the start.
+
+## Recipes
+
+### Lazy routes and several configurations
+
+`provideVeneer()` returns environment providers, so it also works in a route's
+`providers`. Each one is an independent instance with its own cipher and forged
+font; fetching and parsing a base font happens once per page, however many
+instances use it.
+
+```ts
+export const routes: Routes = [
+  {
+    path: 'articles',
+    loadComponent: () => import('./articles').then((m) => m.Articles),
+    providers: [
+      provideVeneer({
+        font: 'fonts/Merriweather-Regular.ttf',
+        fallbackFontFamily: "'Merriweather', serif",
+        id: 'articles',
+      }),
+    ],
+  },
+];
+```
+
+When several instances render on one server page, give each a distinct `id`, or
+they overwrite each other's forged-font state and hydrate with the wrong cipher.
+Put `withStatusAttribute()` on one instance only. A directive uses the nearest
+instance in its injector tree.
+
+### `@defer`
+
+A deferred block renders in the browser, so its protected text never reaches the
+server-rendered HTML at all, and is scrambled on the client like any
+browser-rendered element (hidden until the font is ready, with
+`hideUntilReady`). Its template text is still in a JS chunk, like all text in your
+source. Text in `@placeholder` and `@loading` blocks is server-rendered as usual.
+Incremental hydration (`hydrate on …` triggers) is not covered by veneer's tests
+yet.
+
+### Rich text, CMS HTML and markdown
+
+The element-content form keeps markup: `<article veneer>` protects every text node
+inside it, and links, emphasis and footnotes keep working. For HTML that arrives
+as a string, from a CMS or a markdown renderer, bind it with `[veneerHtml]`. It is
+sanitized the way Angular sanitizes `[innerHTML]`, then protected:
+
+```ts
+@Component({
+  imports: [VeneerDirective],
+  template: `<article [veneerHtml]="html()"></article>`,
+})
+export class Post {
+  readonly post = input.required<{ markdown: string }>();
+  protected readonly html = computed(() => marked.parse(this.post().markdown) as string);
+}
+```
+
+Inside protected content, `code` elements stay readable (code is meant to be
+copied), and so does anything marked `veneer-skip`, such as an author's name:
+`<span veneer-skip>Ada Lovelace</span>`. Links get scrambled accessible names
+(WCAG 2.4.4), and `withA11y('hide')` leaves an element that contains a link
+exposed ([VNR021](#vnr021)): offer readable mode wherever protected content has
+links. Remember the [transfer cache](#where-plaintext-still-leaks) when the HTML
+comes from an API.
+
+### Content Security Policy
+
+veneer downloads fonts with `fetch()`, so they fall under `connect-src`, not
+`font-src`: the base font, and on server-rendered pages the forged font. The
+forged `FontFace` is built from bytes and needs no `font-src` entry (measured in
+Chromium and Firefox with `font-src 'none'`). With `hideWith: 'stylesheet'` (the
+default) on server-rendered pages, veneer adds an inline `<style>` and `<script>`
+that need the page's nonce or their hashes:
+
+```http
+Content-Security-Policy:
+  default-src 'self';
+  connect-src 'self';
+  script-src 'self' 'nonce-RANDOM';
+  style-src 'self' 'nonce-RANDOM'
+```
+
+- **Dynamic SSR:** provide Angular's `CSP_NONCE` for the request (or set
+  `ngCspNonce` on the root element); veneer adds it to its `<style>` and
+  `<script>`.
+- **Prerendered pages** have no per-request nonce: add `VENEER_CSP_HASHES.script`
+  to `script-src` and `VENEER_CSP_HASHES.style` to `style-src` (see `hideWith`).
+- **Nothing inline at all:** `hideWith: 'hidden'`. Readers without JavaScript then
+  see nothing, and the layout shifts when the text appears.
+- **A base font on another origin** (a CDN) needs that origin in `connect-src`.
+
+Protected elements get their `font-family` through the CSSOM, which a strict
+`style-src` allows. If the CSP blocks veneer's inline code, the server's
+ciphertext shows in the fallback font until the app hydrates: never readable text.
+`e2e/csp.spec.ts` checks this frame by frame.
+
+### Layout shift (CLS)
+
+The forged font is your base font with only the `cmap` replaced, so protected text
+has exactly the metrics of the base font: no shift between protected and plain
+text. Shifts come from the swap between `fallbackFontFamily` and the forged font,
+and from `hideWith: 'hidden'`:
+
+- **Measure** with Lighthouse or the Performance panel in Chrome DevTools, or in the
+  field with the `web-vitals` library (`onCLS`) or a `PerformanceObserver` for
+  `layout-shift` entries. Compare a run with `disabled: true`.
+- **Make the fallback the same typeface.** If `fallbackFontFamily` names your base
+  font, served with an ordinary `@font-face` from the same file, the swap changes
+  no metrics. Use the same URL for both, so the browser downloads the file once.
+- **Otherwise, match a local fallback's metrics** with `@font-face` descriptors,
+  so the swap does not move lines:
+
+  ```css
+  @font-face {
+    font-family: 'Roboto Fallback';
+    src: local('Arial');
+    ascent-override: 92.77%; /* hhea ascender 1900 / unitsPerEm 2048 */
+    descent-override: 24.41%; /* hhea descender 500 / 2048 */
+    line-gap-override: 0%;
+    size-adjust: 100%; /* tune to the fallback's average width */
+  }
+  ```
+
+  ```ts
+  provideVeneer({
+    font: 'fonts/Roboto-Regular.ttf',
+    fallbackFontFamily: "'Roboto Fallback', sans-serif",
+  });
+  ```
+
+  Tools such as Fontaine or Capsize compute these values for other fonts.
+
+- **Keep `hideWith: 'stylesheet'`** (the default). It hides with `visibility`, which
+  keeps the text's space; `'hidden'` takes the text out of the layout until the
+  client takes over.
+
+### Turning it off per environment
+
+`disabled: true` renders every protected element readable and skips the font
+download. Drive it from your environment files:
+
+```ts
+// environments/environment.ts (development), and false in environment.prod.ts
+export const environment = { veneerDisabled: true };
+
+provideVeneer({ font: 'fonts/Roboto-Regular.ttf', disabled: environment.veneerDisabled });
+```
+
+Turning it off in development makes Ctrl+F and copy work while you build pages,
+but hides veneer's dev-mode warnings; keep it on in at least one environment you
+test in. In unit tests use `provideVeneerTesting()` instead.
+
+### WOFF2 fonts
+
+veneer reads `.ttf`, `.otf` and `.woff`. Convert WOFF2 once at build time or decode
+it in the `font` loader: see [WOFF2 and Google Fonts](#woff2-and-google-fonts).
 
 ## What this defends against
 
@@ -693,6 +944,45 @@ attributes or the `ng-state` JSON (the demo makes no HttpClient calls and has no
 JSON-LD). The two HTML leaks are the demo quoting itself, which is the
 "text quoted elsewhere" case above.
 
+## Where veneer fits
+
+veneer is one layer. It works on the content itself, after the page was served,
+so it complements the tools that decide who gets the page:
+
+- **robots.txt** asks crawlers to stay out. Well-behaved crawlers honour it; the
+  ones you most want to stop do not, and it is all or nothing per path.
+- **AI-preference signals** (robots meta tags, HTTP headers, the emerging
+  vocabularies for AI training and text-and-data-mining opt-outs) state what you
+  allow. They are a request, honoured only by operators who choose to.
+- **Edge bot management** (rate limits, bot scores, challenges at your CDN or
+  WAF) blocks requests before they reach the page. It works for any content, but
+  costs money, can block real visitors, and lets through whatever looks human.
+- **veneer** makes the text in a served page worthless to readers that do not
+  render it, whatever they claim to be and whatever they ignore. It does nothing
+  against a crawler that renders the page, and nothing for content you serve
+  elsewhere.
+
+Use the signals to say what you want, bot management to stop the traffic you can
+identify, and veneer to make what slips through less useful. Policies of
+individual crawler operators change often; check them yourself rather than
+trusting a README.
+
+## Search engines and SEO
+
+<!-- SEO section stub: the server-evaluated `shouldProtect` hook and the
+     reverse/forward-DNS crawler verification helper in
+     `@pacyfist/veneer/server` are documented here once they land. -->
+
+> [!NOTE]
+> This section is a stub. It will document a server-side hook that decides per
+> request whether to protect a page, and a helper that verifies search engine
+> crawlers by reverse and forward DNS.
+
+Until then: search engines index what the served HTML contains, and for protected
+text that is ciphertext. Protect article bodies, not the titles, headings and
+summaries you want to rank for, and keep meta descriptions to a summary. A
+home-grown bypass keyed on the user agent risks being treated as cloaking.
+
 ## Accessibility
 
 Scrambled text is not accessible, and veneer does not pretend otherwise. Screen
@@ -770,6 +1060,21 @@ On protected text only:
 These are the same mechanism as the protection, not bugs to be fixed. Protect
 article bodies. Leave navigation, headings, form labels, and anything assistive
 technology needs alone.
+
+### What it costs your bundle and your visitors
+
+Measured on the demo (`npm run build:pages`, Angular 21, 2026-10-11) and with
+`npm run size`:
+
+| What                                   | Size                                                                                                                 |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| veneer in the initial JS bundle        | About 22 KB minified (8-9 KB gzip) with every feature the demo uses; tree-shaking drops unused features              |
+| The font forge, a lazy chunk           | 13.9 KB minified, 5.1 KB transferred, loaded when the font is built                                                  |
+| The base font download                 | Your font's size. Roboto Regular: 124 KB, 74 KB gzip. Shared with the page's own `@font-face` if the URL is the same |
+| The forged font, server-rendered pages | About the size of the base font (124 KB for Roboto, 74 KB gzip), cached as immutable                                 |
+| Library FESM bundles, before minifying | `.` 21.6 KiB, `./core` 5.4 KiB, `./forge` 10.4 KiB gzip (CI budgets in `scripts/check-bundle-size.mjs`)              |
+
+With `disabled: true` no font is downloaded and the forge chunk is never loaded.
 
 ## Failure behaviour
 
@@ -971,7 +1276,7 @@ out of protected elements, or rely on readable mode for that content.
 | Protected text is invisible and never appears   | `hideUntilReady` is on while the font request hangs, or the app never booted. Check the console                |
 | Text renders readable, protection seems off     | The library failed open. Inspect `failed()`, or `disabled` is set                                              |
 | Protected text is in the wrong typeface         | `fallbackFontFamily` doesn't name the same typeface as `font`                                                  |
-| Reader sees gibberish after hydration           | Interpolating into an element that also has `veneer` ([VNR001](#vnr001)). Use the pipe + `veneerFont`          |
+| Text turns to gibberish after it changes        | Interpolating into an element that also has `veneer` ([VNR001](#vnr001)). Use the pipe + `veneerFont`          |
 | Server HTML has readable protected text         | `provideVeneerServer()` is missing or cannot read the font ([VNR015](#vnr015)). Check the server log           |
 | `VNR016 ... forged font request ... failed`     | The server's forged font is not served. Mount `veneerFontMiddleware()`, or copy `emitDir` after prerendering   |
 

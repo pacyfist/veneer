@@ -9,8 +9,7 @@ scripts and copy-paste get gibberish.**
 
 Add one directive to your templates. Visitors read your page as usual. Anything
 that reads the page's text instead of looking at it gets scrambled nonsense:
-AI crawlers, `fetch` plus an HTML parser, `innerText`, copy-paste into a
-chatbot, and Ctrl+F.
+`fetch` plus an HTML parser, `innerText`, copy-paste into a chatbot, and Ctrl+F.
 
 ```html
 <p veneer>The quick brown fox jumps over the lazy dog.</p>
@@ -18,7 +17,7 @@ chatbot, and Ctrl+F.
 
 ```
 on screen:  The quick brown fox jumps over the lazy dog.
-innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
+innerText:  XdU LeqNs zKhZP Thl reFYC hQUK wdU kRBu Ahf;
 ```
 
 **Live demo:** https://pacyfist.github.io/veneer/ (copy the text, search it,
@@ -28,20 +27,31 @@ and toggle "bot vision" to see what a scraper gets).
 
 It's a secret code plus a font that decodes it.
 
-1. **Swap every letter.** Each character is replaced with a different one, and
-   the scrambled version is what goes into your HTML.
-2. **Build a matching font.** When the page loads, the browser builds a font
-   from your normal `.ttf`. Its lookup table is shuffled to match the code, so
-   the slot for `Q` draws a `T`.
+1. **Swap every letter.** Each letter is replaced with a different letter (and
+   digits with digits), and the scrambled version is what goes into your HTML.
+2. **Build a matching font.** A copy of your normal font gets a shuffled lookup
+   table that matches the code, so the slot for `X` draws a `T`. Kerning,
+   ligatures and hinting carry over.
 3. **Eyes decode, code doesn't.** Your screen draws shapes, so people read the
    words. Scrapers read characters, so they get the code.
 
-There's no third-party service. With SSR, add `provideVeneerServer()` from
-`@pacyfist/veneer/server`: the server forges the font itself and writes the
-scrambled text into the HTML, which carries only the font's URL, never the key.
-Crawlers that read the HTML see neither the real words nor a way to decode them,
-short of downloading and parsing the font. Prerendered sites share one cipher
-per build.
+There's no third-party service. With server rendering, the server forges the
+font and writes scrambled text into the HTML, which carries only the font's URL,
+never the key.
+
+## Is veneer right for me?
+
+Read this before you install. Each answer links to the details.
+
+| Question               | Answer                                                                                                                                                                                                                                                                                                     |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **License**            | AGPL-3.0-only. On a public website, your site's source has to be available under the same license. Your font's license must allow modified versions ([checklist](projects/pacyfist/veneer/README.md#font-license-checklist))                                                                               |
+| **SEO**                | Search engines index protected text as gibberish. Protect bodies, not what you want to rank for ([SEO](projects/pacyfist/veneer/README.md#search-engines-and-seo))                                                                                                                                         |
+| **Accessibility**      | Scrambled text is not accessible. Readable mode (a toggle button) is the route to WCAG conformance; `withA11y('hide')` only hides it from screen readers ([details](projects/pacyfist/veneer/README.md#accessibility))                                                                                     |
+| **Browsers**           | Chromium and Firefox measured in e2e on Linux; WebKit tested in CI only. Anything without `FontFace` falls back to readable text ([support](projects/pacyfist/veneer/README.md#browsers))                                                                                                                  |
+| **Prerendered sites**  | One cipher per build, shared by every visitor until the next build. Server rendering uses one per server process                                                                                                                                                                                           |
+| **Bundle and network** | About 22 KB minified (8-9 KB gzip) in the initial bundle, a 5 KB (gzip) lazy chunk, and your base font (Roboto Regular: 74 KB gzip). Server-rendered pages also download the forged font, about the same size ([measured](projects/pacyfist/veneer/README.md#what-it-costs-your-bundle-and-your-visitors)) |
+| **Security**           | A speed bump for bulk scraping, not encryption. Text written in your source ships readable in your JS bundle, and a scraper that knows veneer decodes it ([threat model](THREAT_MODEL.md))                                                                                                                 |
 
 ## Get started
 
@@ -85,6 +95,32 @@ export class Article {}
 
 No stylesheet to copy and no build plugin.
 
+**4. Server-rendered app? Add the server half**, or the server renders protected
+text readable. The server forges the font and serves it:
+
+```ts
+// app.config.server.ts
+import { provideVeneerServer } from '@pacyfist/veneer/server';
+import { join } from 'node:path';
+
+const serverConfig: ApplicationConfig = {
+  providers: [
+    provideServerRendering(withRoutes(serverRoutes)),
+    provideVeneerServer({ fonts: join(import.meta.dirname, '../browser') }),
+  ],
+};
+```
+
+```ts
+// server.ts, before the Angular request handler
+import { veneerFontMiddleware } from '@pacyfist/veneer/server';
+
+app.use(veneerFontMiddleware());
+```
+
+Prerendered pages need one copy step after the build: see
+[Prerendering](projects/pacyfist/veneer/README.md#prerendering-ssg).
+
 ### Which form do I use?
 
 Rule of thumb: **if you see `{{ }}`, use the pipe.** Otherwise, use the
@@ -97,6 +133,10 @@ attribute.
 | HTML from a CMS                   | `<div [veneerHtml]="article().html"></div>`   |
 | Text you already interpolate      | `<h1 veneerFont>{{ title() \| veneer }}</h1>` |
 | ⚠️ Don't: `{{ }}` inside `veneer` | `<p veneer>{{ title() }}</p>` leaks it        |
+
+Text written in the template is in your JS bundle too. Content that matters
+should arrive at runtime, from an API or a CMS: see
+[Where plaintext still leaks](projects/pacyfist/veneer/README.md#where-plaintext-still-leaks).
 
 ## A speed bump, not a vault
 
@@ -146,9 +186,9 @@ hydration support. There's no React or Vue wrapper. The low-level cipher and
 font builder are plain functions a build script could use.
 
 **Is it slow?**
-The font is built once, in the browser, when the page loads. After that each
-character is one lookup. Kerning is dropped, which you'll barely notice in body
-text.
+The font is built once per page load, in a few milliseconds: it is your font
+with only its lookup table replaced, so kerning and ligatures stay. After that
+each character is one lookup.
 
 **What does the license mean for me?**
 It's AGPL-3.0. If you use it on a public website, that site's source code has to
@@ -158,11 +198,16 @@ it. See the [font license checklist](projects/pacyfist/veneer/README.md#font-lic
 
 ## Documentation
 
-The full reference covers every config option, the API, SSR details,
-troubleshooting and the framework-free core:
-[projects/pacyfist/veneer/README.md](projects/pacyfist/veneer/README.md).
-
-What's planned next, and why: [ROADMAP.md](ROADMAP.md).
+- **[Library reference](projects/pacyfist/veneer/README.md)**: every option and
+  API, server rendering, recipes (lazy routes, `@defer`, rich text, CSP, layout
+  shift), where plaintext still leaks, accessibility, error codes, support policy.
+  This is the single source of truth; the demo site mirrors it.
+- **[THREAT_MODEL.md](THREAT_MODEL.md)**: who veneer stops, who it doesn't, and the
+  measured attack matrix.
+- **[SECURITY.md](SECURITY.md)**: how to report a vulnerability, and what counts
+  as one.
+- **[CHANGELOG](projects/pacyfist/veneer/CHANGELOG.md)** and
+  **[ROADMAP.md](ROADMAP.md)**.
 
 ## Repository layout
 
@@ -180,6 +225,7 @@ npm test             # library unit tests
 npm run build:pages  # static site in dist/demo/browser
 npm run e2e          # Playwright (Chromium, Firefox, WebKit) against that build
 npm run check:package   # npm pack + publint + arethetypeswrong (after build:lib)
+npm run api:check       # public API against projects/pacyfist/veneer/api/
 npm run example:smoke   # install that tarball into examples/basic-ssr and test it
 ```
 
