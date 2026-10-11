@@ -36,12 +36,16 @@ import { gzipSync } from 'node:zlib';
  * apps' initial bundles: `./core` 4,975 B (cipher only), `./forge` 9,827 B,
  * `.` 7,455 B (the service gained the shared font cache, structured failures,
  * status features and error codes), `./testing` 2,047 B.
+ *
+ * `.` and `./testing` raised 2026-10-11 at the end of the runtime work:
+ * `.` 8,965 B (strictCoverage narrowing, withFaces, id), `./testing` 4,136 B
+ * (findVeneerLeaks).
  */
 const BUDGETS = {
-  '.': 8_200,
+  '.': 9_900,
   './core': 5_500,
   './forge': 10_800,
-  './testing': 2_300,
+  './testing': 4_600,
 };
 
 const dist = process.argv[2] ?? 'dist/pacyfist/veneer';
