@@ -6,6 +6,18 @@ import type { VeneerStatusListener } from './veneer-status';
 /** Where the base outlines come from. A URL, the bytes themselves, or a loader. */
 export type VeneerFontSource = string | ArrayBuffer | (() => Promise<ArrayBuffer>);
 
+/** One more face of the base family, for `withFaces()`. */
+export interface VeneerFace {
+  /** The face's base font, in the same forms as `font`. */
+  src: VeneerFontSource;
+  /** CSS `font-weight` this face is used for, e.g. `700` or `'bold'`. Default `normal`. */
+  weight?: string | number;
+  /** CSS `font-style`, e.g. `'italic'`. Default `normal`. */
+  style?: string;
+  /** CSS `font-stretch`, e.g. `'condensed'`. Default `normal`. */
+  stretch?: string;
+}
+
 export interface VeneerConfig {
   /**
    * Base font supplying the glyph outlines, as a .ttf or .otf (not WOFF/WOFF2).
@@ -59,6 +71,14 @@ export interface VeneerConfig {
    * instance, as before 0.1.
    */
   strictCoverage?: boolean;
+
+  /**
+   * Names this instance, so several instances with implicit seeds can render
+   * on one server page: each carries its seed to the client under its own
+   * key. Without distinct ids, the last instance's seed wins and the others
+   * hydrate with the wrong cipher. Not needed with an explicit `seed`.
+   */
+  id?: string;
 }
 
 /**
@@ -66,8 +86,10 @@ export interface VeneerConfig {
  *
  * @internal Exported as `ɵResolvedVeneerConfig` for the testing entry point only.
  */
-export type ResolvedVeneerConfig = Required<Omit<VeneerConfig, 'seed'>> &
-  Pick<VeneerConfig, 'seed'> & {
+export type ResolvedVeneerConfig = Required<Omit<VeneerConfig, 'seed' | 'id'>> &
+  Pick<VeneerConfig, 'seed' | 'id'> & {
+    /** From `withFaces()`. */
+    readonly faces: readonly VeneerFace[];
     /** From `withStatusListener()`. */
     readonly statusListeners: readonly VeneerStatusListener[];
     /** From `withStatusAttribute()`. */
@@ -75,7 +97,7 @@ export type ResolvedVeneerConfig = Required<Omit<VeneerConfig, 'seed'>> &
   };
 
 /** The features `provideVeneer` accepts after the config. */
-export type VeneerFeatureKind = 'statusListener' | 'statusAttribute';
+export type VeneerFeatureKind = 'statusListener' | 'statusAttribute' | 'faces';
 
 /**
  * An optional addition to `provideVeneer(config, ...features)`, made by one of
@@ -110,6 +132,33 @@ export function withStatusListener(
   return {
     ɵkind: 'statusListener',
     ɵapply: (config) => ({ ...config, statusListeners: [...config.statusListeners, listener] }),
+  };
+}
+
+/**
+ * Add bold, italic or other faces of the base family, so protected text in
+ * those styles uses real outlines instead of the browser's synthesized bold or
+ * slant. `font` stays the regular face.
+ *
+ * ```ts
+ * provideVeneer(
+ *   { font: 'fonts/Roboto-Regular.ttf' },
+ *   withFaces(
+ *     { src: 'fonts/Roboto-Bold.ttf', weight: 700 },
+ *     { src: 'fonts/Roboto-Italic.ttf', style: 'italic' },
+ *   ),
+ * );
+ * ```
+ *
+ * All faces are forged with one seed under one family name, with matching
+ * `FontFace` descriptors. Every face must load: if one cannot be built the
+ * whole instance fails open. Characters any face lacks are dropped from the
+ * cipher (see `strictCoverage`).
+ */
+export function withFaces(...faces: VeneerFace[]): VeneerFeature<'faces'> {
+  return {
+    ɵkind: 'faces',
+    ɵapply: (config) => ({ ...config, faces: [...config.faces, ...faces] }),
   };
 }
 
@@ -154,6 +203,7 @@ export function provideVeneer(
     disabled: false,
     strictCoverage: false,
     ...config,
+    faces: [],
     statusListeners: [],
     statusAttribute: false,
   } as ResolvedVeneerConfig);

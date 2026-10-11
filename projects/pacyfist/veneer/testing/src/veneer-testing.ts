@@ -140,6 +140,7 @@ export function provideVeneerTesting(options: VeneerTestingOptions = {}): Enviro
     disabled: options.state === 'disabled',
     seed: options.seed ?? DEFAULT_TESTING_SEED,
     strictCoverage: false,
+    faces: [],
     statusListeners: [],
     statusAttribute: false,
   };

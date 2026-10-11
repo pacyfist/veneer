@@ -3,9 +3,15 @@
  */
 
 // Setup
-export { provideVeneer, withStatusAttribute, withStatusListener } from './lib/veneer.config';
+export {
+  provideVeneer,
+  withFaces,
+  withStatusAttribute,
+  withStatusListener,
+} from './lib/veneer.config';
 export type {
   VeneerConfig,
+  VeneerFace,
   VeneerFeature,
   VeneerFeatureKind,
   VeneerFontSource,

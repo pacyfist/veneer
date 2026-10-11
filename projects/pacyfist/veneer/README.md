@@ -198,18 +198,20 @@ provideVeneer({
   hideUntilReady: true,
   disabled: false,
   strictCoverage: false,
+  id: undefined,
 });
 ```
 
-| Option               | Type                                                  | Default                   | Purpose                                                                                |
-| -------------------- | ----------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------- |
-| `font`               | `string \| ArrayBuffer \| () => Promise<ArrayBuffer>` | _required_                | Base font supplying the glyph outlines                                                 |
-| `fallbackFontFamily` | `string`                                              | `'sans-serif'`            | Used until the font is ready, when off, and for missing glyphs                         |
-| `charset`            | `readonly number[]`                                   | `DEFAULT_CHARSET` (ASCII) | Codepoints the cipher covers                                                           |
-| `seed`               | `number`                                              | random per page load      | Pins the cipher. Tests and reproducible builds only                                    |
-| `hideUntilReady`     | `boolean`                                             | `true`                    | Keep protected text invisible until the font lands                                     |
-| `disabled`           | `boolean`                                             | `false`                   | Turn everything off, per environment                                                   |
-| `strictCoverage`     | `boolean`                                             | `false`                   | Fail open on any glyph the font lacks, instead of leaving those characters unscrambled |
+| Option               | Type                                                  | Default                   | Purpose                                                                                            |
+| -------------------- | ----------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------- |
+| `font`               | `string \| ArrayBuffer \| () => Promise<ArrayBuffer>` | _required_                | Base font supplying the glyph outlines                                                             |
+| `fallbackFontFamily` | `string`                                              | `'sans-serif'`            | Used until the font is ready, when off, and for missing glyphs                                     |
+| `charset`            | `readonly number[]`                                   | `DEFAULT_CHARSET` (ASCII) | Codepoints the cipher covers                                                                       |
+| `seed`               | `number`                                              | random per page load      | Pins the cipher. Tests and reproducible builds only                                                |
+| `hideUntilReady`     | `boolean`                                             | `true`                    | Keep protected text invisible until the font lands                                                 |
+| `disabled`           | `boolean`                                             | `false`                   | Turn everything off, per environment                                                               |
+| `strictCoverage`     | `boolean`                                             | `false`                   | Fail open on any glyph the font lacks, instead of leaving those characters unscrambled             |
+| `id`                 | `string`                                              | none                      | Namespaces the seed carried from server to client, for several implicit-seed instances on one page |
 
 **`charset`** defaults to `DEFAULT_CHARSET`: the 84 printable ASCII characters
 the cipher can swap without moving a line break. The browser wraps lines based on
@@ -250,6 +252,28 @@ text is re-scrambled, those characters show as themselves in the fallback font,
 and a dev-mode warning ([VNR014](#vnr014)) lists them. On, the instance fails open
 instead ([VNR012](#vnr012)).
 
+**Bold and italic faces.** `font` is the regular face. Without more faces, bold
+or italic protected text is synthesized by the browser from it. Add real faces
+with `withFaces()`; they are forged with the same seed under the same family name,
+with matching `FontFace` descriptors:
+
+```ts
+provideVeneer(
+  { font: 'fonts/Roboto-Regular.ttf', fallbackFontFamily: "'Roboto', sans-serif" },
+  withFaces(
+    { src: 'fonts/Roboto-Bold.ttf', weight: 700 },
+    { src: 'fonts/Roboto-Italic.ttf', style: 'italic' },
+  ),
+);
+```
+
+Every face must load, or the instance fails open. Characters any face lacks are
+dropped from the cipher (see `strictCoverage`).
+
+**`id`** matters only when several `provideVeneer` instances without a `seed`
+render on one server page (for example in lazy routes). Each publishes its seed
+for hydration; give each a distinct `id` so they don't overwrite one another.
+
 **`hideUntilReady`** trades one flaw for another. Left on, scrambled characters
 never flash on screen, but a visitor with JavaScript disabled sees nothing where
 protected text would be. Turn it off to accept the flash instead.
@@ -258,12 +282,13 @@ protected text would be. Turn it off to accept the flash instead.
 
 ### Setup
 
-| Export                                               | Description                                                                   |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `provideVeneer(config, ...features)`                 | Returns `EnvironmentProviders`. Add to `providers`                            |
-| `withStatusListener(fn)`, `withStatusAttribute()`    | Features: report status changes; mirror status on `<html data-veneer-status>` |
-| `VeneerStatus`, `VeneerFailure`, `VeneerStatusEvent` | Status types                                                                  |
-| `VeneerConfig`, `VeneerFontSource`, `VeneerFeature`  | Config types                                                                  |
+| Export                                               | Description                                                                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `provideVeneer(config, ...features)`                 | Returns `EnvironmentProviders`. Add to `providers`                                                           |
+| `withStatusListener(fn)`, `withStatusAttribute()`    | Features: report status changes; mirror status on `<html data-veneer-status>`                                |
+| `withFaces(...faces)`                                | Feature: bold, italic or other faces of the base family (`VeneerFace`: `{ src, weight?, style?, stretch? }`) |
+| `VeneerStatus`, `VeneerFailure`, `VeneerStatusEvent` | Status types                                                                                                 |
+| `VeneerConfig`, `VeneerFontSource`, `VeneerFeature`  | Config types                                                                                                 |
 
 Exports whose names start with `ɵ` are internal (they exist for
 `@pacyfist/veneer/testing`) and may change in any release.
@@ -361,8 +386,8 @@ server-rendered HTML and never execute JavaScript.
 
 The cipher is built synchronously from a seed, so the server renders scrambled
 text directly into the HTML. The seed travels to the client through Angular's
-`TransferState`, both sides derive the same cipher, and hydration sees identical
-text.
+`TransferState` (under a key namespaced by `id`, when set), both sides derive the
+same cipher, and hydration sees identical text.
 
 Elements the server scrambled carry a `data-veneer-ssr` attribute. The `veneer`
 directive in its element-content form (`<p veneer>Text</p>`) takes the element's

@@ -14,7 +14,7 @@ import {
   untracked,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { VENEER_CONFIG } from './veneer.config';
+import { VENEER_CONFIG, VeneerFace } from './veneer.config';
 import { ScrambleMap, buildScrambleMap, randomSeed, scrambleText } from '@pacyfist/veneer/core';
 import { VeneerFontState } from './veneer-font-state';
 import { Forge, FontSourceError, loadBaseFont, loadForge } from './base-font';
@@ -31,7 +31,20 @@ import type { VeneerFailure, VeneerStatus } from './veneer-status';
  * substitution completely. See the README on what this technique does and
  * does not defend against.
  */
-const SEED_KEY = makeStateKey<number>('veneerSeed');
+function seedKey(id: string | undefined) {
+  // Namespaced by `id`, so several implicit-seed instances in one server
+  // render each carry their own seed instead of the last writer winning.
+  return makeStateKey<number>(id ? `veneerSeed:${id}` : 'veneerSeed');
+}
+
+/** `FontFace` descriptors for a face; unset ones keep the browser defaults. */
+function descriptorsOf(face: VeneerFace): FontFaceDescriptors {
+  const descriptors: FontFaceDescriptors = {};
+  if (face.weight !== undefined) descriptors.weight = String(face.weight);
+  if (face.style !== undefined) descriptors.style = face.style;
+  if (face.stretch !== undefined) descriptors.stretch = face.stretch;
+  return descriptors;
+}
 
 /** The attribute `withStatusAttribute()` maintains on `<html>`. */
 const STATUS_ATTRIBUTE = 'data-veneer-status';
@@ -72,8 +85,8 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   private readonly transferState = inject(TransferState);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
-  /** The face registered in `document.fonts`, so it can be removed on destroy. */
-  private face: FontFace | undefined;
+  /** The faces registered in `document.fonts`, so they can be removed on destroy. */
+  private faces: FontFace[] = [];
 
   /** Set once `ngOnDestroy` runs, so a load already in flight knows not to register its face. */
   private destroyed = false;
@@ -143,16 +156,17 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   );
 
   constructor() {
+    const key = seedKey(this.config.id);
     const seed =
       this.config.seed ??
-      (this.isBrowser ? this.transferState.get(SEED_KEY, randomSeed()) : randomSeed());
+      (this.isBrowser ? this.transferState.get(key, randomSeed()) : randomSeed());
 
     // Only an instance relying on an implicit seed needs to publish it for
     // hydration. One with an explicit seed is already deterministic across
     // server and client, and publishing would clobber the implicit instance's
     // seed when several instances render on the server.
     if (!this.isBrowser && this.config.seed === undefined) {
-      this.transferState.set(SEED_KEY, seed);
+      this.transferState.set(key, seed);
     }
 
     this.seed = seed;
@@ -177,26 +191,40 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   private async load(): Promise<void> {
     let stage: Stage = 'source';
     try {
-      // The forge is a separate chunk: fetch it alongside the font.
+      // The forge is a separate chunk: fetch it alongside the fonts. The
+      // regular face (`font`) comes first, then any from `withFaces()`.
       const forge = loadForge();
-      const base = await loadBaseFont(this.config.font, this.document.baseURI, async (bytes) =>
-        (await forge).parseBaseFont(bytes),
+      const faces: VeneerFace[] = [{ src: this.config.font }, ...this.config.faces];
+      const bases = await Promise.all(
+        faces.map((face) =>
+          loadBaseFont(face.src, this.document.baseURI, async (bytes) =>
+            (await forge).parseBaseFont(bytes),
+          ),
+        ),
       );
       stage = 'forge';
-      const map = this.config.strictCoverage ? this.initialMap : this.narrow(await forge, base);
-      const forged = (await forge).forgeScrambledFont(base, map, this.familyName);
+      const { coveredCodepoints, forgeScrambledFont } = await forge;
+      const map = this.config.strictCoverage
+        ? this.initialMap
+        : this.narrow(coveredCodepoints, bases);
+      // One seed, one family: every face is forged from the same map, and the
+      // descriptors let the browser pick the right one for bold or italic text.
+      const forged = bases.map((base) => forgeScrambledFont(base, map, this.familyName));
       stage = 'face';
-      const face = new FontFace(this.familyName, forged);
-      await face.load();
+      const loaded = await Promise.all(
+        forged.map((bytes, i) =>
+          new FontFace(this.familyName, bytes, descriptorsOf(faces[i])).load(),
+        ),
+      );
 
-      // The service can be destroyed while `face.load()` is in flight - a child
-      // injector's service is torn down on every config change. Registering the
-      // face after that point would leak it: nothing would ever call
-      // `ngOnDestroy` again to remove it.
+      // The service can be destroyed while `load()` is in flight - a child
+      // injector's service is torn down on every config change. Registering
+      // faces after that point would leak them: nothing would ever call
+      // `ngOnDestroy` again to remove them.
       if (this.destroyed) return;
 
-      this.face = face;
-      this.document.fonts.add(face);
+      this.faces = loaded;
+      for (const face of loaded) this.document.fonts.add(face);
       // Together, so text is re-scrambled with the map the font was forged for
       // in the same change detection pass that reveals it.
       this.currentMap.set(map);
@@ -218,13 +246,16 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   }
 
   /**
-   * The initial map, or when the font lacks glyphs for some of its characters,
+   * The initial map, or when a face lacks glyphs for some of its characters,
    * a map rebuilt from the same seed without them. Those characters then pass
-   * through unscrambled and render in the fallback font.
+   * through unscrambled and render in the fallback font. With several faces,
+   * only characters every face can draw stay in the cipher.
    */
-  private narrow(forge: Forge, base: BaseFont): ScrambleMap {
+  private narrow(coveredCodepoints: Forge['coveredCodepoints'], bases: BaseFont[]): ScrambleMap {
     const scrambled = [...this.initialMap.forward.keys()];
-    const covered = new Set(forge.coveredCodepoints(base, scrambled));
+    const covered = new Set(
+      bases.reduce((candidates, base) => coveredCodepoints(base, candidates), scrambled),
+    );
     const dropped = scrambled
       .filter((cp) => !covered.has(cp))
       .map((cp) => String.fromCodePoint(cp));
@@ -237,7 +268,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
         console.warn(
           veneerMessage(
             'VNR014',
-            `the base font has no glyph for ${dropped.length} charset character(s): ${key}. ` +
+            `the base font${bases.length > 1 ? 's have' : ' has'} no glyph for ${dropped.length} charset character(s): ${key}. ` +
               'They are left out of the cipher and shown as they are, in the fallback font. ' +
               'Narrow `charset` to silence this, or set `strictCoverage: true` to fail instead.',
           ),
@@ -281,10 +312,8 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyed = true;
-    if (this.face) {
-      this.document.fonts.delete(this.face);
-      this.face = undefined;
-    }
+    for (const face of this.faces) this.document.fonts.delete(face);
+    this.faces = [];
     if (this.config.statusAttribute) {
       this.document.documentElement?.removeAttribute(STATUS_ATTRIBUTE);
     }
