@@ -226,7 +226,8 @@ input string never changed. The cost is one `Map` lookup per character per call.
 
 ### Runtime state
 
-**`VeneerFontService`** - provided by `provideVeneer`.
+**`VeneerFontService`** - provided by `provideVeneer`. Its public shape is the
+exported `VeneerFontState` interface, which the testing stand-in implements too.
 
 | Member           | Type                      | Description                                          |
 | ---------------- | ------------------------- | ---------------------------------------------------- |
@@ -242,7 +243,8 @@ input string never changed. The cost is one `Map` lookup per character per call.
 
 ### Framework-free core
 
-Exported so the cipher can be reused outside Angular.
+Published on its own as `@pacyfist/veneer/core`, which imports no Angular, and
+re-exported from `@pacyfist/veneer`.
 
 | Export                                      | Description                                                            |
 | ------------------------------------------- | ---------------------------------------------------------------------- |
@@ -255,6 +257,34 @@ Exported so the cipher can be reused outside Angular.
 | `parseBaseFont(buffer)`                     | Parse a `.ttf`/`.otf` into an opentype.js `Font`                       |
 | `forgeScrambledFont(base, map, familyName)` | Produce the font binary whose `cmap` is scrambled                      |
 | `VeneerFontError`                           | Thrown on parse failure or missing glyphs; carries `missing: string[]` |
+
+### Testing
+
+`@pacyfist/veneer/testing` replaces `provideVeneer` in component tests. No font
+is fetched or forged, so nothing needs `FontFace` (jsdom has none).
+
+```ts
+import { TestBed } from '@angular/core/testing';
+import {
+  VeneerTestingFontService,
+  decodeVeneer,
+  provideVeneerTesting,
+} from '@pacyfist/veneer/testing';
+
+TestBed.configureTestingModule({ providers: [provideVeneerTesting({ seed: 1 })] });
+// ... render a component that uses [veneer] ...
+expect(decodeVeneer(el)).toBe('Hello, world');
+
+TestBed.inject(VeneerTestingFontService).setState('failed'); // simulate a font failure
+```
+
+| Export                           | Description                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------------------- |
+| `provideVeneerTesting(options?)` | Provides a deterministic `VeneerFontService` stand-in and `VENEER_CONFIG`                 |
+| `VeneerTestingOptions`           | `{ seed?, state?, charset?, fallbackFontFamily? }`                                        |
+| `VeneerTestingState`             | `'ready'` (default), `'loading'`, `'failed'` or `'disabled'`                              |
+| `VeneerTestingFontService`       | The stand-in. Implements `VeneerFontState`; `setState(state)` changes state mid-test      |
+| `decodeVeneer(elOrText, map?)`   | Readable text of a protected element or string. Defaults to the current stand-in's cipher |
 
 ## Server-side rendering
 
@@ -321,10 +351,11 @@ either way.
 ## Using the cipher outside Angular
 
 The core is framework-free - the same functions run in the browser, in an SSR
-process, and in a plain Node script:
+process, and in a plain Node script. Import it from `@pacyfist/veneer/core`,
+which does not load Angular:
 
 ```ts
-import { buildScrambleMap, scrambleText, invertScrambleMap } from '@pacyfist/veneer';
+import { buildScrambleMap, scrambleText, invertScrambleMap } from '@pacyfist/veneer/core';
 
 const map = buildScrambleMap(12345);
 
@@ -359,6 +390,7 @@ it exactly as an outside user would.
 npm install
 npm start        # build the library, serve the demo on :4321
 npm test         # library unit tests (vitest)
+npm run test:node-core  # load the built core in plain Node and forge a font
 npm run e2e      # Playwright checks against the built static site
 npm run build    # library + demo production build
 ```

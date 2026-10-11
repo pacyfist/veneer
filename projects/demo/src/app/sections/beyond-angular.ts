@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
-import { buildScrambleMap, invertScrambleMap, scrambleText } from '@pacyfist/veneer';
+import { buildScrambleMap, invertScrambleMap, scrambleText } from '@pacyfist/veneer/core';
 import { CodeBlock } from '../ui/code-block';
 
 const SEED = 12345;
@@ -49,7 +49,7 @@ const SEED = 12345;
 })
 export class BeyondAngular {
   protected readonly snippet = [
-    "import { buildScrambleMap, scrambleText } from '@pacyfist/veneer';",
+    "import { buildScrambleMap, scrambleText } from '@pacyfist/veneer/core';",
     '',
     `const map = buildScrambleMap(${SEED});`,
     "scrambleText('Hello, world', map);",
