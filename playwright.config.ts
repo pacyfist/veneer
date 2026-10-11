@@ -27,10 +27,14 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
 
-  // Chromium only. The technique needs the FontFace API and canvas glyph
-  // rasterisation; broadening browsers is a separate decision with its own
-  // fallout, not a freebie.
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // All three engines. The library fails open, so an engine where forging or
+  // FontFace breaks would quietly serve readable text; only a real browser
+  // run catches that. Pick one locally with `--project=firefox`.
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+  ],
 
   webServer: {
     command: `PORT=${PORT} node e2e/serve-static.mjs`,

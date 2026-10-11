@@ -1,9 +1,13 @@
 {
-  "name": "veneer",
-  "version": "0.0.0",
+  "name": "veneer-workspace",
+  "private": true,
+  "description": "Workspace for @pacyfist/veneer and its demo site. Not published; the library version lives in projects/pacyfist/veneer/package.json.",
   "scripts": {
     "ng": "ng",
-    "build:lib": "ng build @pacyfist/veneer && node -e \"require('fs').copyFileSync('LICENSE', 'dist/pacyfist/veneer/LICENSE')\"",
+    "build:lib": "ng build @pacyfist/veneer && node -e \"const fs = require('fs'); fs.copyFileSync('LICENSE', 'dist/pacyfist/veneer/LICENSE'); fs.copyFileSync('projects/pacyfist/veneer/CHANGELOG.md', 'dist/pacyfist/veneer/CHANGELOG.md')\"",
+    "size": "node scripts/check-bundle-size.mjs",
+    "check:package": "node scripts/check-package.mjs",
+    "example:smoke": "node scripts/example-smoke.mjs",
     "build": "npm run build:lib && ng build demo",
     "start": "npm run build:lib && ng serve demo --port 4321",
     "watch": "ng build demo --watch --configuration development",
@@ -13,9 +17,9 @@
     "use-angular": "node scripts/use-angular.mjs",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
-    "serve:ssr:demo": "node dist/demo/server/server.mjs"
+    "serve:ssr:demo": "node dist/demo/server/server.mjs",
+    "format:check": "prettier --check ."
   },
-  "private": true,
   "license": "AGPL-3.0-only",
   "packageManager": "npm@11.14.1",
   "dependencies": {
@@ -39,6 +43,7 @@
     "@angular/build": "^21.2.20",
     "@angular/cli": "^21.2.11",
     "@angular/compiler-cli": "^21.2.0",
+    "@arethetypeswrong/cli": "^0.18.5",
     "@playwright/test": "^1.62.1",
     "@types/express": "^5.0.1",
     "@types/node": "^20.17.19",
@@ -47,6 +52,7 @@
     "jsdom": "^28.0.0",
     "ng-packagr": "^21.2.0",
     "prettier": "^3.8.1",
+    "publint": "^0.3.25",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"
   }

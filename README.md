@@ -153,13 +153,23 @@ What's planned next, and why: [ROADMAP.md](ROADMAP.md).
 | `projects/pacyfist/veneer` | The library, published as `@pacyfist/veneer` |
 | `projects/demo`            | The showcase site on GitHub Pages            |
 | `e2e`                      | Playwright checks against the built site     |
+| `examples/basic-ssr`       | Consumer app installed from the npm tarball  |
 
 ```bash
 npm install
 npm start            # demo at http://localhost:4321
 npm test             # library unit tests
 npm run build:pages  # static site in dist/demo/browser
+npm run e2e          # Playwright (Chromium, Firefox, WebKit) against that build
+npm run check:package   # npm pack + publint + arethetypeswrong (after build:lib)
+npm run example:smoke   # install that tarball into examples/basic-ssr and test it
 ```
+
+Releases are cut by [release-please](https://github.com/googleapis/release-please):
+merging its release PR bumps `projects/pacyfist/veneer/package.json`, updates the
+library [CHANGELOG](projects/pacyfist/veneer/CHANGELOG.md), tags `vX.Y.Z`, and
+starts `publish.yml`, which publishes only after the full validate run passes.
+The workspace root `package.json` is private and unversioned.
 
 ## License
 
