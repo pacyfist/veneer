@@ -85,6 +85,9 @@ type Mode =
 
 declare const ngDevMode: boolean | undefined;
 
+/** Server failures already logged, so each is reported once per process. */
+const loggedServerFailures = new Set<string>();
+
 /** Dropped-character sets already warned about, so each is reported once per page. */
 const warnedUncovered = new Set<string>();
 
@@ -235,7 +238,10 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
           ),
         };
       }
-      if (failure) {
+      // Once per process and message: a misconfigured server would otherwise
+      // log on every request.
+      if (failure && !loggedServerFailures.has(failure.message)) {
+        loggedServerFailures.add(failure.message);
         console.error(
           `[veneer] disabled (${failure.code}) on the server - protected text is rendered ` +
             `readable. See ${docsUrl(failure.code)}`,
