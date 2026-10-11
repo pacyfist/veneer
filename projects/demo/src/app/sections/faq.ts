@@ -30,7 +30,7 @@ const QUESTIONS: readonly Question[] = [
   },
   {
     q: 'Is it accessible?',
-    a: "Not while the text is scrambled: screen readers, find-in-page, translation and copy-paste all get the scrambled characters, because that is the protection. The route to accessibility is readable mode: a toggle, like the Readable text button at the top of this page, that switches scrambling off for the visitor and is remembered. withA11y('hide') stops screen readers from reading gibberish aloud, but it hides the text rather than making it accessible. Both are opt-in. Leave links, labels and navigation unprotected.",
+    a: "Not while protection is on: screen readers, find-in-page, translation and copy-paste all get the scrambled characters, because that is the protection. The route to accessibility is readable mode: a toggle, like the Readable text button at the top of this page, that switches scrambling off for the visitor and is remembered. withA11y('hide') stops screen readers from reading gibberish aloud, but it hides the text rather than making it accessible. Both are opt-in. Leave links, labels and navigation unprotected.",
   },
   {
     q: 'What is readable mode?',
