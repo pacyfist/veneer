@@ -14,7 +14,7 @@
    - A binding that changes to `''` keeps showing the old text (`:57`).
    - The README snippet uses a leading-slash font path, which fails under subpath deploys (`README.md:61`, lib README `:85`/`:172`, `sections/get-started.ts:18`).
    - Any glyph missing from the font switches protection off for the whole site (`font-forge.ts`, then `load()` catches the error).
-   - Letters can map to `- / ? !`, so protected words wrap mid-word.
+   - Letters can map to `-` or `?`, so protected words wrap mid-word. Measured in Chromium 152, these two are the only default-charset characters that do this.
 3. **It costs more than it needs to.**
    - opentype.js (about 67 KB gzip) is imported statically (`font-forge.ts:12`, reached through `veneer-font.service.ts:16`).
    - The forge rebuilds the font from glyph outlines (`font-forge.ts:48-87`). That drops kerning (GPOS), ligatures (GSUB) and hinting, and changes the vertical metrics.
@@ -105,6 +105,7 @@
   - `DEFAULT_CHARSET` (U+0021-U+007E, `scramble-map.ts:15-17`) is shuffled as one pool, so letters can map to `-`, `/`, `?`, `!`. Those create UAX #14 break opportunities, and protected text wraps mid-word.
   - CSS `text-transform` and `small-caps` act on the scrambled codepoints, so they paint the wrong glyphs.
   - Neither issue is in the README trade-offs.
+  - **Measured (Chromium 152, 2026-10-10):** of the 94 default characters, only `-` and `?` create a break inside a word. `/`, `!`, brackets, `|` and quotes do not. Across 30 seeds, about a third of five-line paragraphs in a 320px column had one split word. Firefox and WebKit are untested, so keeping `/` and `!` as identity is still the safe default.
 - **What:**
   - In `buildScrambleMap`, derange within classes only: letters to letters, digits to digits, break-neutral punctuation among itself.
   - Keep break-significant characters (`- / ? !`) as identity by default, the same way the space already is.
@@ -118,8 +119,9 @@
 ### 7. Stop shipping invisible text to no-JS readers
 
 - **Why:** On the server `ready()` never becomes true, so `hidden()` is true and both directives write inline `visibility:hidden` into the SSR HTML (`veneer.directive.ts:101-105`, `veneer-font.directive.ts:38-42`). No-JS readers, reader mode, archives and "cached page" views see blank space.
+  - **Strict CSP breaks the hiding the other way.** Measured in Chromium: under `style-src 'self'`, style attributes in served markup are ignored, while CSSOM writes from script and the `hidden` attribute still apply. So on a strict-CSP site the SSR text shows as gibberish in the fallback font until hydration, which is the flash `hideUntilReady` exists to prevent.
 - **What:**
-  - Hide through a class (or a `<style>` rule) that a tiny inline script removes, with a `<noscript>` override.
+  - Hide through a class (or a `<style>` rule) that a tiny inline script removes, with a `<noscript>` override. Under CSP that script needs the page's nonce. The `hidden` attribute is a CSP-safe alternative for the hide itself.
   - Add `translate="no"` and the `notranslate` class to protected elements.
   - Document how reader mode, translation, print and archives behave.
 - **Impact/effort:** Medium / S.
@@ -167,10 +169,11 @@
 
 ### 11. Document the side channels that leak plaintext
 
-- **Why:** The library rewrites only text content. `provideClientHydration` (used in `projects/demo/src/app/app.config.ts:19`) turns on the HttpClient transfer cache by default, which serializes raw API responses, including plaintext bodies, into ng-state. Title, meta/OG, JSON-LD `articleBody`, and `alt`/`aria-label` leak the same way. The only leak check is a single sentence in `e2e/demo.spec.ts`.
+- **Why:** The library rewrites only text content. `provideClientHydration` (used in `projects/demo/src/app/app.config.ts:19`) turns on the HttpClient transfer cache by default, which serializes raw API responses, including plaintext bodies, into ng-state. Title, meta/OG, JSON-LD `articleBody`, and `alt`/`aria-label` leak the same way. Static template text leaks too: the hero's `<p veneer>` sentence is absent from the prerendered `index.html` but present in plain form in `main-*.js`, because Angular compiles element content into the bundle. Only the bound `[veneer]="data"` form keeps plaintext out of the JS. The only leak check is a single sentence in `e2e/demo.spec.ts`.
 - **What:**
   - A README section "Where plaintext still leaks", including the `withHttpTransferCacheOptions({ filter })` recipe and guidance to keep meta and JSON-LD to summaries.
-  - A `findVeneerLeaks(html, originals)` helper, used in `e2e/demo.spec.ts` for every specimen.
+  - A `findVeneerLeaks(html, originals)` helper, used in `e2e/demo.spec.ts` for every specimen. Run it over the JS bundles as well as the HTML.
+  - Recommend the bound form for content that matters, and say why.
 - **Impact/effort:** High / S-M.
 - **Dependencies:** None.
 
@@ -212,6 +215,20 @@
   - Variation tables are dropped.
   - The OS/2 metrics change: usWinAscent goes from 1946 to 1692, sTypoLineGap from 102 to 0, and usWeightClass from 400 to 500. Forged and fallback glyphs therefore sit in different line boxes.
   - `styleName` is hard-coded to `'Regular'` (`:81`).
+  - Copying tables across cannot fix this: opentype.js 2's writer (`fontToSfntTable`) never emits GPOS, `kern` or hinting tables.
+  - The output is CFF while the page uses TrueType Roboto, so protected text may rasterise differently on Windows (unverified there; the format change is measured).
+- **Proof of concept (2026-10-10, Chromium 152):** an ~80-line in-place cmap rewrite of Roboto-Regular kept all 15 tables and resolved 94/94 scrambled codepoints to the readable glyph IDs. Shaped widths at 32px:
+
+  | Text            | Base font | In-place cmap | Current forge |
+  | --------------- | --------- | ------------- | ------------- |
+  | `AV` (kerning)  | 39.89px   | 39.89px       | 41.25px       |
+  | `fi` (ligature) | 17.73px   | 17.73px       | 18.91px       |
+  | `ffl`           | 27.31px   | 27.31px       | 30.03px       |
+  | Pangram         | 640.09px  | 640.09px      | 641.67px      |
+  - Scrambled digit and punctuation codepoints still get Roboto's Latin kerning and ligatures, so script itemisation is not a problem.
+  - `new FontFace(name, bytes)` ignores the `name` table, so renaming the family is optional for the browser path.
+  - Cost: the in-place font is 129 KB in memory against 18 KB for the current forge. The rewrite took about 3 ms in Node, against about 15 ms just to parse the font with opentype.js.
+
 - **What:**
   - A dependency-free sfnt writer (about 200-300 LOC) that copies every table byte for byte, rewrites the cmap (format 4 + 12), renames the family in `name`, recomputes checksums, and **strips `post` glyph names (format 3)**.
   - State openly that once JS runs, the forged font is the key. That is already true today, and base glyph IDs make it more obvious.
@@ -236,7 +253,7 @@
 - **What:**
   - An opt-in `a11y: 'hide'` mode that sets `aria-hidden` only while `active()`, taken from `specimen-card.ts`.
   - A "readable mode" signal on the service plus a ready-made toggle component that switches scrambling off for the session and remembers the choice.
-  - An opt-in "copy readable text" handler that decodes on a user gesture.
+  - An opt-in "copy readable text" handler that decodes on a user gesture. Listen on `document`, not the host: in Chromium a selection that starts outside a protected element never fires that element's `copy` listener. Invert only the text nodes inside protected hosts, and keep `text/html` consistent or drop it.
   - In both READMEs, say plainly that `aria-hidden` hides content from assistive tech rather than making it accessible, name the WCAG criteria affected, and present the toggle as the route to conformance.
   - Add axe-core checks to Playwright.
 - **Impact/effort:** High / M.
@@ -246,7 +263,7 @@
 
 - **Why:** Only one face exists. The `FontFace` has no descriptors (`veneer-font.service.ts:128`), so bold and italic protected text is synthesized by the browser. Instances with implicit seeds all write the single `'veneerSeed'` key, and the last writer wins. The demo avoids this by building instances client-only (`ui/isolated-instance.ts`).
 - **What:**
-  - `faces: [{ src, weight, style, stretch }]`, forged under one family name with one seed and matching descriptors.
+  - `faces: [{ src, weight, style, stretch }]`, forged under one family name with one seed and matching descriptors. `new FontFace(family, bytes, { weight, style })` was confirmed to work in Chromium.
   - An optional `id` that namespaces transferred state.
 - **Impact/effort:** Medium / M.
 - **Dependencies:** #3 (so metrics are preserved per face); #2 (state key).
@@ -258,6 +275,8 @@
   - Export `LATIN_1` and `LATIN_EXT_A` presets (Cyrillic and Greek next), using the class-preserving derangement from Now #6.
   - Add a `charsetFromText()` helper.
   - NFC-normalize input in `scrambleText` (on by default).
+  - Roboto-Regular covers U+00C0-U+00FF (64/64) and Latin Extended-A (128/128), including every Polish, German and French letter. It covers only 18 of 208 Latin Extended-B codepoints.
+  - Never put U+00A0 (no-break space) or U+00AD (soft hyphen) in a preset. Roboto has glyphs for both, so `charsetFromFont` must exclude them explicitly.
 - **Impact/effort:** Medium / S-M.
 - **Dependencies:** Now #6, Now #8.
 
@@ -266,6 +285,8 @@
 - **Why:**
   - `ng-package.json` has one entry file, so the core reached through `public-api.ts` pulls in `@angular/core`, even for the README's own "Using the cipher outside Angular" Node example.
   - Consumer tests under jsdom hit the real service. jsdom has no `FontFace`, so every test takes the fail-open path and logs errors.
+  - In plain Node the bundle fails before Angular is even reached: opentype.js has a CommonJS `main` and no `exports` map, so `import()` of the FESM throws "Named export 'Font' not found". The core entry must not import opentype.js by name, or must wait for Next #3.
+  - opentype.js 2 ships no `.d.ts`, yet the published types `import { Font } from 'opentype.js'`. Consumers need `@types/opentype.js`, which the package does not declare even as an optional peer.
   - The library's own spec hand-rolls a `fakeService` and points to a `scripts/verify-in-browser.mjs` that does not exist (`veneer.directive.spec.ts:13-15`; `scripts/` holds only `use-angular.mjs`).
 - **What:**
   - Secondary entry points built with ng-packagr:
@@ -337,6 +358,7 @@
   - Specs for `veneer.pipe.ts`, `veneer-font.directive.ts`, `provideVeneer` defaults and the `resolveFontSource` branches.
   - A pure-Vitest run of the core specs on Angular 20, which `ci.yml` currently skips with `if: matrix.angular >= 21`.
   - `prettier --check`.
+  - Consider Vitest browser mode, so unit tests can see a real `FontFace`: set `browsers: ["ChromiumHeadless"]` on the test target and add `@vitest/browser-playwright`. `font-forge.spec.ts` reads its fixture with `node:fs` and would need to fetch it instead.
   - A bug-report issue form that asks for Angular version, browser, font format and SSR on/off.
 - **Impact/effort:** Low-Medium / S.
 
@@ -417,7 +439,7 @@
 - **Standalone glyph-order shuffle (e-shuffle-glyph-order):** The leak is real: glyph index k maps to charset[k-1] (`font-forge.ts:53`). But the forged font lives only in browser memory. An attacker who can capture it can also match outlines against the publicly fetched base font, and the cmap rewrite (Next #3) keeps base glyph IDs anyway. Covered instead by honest documentation and by stripping `post` names.
 - **WordPress plugin and CMS integrations:** They depend on two unbuilt items and would be a separate PHP product to maintain. Revisit once the web component has users.
 - **README health badges and a time-to-ready perf gate:** Badges don't change decisions and a perf gate would be flaky. The bundle budget is covered by Now #5.
-- **Worker-thread forging:** About 34 ms of forging doesn't justify the complexity, and the lazy import plus the Later server forge address the cost.
+- **Worker-thread forging:** Parse plus forge measured about 70 ms on first run in desktop Chromium, and runs while text is hidden, so it delays the reveal rather than first paint. The cmap rewrite (Next #3) cuts it to a few milliseconds, and the lazy import plus the Later server forge address the rest.
 - **Dev overlay, `window.veneer` console API, "bot vision" shortcut:** Low value for the cost. The structured status (Now #4) covers the real need.
 - **`veneerAttr` directive and runtime document leak scanning:** Deferred. Documentation plus `findVeneerLeaks` in tests cover the practical cases.
 - **A plaintext `aria-label` accessibility strategy:** It hands the plaintext to every DOM scraper and defeats the purpose.
@@ -469,3 +491,4 @@
     - the README claims were checked at `README.md:102` and lib README `:186`, `:277`;
     - Chromium-only e2e was confirmed at `playwright.config.ts:31`;
   - added the critics' verified "missing" items: README corrections as a standalone first step, fail-open observability, the font-license checklist, CSP and CLS recipes, the "Is veneer right for me?" guide, the CommonJS warning note, zoneless and CSR-only coverage, and license-first sequencing.
+- **Measured follow-up (2026-10-10 and 2026-10-11):** a separate review re-tested the key claims in headless Chromium 152 and Node, using scratch scripts outside the repo. It added the measured evidence in Now #6, #7 and #11 and Next #3, #5, #6, #7, #8 and #13, and the timing under "Worker-thread forging".
