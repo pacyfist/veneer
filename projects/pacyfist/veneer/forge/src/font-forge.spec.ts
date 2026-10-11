@@ -9,12 +9,11 @@ import { readCmap, writeCmap } from './cmap';
 import {
   type BaseFont,
   VeneerFontError,
-  charsetFromFont,
   coveredCodepoints,
   forgeScrambledFont,
   parseBaseFont,
 } from './font-forge';
-import { DEFAULT_CHARSET, buildScrambleMap, type ScrambleMap } from './scramble-map';
+import { DEFAULT_CHARSET, buildScrambleMap, type ScrambleMap } from '@pacyfist/veneer/core';
 import { type Sfnt, readSfnt, tableChecksum, viewOf, writeSfnt } from './sfnt';
 import { decodeWoff } from './woff';
 
@@ -401,7 +400,7 @@ describe('cmap writer', () => {
   });
 });
 
-describe('coveredCodepoints and charsetFromFont', async () => {
+describe('coveredCodepoints', async () => {
   const bytes = loadFixture();
   const base = await parseBaseFont(bytes);
 
@@ -414,30 +413,6 @@ describe('coveredCodepoints and charsetFromFont', async () => {
     const wanted = [0x61, 0x62, 0x63, 0x4e2d];
     const map = buildScrambleMap(9, coveredCodepoints(base, wanted));
     expect(() => forgeScrambledFont(base, map, 'Veneer-narrow')).not.toThrow();
-  });
-
-  it('returns covered, eligible codepoints from a candidate', async () => {
-    const candidate = [0x20, 0x41, 0xa0, 0xad, 0x09, 0x0a, 0x7f, 0x301, 0x200b, 0x4e2d, 0xe9];
-    expect(await charsetFromFont(bytes, candidate)).toEqual([0x41, 0xe9]);
-  });
-
-  it('defaults to everything the font draws, minus ineligible characters', async () => {
-    const charset = await charsetFromFont(toArrayBuffer(bytes));
-    expect(charset.length).toBeGreaterThan(500);
-    // Whitespace, NBSP, soft hyphen, controls, marks, and break-significant
-    // characters (`- / ? ! | }`, en dash, ellipsis), which would move line breaks.
-    for (const excluded of [
-      0x20,
-      0xa0,
-      0xad,
-      0x0d,
-      0x2009,
-      0x300,
-      ...[...'-/?!|}–…'].map((c) => c.codePointAt(0)!),
-    ]) {
-      expect(charset).not.toContain(excluded);
-    }
-    for (const included of DEFAULT_CHARSET) expect(charset).toContain(included);
   });
 });
 

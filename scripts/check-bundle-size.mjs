@@ -4,7 +4,7 @@
  *   npm run build:lib && node scripts/check-bundle-size.mjs [dist dir]
  *
  * The entry points come from the built package.json `exports`, so a new
- * secondary entry point (`./core`, `./testing`, ...) is picked up without
+ * secondary entry point (`./core`, `./forge`, `./testing`, ...) is picked up without
  * editing this file. Every entry point needs a budget below; one without a
  * budget fails the check, so it gets a deliberate number.
  *
@@ -30,11 +30,18 @@ import { gzipSync } from 'node:zlib';
  *
  * `./core` raised 2026-10-11 to 15,400 B: the layout-safe cipher (measured
  * line-break classes, Latin presets, charsetFromText, NFC) measured 14,006 B.
+ *
+ * Re-measured 2026-10-11 when the forge moved to its own `./forge` entry
+ * point, which the Angular service imports dynamically so it stays out of
+ * apps' initial bundles: `./core` 4,975 B (cipher only), `./forge` 9,827 B,
+ * `.` 7,455 B (the service gained the shared font cache, structured failures,
+ * status features and error codes), `./testing` 2,047 B.
  */
 const BUDGETS = {
-  '.': 5_000,
-  './core': 15_400,
-  './testing': 2_100,
+  '.': 8_200,
+  './core': 5_500,
+  './forge': 10_800,
+  './testing': 2_300,
 };
 
 const dist = process.argv[2] ?? 'dist/pacyfist/veneer';

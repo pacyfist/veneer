@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { BaseFont } from '@pacyfist/veneer/core';
+import type { BaseFont } from '@pacyfist/veneer/forge';
 import {
   FontSourceError,
   clearBaseFontCache,

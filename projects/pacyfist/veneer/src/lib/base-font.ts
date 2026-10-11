@@ -1,4 +1,4 @@
-import type { BaseFont } from '@pacyfist/veneer/core';
+import type { BaseFont } from '@pacyfist/veneer/forge';
 import type { VeneerFontSource } from './veneer.config';
 import { veneerMessage } from './veneer-errors';
 
@@ -75,6 +75,29 @@ export async function resolveFontSource(
       veneerMessage('VNR010', `the base font loader rejected (${reason}).`),
     );
   }
+}
+
+type Forge = typeof import('@pacyfist/veneer/forge');
+
+let forge: Promise<Forge> | undefined;
+
+/**
+ * The font forge, loaded on first use.
+ *
+ * A dynamic import of its own entry point, so bundlers put the forge (and
+ * WOFF decoding) in a lazy chunk instead of the app's initial bundle. The
+ * cipher stays in the main bundle: it has to run synchronously, on the server
+ * too. A failed chunk load is not cached.
+ */
+export function loadForge(): Promise<Forge> {
+  forge ??= import('@pacyfist/veneer/forge').catch((cause) => {
+    forge = undefined;
+    const reason = (cause as Error)?.message ?? String(cause);
+    throw new FontSourceError(
+      veneerMessage('VNR010', `could not load the font forge (${reason}).`),
+    );
+  });
+  return forge;
 }
 
 /** Parsed fonts per URL: one fetch and one parse per page, however many instances ask. */

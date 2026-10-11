@@ -289,26 +289,30 @@ exported `VeneerFontState` interface, which the testing stand-in implements too.
 
 ### Framework-free core
 
-Published on its own as `@pacyfist/veneer/core`, which imports no Angular, and
-re-exported from `@pacyfist/veneer`.
+Two entry points that import no Angular. `@pacyfist/veneer/core` holds the
+cipher and is re-exported from `@pacyfist/veneer`. `@pacyfist/veneer/forge` holds
+the font forge (`parseBaseFont`, `forgeScrambledFont`, `coveredCodepoints`,
+`VeneerFontError`, `BaseFont`). The forge is not re-exported from either, so it
+stays out of your initial bundle: the service loads it with a dynamic import
+when the font is built, and bundlers emit it as a lazy chunk (about 5 KB gzip).
 
-| Export                                      | Description                                                                  |
-| ------------------------------------------- | ---------------------------------------------------------------------------- |
-| `DEFAULT_CHARSET`                           | The 84 ASCII characters that are safe to swap (see `charset`)                |
-| `buildScrambleMap(seed, charset?)`          | Derange per class. Throws if nothing in the charset can be swapped           |
-| `isScramblable(codepoint)`                  | Whether a codepoint can take part in the cipher                              |
-| `LATIN_1`, `LATIN_EXT_A`                    | Letter presets: U+00C0-U+00FF (no `×` `÷`) and U+0100-U+017F                 |
-| `charsetFromText(text, { base? })`          | The scramblable codepoints in `text`, sorted, plus `base`                    |
-| `scrambleText(text, map, { normalize? })`   | Apply a map, NFC first; unmapped characters pass through                     |
-| `invertScrambleMap(map)`                    | The reverse substitution - decode your own output                            |
-| `randomSeed()`                              | A seed from the CSPRNG when there is one                                     |
-| `ScrambleMap`                               | `{ seed, forward: ReadonlyMap<number, number>, inverse? }`                   |
-| `parseBaseFont(buffer)`                     | Async. Parse a `.ttf`/`.otf`/`.woff` into a `BaseFont`                       |
-| `BaseFont`                                  | `{ outlines, unitsPerEm, numGlyphs, familyName, glyphId(cp), codepoints() }` |
-| `forgeScrambledFont(base, map, familyName)` | Produce the font binary whose `cmap` is scrambled                            |
-| `coveredCodepoints(base, candidate)`        | The candidate codepoints the base font has a glyph for                       |
-| `charsetFromFont(bytes, candidate?)`        | Async, build time. Covered codepoints that are safe to scramble              |
-| `VeneerFontError`                           | Thrown on parse failure or missing glyphs; carries `missing: string[]`       |
+| Export                                      | Description                                                                            |
+| ------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `DEFAULT_CHARSET`                           | The 84 ASCII characters that are safe to swap (see `charset`)                          |
+| `buildScrambleMap(seed, charset?)`          | Derange per class. Throws if nothing in the charset can be swapped                     |
+| `isScramblable(codepoint)`                  | Whether a codepoint can take part in the cipher                                        |
+| `LATIN_1`, `LATIN_EXT_A`                    | Letter presets: U+00C0-U+00FF (no `×` `÷`) and U+0100-U+017F                           |
+| `charsetFromText(text, { base? })`          | The scramblable codepoints in `text`, sorted, plus `base`                              |
+| `scrambleText(text, map, { normalize? })`   | Apply a map, NFC first; unmapped characters pass through                               |
+| `invertScrambleMap(map)`                    | The reverse substitution - decode your own output                                      |
+| `randomSeed()`                              | A seed from the CSPRNG when there is one                                               |
+| `ScrambleMap`                               | `{ seed, forward: ReadonlyMap<number, number>, inverse? }`                             |
+| `parseBaseFont(buffer)`                     | `/forge`. Async. Parse a `.ttf`/`.otf`/`.woff` into a `BaseFont`                       |
+| `BaseFont`                                  | `/forge`. `{ outlines, unitsPerEm, numGlyphs, familyName, glyphId(cp), codepoints() }` |
+| `forgeScrambledFont(base, map, familyName)` | `/forge`. Produce the font binary whose `cmap` is scrambled                            |
+| `coveredCodepoints(base, candidate)`        | `/forge`. The candidate codepoints the base font has a glyph for                       |
+| `charsetFromFont(bytes, candidate?)`        | Async, build time. Covered codepoints that are safe to scramble                        |
+| `VeneerFontError`                           | `/forge`. Thrown on parse failure or missing glyphs; carries `missing: string[]`       |
 
 ### Testing
 
@@ -477,7 +481,7 @@ scrambleText('qiBBA; kAoBj', invertScrambleMap(map));
 ```
 
 Useful for pre-scrambling static content in a build step, paired with
-`forgeScrambledFont` to emit the matching font file.
+`forgeScrambledFont` from `@pacyfist/veneer/forge` to emit the matching font file.
 
 ## Error codes
 

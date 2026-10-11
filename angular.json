@@ -28,7 +28,12 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/pacyfist/veneer/tsconfig.spec.json",
-            "include": ["**/*.spec.ts", "../core/**/*.spec.ts", "../testing/**/*.spec.ts"]
+            "include": [
+              "**/*.spec.ts",
+              "../core/**/*.spec.ts",
+              "../forge/**/*.spec.ts",
+              "../testing/**/*.spec.ts"
+            ]
           }
         }
       }

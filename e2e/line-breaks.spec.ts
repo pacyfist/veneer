@@ -29,6 +29,10 @@ const FILES: Record<string, { path: string; type: string }> = {
     path: 'dist/pacyfist/veneer/fesm2022/pacyfist-veneer-core.mjs',
     type: 'text/javascript',
   },
+  'forge.mjs': {
+    path: 'dist/pacyfist/veneer/fesm2022/pacyfist-veneer-forge.mjs',
+    type: 'text/javascript',
+  },
   'Roboto-Regular.ttf': {
     path: 'projects/pacyfist/veneer/testing/Roboto-Regular.ttf',
     type: 'font/ttf',
@@ -111,7 +115,11 @@ test.beforeEach(async ({ page }) => {
 async function layouts(page: Page, seeds: number[], naive = false): Promise<Layout[]> {
   return page.evaluate(
     async ({ text, seeds, columns, naive }) => {
-      const core = await import(new URL('core.mjs', location.href).href);
+      // The forge is its own entry point (`@pacyfist/veneer/forge`).
+      const core = {
+        ...(await import(new URL('core.mjs', location.href).href)),
+        ...(await import(new URL('forge.mjs', location.href).href)),
+      };
       const bytes = await (await fetch('Roboto-Regular.ttf')).arrayBuffer();
       document.fonts.add(await new FontFace('LineBreakBase', bytes).load());
       const parsed = await core.parseBaseFont(bytes);

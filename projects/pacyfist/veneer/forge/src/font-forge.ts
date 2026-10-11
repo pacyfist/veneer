@@ -8,17 +8,27 @@
  * copied byte for byte, so protected text shapes exactly like the base font.
  * The family is renamed and `post` glyph names are dropped.
  *
- * Framework-free and dependency-free, like scramble-map.ts.
+ * Framework-free and dependency-free, like the cipher in `@pacyfist/veneer/core`.
+ * Published as its own entry point, `@pacyfist/veneer/forge`, so the Angular
+ * service can load it lazily, and re-exported from `@pacyfist/veneer/core`.
  */
 
 import { VeneerFontError } from './font-error';
 import { Cmap, readCmap, writeCmap } from './cmap';
 import { readFamilyName, renameFamily, stripGlyphNames } from './name-post';
-import { isScramblable, type ScrambleMap } from './scramble-map';
 import { FLAVOR_CFF, Sfnt, isSfntFlavor, readSfnt, viewOf, writeSfnt } from './sfnt';
 import { WOFF2_SIGNATURE, WOFF_SIGNATURE, decodeWoff } from './woff';
 
 export { VeneerFontError } from './font-error';
+
+/**
+ * The part of a `ScrambleMap` (from `@pacyfist/veneer/core`) the forge reads.
+ * Declared here so the forge does not depend on the cipher's entry point.
+ */
+export interface ForgeMap {
+  /** Readable codepoint -> codepoint that appears in the DOM. */
+  readonly forward: ReadonlyMap<number, number>;
+}
 
 /** A parsed base font, ready to forge from. Create one with {@link parseBaseFont}. */
 export interface BaseFont {
@@ -159,29 +169,6 @@ export function coveredCodepoints(base: BaseFont, candidate: Iterable<number>): 
 }
 
 /**
- * Build-time helper: the codepoints of `candidate` (default: every codepoint
- * the font maps) that the font can draw and that are safe to scramble.
- *
- * Eligibility is {@link isScramblable}: letters, decimal digits and
- * punctuation with a layout-safe swap partner. Always leaves out whitespace
- * (including U+00A0), U+00AD, control and format characters, combining marks
- * and characters that create line breaks (`- / ? !`...). Print the result as a
- * charset literal:
- *
- * ```ts
- * const charset = await charsetFromFont(readFileSync('Font.ttf'), DEFAULT_CHARSET);
- * console.log(JSON.stringify(charset));
- * ```
- */
-export async function charsetFromFont(
-  bytes: ArrayBuffer | Uint8Array,
-  candidate?: Iterable<number>,
-): Promise<number[]> {
-  const base = await parseBaseFont(bytes);
-  return coveredCodepoints(base, candidate ?? base.codepoints()).filter(isScramblable);
-}
-
-/**
  * Produce a font binary whose cmap is the scrambled one.
  *
  * The base cmap is kept, except that each charset codepoint `scrambled` now
@@ -194,11 +181,7 @@ export async function charsetFromFont(
  * wrong letter with no other symptom. Use {@link coveredCodepoints} to narrow
  * a charset first.
  */
-export function forgeScrambledFont(
-  base: BaseFont,
-  map: ScrambleMap,
-  familyName: string,
-): ArrayBuffer {
+export function forgeScrambledFont(base: BaseFont, map: ForgeMap, familyName: string): ArrayBuffer {
   const parsed = internals.get(base);
   if (!parsed) {
     throw new VeneerFontError('[veneer] forgeScrambledFont needs a font from parseBaseFont().');

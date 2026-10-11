@@ -1,5 +1,7 @@
-// Loads the built `@pacyfist/veneer/core` bundle in plain Node (no bundler, no
-// Angular) and checks the cipher and the font forge end to end.
+// Loads the built `@pacyfist/veneer/core` and `@pacyfist/veneer/forge` bundles
+// in plain Node (no bundler, no Angular) and checks the cipher and the font
+// forge end to end. `charsetFromFont` (core) imports the forge dynamically
+// through the package's own `exports`, which this also exercises.
 //
 // Run after `npm run build:lib`: `npm run test:node-core`.
 
@@ -10,13 +12,21 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const bundle = join(root, 'dist/pacyfist/veneer/fesm2022/pacyfist-veneer-core.mjs');
+const forgeBundle = join(root, 'dist/pacyfist/veneer/fesm2022/pacyfist-veneer-forge.mjs');
 const fixture = join(root, 'projects/pacyfist/veneer/testing/Roboto-Regular.ttf');
 
-// The core must not reach Angular, directly or through anything it imports.
-const source = readFileSync(bundle, 'utf8');
-assert.doesNotMatch(source, /@angular\//, 'the core bundle imports Angular');
+// Neither may reach Angular, directly or through anything they import.
+for (const file of [bundle, forgeBundle]) {
+  assert.doesNotMatch(readFileSync(file, 'utf8'), /@angular\//, `${file} imports Angular`);
+}
+// The forge stands alone, and the cipher never imports it statically.
+assert.doesNotMatch(readFileSync(forgeBundle, 'utf8'), /^import /m, 'the forge has imports');
+assert.doesNotMatch(readFileSync(bundle, 'utf8'), /^(import|export) .* from /m, 'core imports');
 
-const core = await import(pathToFileURL(bundle).href);
+const core = {
+  ...(await import(pathToFileURL(bundle).href)),
+  ...(await import(pathToFileURL(forgeBundle).href)),
+};
 const {
   DEFAULT_CHARSET,
   buildScrambleMap,

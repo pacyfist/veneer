@@ -60,7 +60,7 @@ export class Breakage {
       id: 'missing-glyph' as const,
       label: 'Character the font lacks',
       plain:
-        "The font can't draw an emoji it was asked to cover, so the library refuses to guess and falls back to plain text.",
+        "The font can't draw two letters (ƀ, ƃ) it was asked to cover, so the library refuses to guess and falls back to plain text.",
       detail:
         'forgeScrambledFont throws VeneerFontError listing the missing characters rather than silently showing a reader the wrong letter. The throw is caught, so the page fails open.',
     },

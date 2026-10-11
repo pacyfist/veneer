@@ -13,16 +13,9 @@ import {
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { VENEER_CONFIG } from './veneer.config';
-import {
-  ScrambleMap,
-  buildScrambleMap,
-  forgeScrambledFont,
-  parseBaseFont,
-  randomSeed,
-  scrambleText,
-} from '@pacyfist/veneer/core';
+import { ScrambleMap, buildScrambleMap, randomSeed, scrambleText } from '@pacyfist/veneer/core';
 import { VeneerFontState } from './veneer-font-state';
-import { FontSourceError, loadBaseFont } from './base-font';
+import { FontSourceError, loadBaseFont, loadForge } from './base-font';
 import { docsUrl } from './veneer-errors';
 import type { VeneerFailure, VeneerStatus } from './veneer-status';
 
@@ -158,9 +151,13 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   private async load(): Promise<void> {
     let stage: Stage = 'source';
     try {
-      const base = await loadBaseFont(this.config.font, this.document.baseURI, parseBaseFont);
+      // The forge is a separate chunk: fetch it alongside the font.
+      const forge = loadForge();
+      const base = await loadBaseFont(this.config.font, this.document.baseURI, async (bytes) =>
+        (await forge).parseBaseFont(bytes),
+      );
       stage = 'forge';
-      const forged = forgeScrambledFont(base, this.map, this.familyName);
+      const forged = (await forge).forgeScrambledFont(base, this.map, this.familyName);
       stage = 'face';
       const face = new FontFace(this.familyName, forged);
       await face.load();

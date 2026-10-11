@@ -17,15 +17,17 @@ import opentype from 'opentype.js';
  * shape exactly like plain text in the base font, kerning and ligatures
  * included.
  *
- * The forge runs inside the page, from the built `@pacyfist/veneer/core`
- * bundle (`npm run build:lib`, part of `build:pages`). The bundle has no
- * imports, so it loads as a plain module from a routed fake origin.
+ * The forge runs inside the page, from the built `@pacyfist/veneer/forge` and
+ * `@pacyfist/veneer/core` bundles (`npm run build:lib`, part of `build:pages`).
+ * Neither has static imports, so they load as plain modules from a routed
+ * fake origin.
  *
  * Engines missing from playwright.config.ts are launched here directly, and
  * skipped when their browser is not installed.
  */
 
 const CORE = 'dist/pacyfist/veneer/fesm2022/pacyfist-veneer-core.mjs';
+const FORGE = 'dist/pacyfist/veneer/fesm2022/pacyfist-veneer-forge.mjs';
 const ROBOTO = 'projects/demo/public/fonts/Roboto-Regular.ttf';
 const ORIGIN = 'http://veneer.test';
 
@@ -74,11 +76,21 @@ function tinyCffFont(): Buffer {
 async function openForgePage(page: Page): Promise<void> {
   // A real dynamic import, out of reach of the test transpiler.
   await page.addInitScript(() => {
-    Reflect.set(globalThis, 'loadCore', new Function("return import('/core.mjs')"));
+    // The cipher (`@pacyfist/veneer/core`) and the forge (`@pacyfist/veneer/forge`)
+    // are separate entry points; tests read both through one object.
+    Reflect.set(
+      globalThis,
+      'loadCore',
+      new Function(
+        "return Promise.all([import('/core.mjs'), import('/forge.mjs')])" +
+          '.then(([core, forge]) => ({ ...core, ...forge }))',
+      ),
+    );
   });
   const files: Record<string, [string, Buffer | string]> = {
     '/': ['text/html', '<!doctype html><meta charset="utf-8"><title>forge</title><body></body>'],
     '/core.mjs': ['text/javascript', readFileSync(CORE)],
+    '/forge.mjs': ['text/javascript', readFileSync(FORGE)],
     '/Roboto.ttf': ['font/ttf', readFileSync(ROBOTO)],
     '/Tiny.otf': ['font/otf', tinyCffFont()],
   };

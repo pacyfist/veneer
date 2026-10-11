@@ -37,3 +37,28 @@ test('mirrors the shell status on <html data-veneer-status>', async ({ request, 
   await page.goto('./');
   await expect(page.locator('html')).toHaveAttribute('data-veneer-status', 'active');
 });
+
+test('keeps the font forge out of the initial bundle and loads it lazily', async ({
+  request,
+  page,
+}) => {
+  const html = await (await request.get('./')).text();
+  const initial = [...html.matchAll(/(?:src|href)="([^"]+\.js)"/g)].map((m) => m[1]);
+  expect(initial.length).toBeGreaterThan(0);
+  for (const file of initial) {
+    const source = await (await request.get(file)).text();
+    // WOFF decoding is part of the forge and nothing else uses it.
+    expect(source, file).not.toContain('DecompressionStream');
+  }
+
+  const lazy: string[] = [];
+  page.on('response', async (response) => {
+    const url = response.url();
+    if (url.endsWith('.js') && !initial.some((file) => url.endsWith(file))) {
+      if ((await response.text()).includes('DecompressionStream')) lazy.push(url);
+    }
+  });
+  await page.goto('./');
+  await expect(page.locator('app-hero p[veneer]')).toHaveCSS('font-family', /^"?Veneer-/);
+  expect(lazy).toHaveLength(1);
+});

@@ -135,11 +135,13 @@ describe('VeneerFontService', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const service = await createService({
       font: roboto(),
-      charset: [...DEFAULT_CHARSET, 0x1f600],
+      // ƀ and ƃ (Latin Extended-B): letters Roboto has no glyph for. Two of
+      // them, because the cipher drops a class with a single member.
+      charset: [...DEFAULT_CHARSET, 0x180, 0x183],
     });
     await vi.waitFor(() => expect(service.failed()).toBeTruthy());
     expect(service.failed()?.code).toBe('VNR012');
-    expect(service.failed()?.missing).toEqual(['😀']);
+    expect(service.failed()?.missing).toEqual(['ƀ', 'ƃ']);
   });
 
   it('reports a font the browser cannot register as VNR013', async () => {
