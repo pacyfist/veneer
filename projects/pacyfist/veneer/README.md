@@ -380,6 +380,19 @@ protected text is never visible before the forged font is loaded.
 Exports whose names start with `ɵ` are internal (they exist for
 `@pacyfist/veneer/testing`) and may change in any release.
 
+### Server
+
+`@pacyfist/veneer/server`, Node only. See [Server-side rendering](#server-side-rendering)
+and [Search engines](#search-engines-and-shouldprotect).
+
+| Export                                                                          | Description                                                                                   |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `provideVeneerServer({ fonts, path?, emitDir?, shouldProtect? })`               | Forge the font during server rendering; `shouldProtect(request, context)` decides per request |
+| `veneerFontMiddleware()`, `getVeneerFont(path)`                                 | Serve the forged fonts (Express/Connect middleware, or the bytes for any server)              |
+| `verifyCrawler(ip, userAgent?)`                                                 | `Promise<{ name, hostname } \| null>`: a search crawler verified by reverse and forward DNS   |
+| `createCrawlerVerifier(options?)`, `KNOWN_CRAWLERS`                             | A verifier with its own crawler list, resolver, timeout and cache; the default list           |
+| `VeneerShouldProtect`, `VeneerCrawler`, `VerifiedCrawler`, `CrawlerDnsResolver` | Types                                                                                         |
+
 ### Template pieces
 
 | Export                 | Selector                       | Description                                                                       |
@@ -588,6 +601,37 @@ provideVeneerServer({
   the cost is a crawler occasionally getting protected text.
 - **It may be async**, and the render waits for it, so keep it fast (the crawler
   check below caches and times out).
+
+**Verifying crawlers.** Never trust the user-agent: anyone can send `Googlebot`.
+`verifyCrawler(ip, userAgent?)` does what Google and Bing document: the IP's
+reverse DNS name must end in the crawler's domain (`googlebot.com` or
+`google.com`, `search.msn.com`, `applebot.apple.com`) and that name must resolve
+forward to the same IP. The user-agent only skips the lookups for requests that
+do not claim to be a known crawler. Results are cached per IP for an hour; a
+lookup that fails or takes over two seconds counts as "not a crawler" and is
+not cached. It never rejects. The Fetch `Request` Angular renders has no client
+IP, so call it in server.ts and pass the result as the request context:
+
+```ts
+// server.ts
+import { veneerFontMiddleware, verifyCrawler } from '@pacyfist/veneer/server';
+
+// Behind a proxy or CDN, trust exactly your proxies so req.ip is the client's
+// address. An X-Forwarded-For header from anyone else is attacker-controlled.
+app.set('trust proxy', 'loopback');
+
+app.use(async (req, res, next) => {
+  const crawler = await verifyCrawler(req.ip ?? '', req.get('user-agent'));
+  angularApp
+    .handle(req, { crawler })
+    .then((response) => (response ? writeResponseToNodeResponse(response, res) : next()))
+    .catch(next);
+});
+```
+
+`createCrawlerVerifier({ crawlers?, resolver?, timeout?, ttl?, maxEntries? })`
+builds one with its own cache, list (`KNOWN_CRAWLERS` is the default) or DNS
+resolver (inject a fake one in tests).
 
 ## What this defends against
 
