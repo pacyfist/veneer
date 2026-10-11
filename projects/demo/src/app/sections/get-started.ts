@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { SectionHeading } from '../ui/section-heading';
 import { CodeBlock } from '../ui/code-block';
+import { VeneerDirective } from '@pacyfist/veneer';
 import { ApplyTabs } from './apply-tabs';
 
 /**
@@ -34,7 +35,7 @@ const USE = [
 @Component({
   selector: 'app-get-started',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SectionHeading, CodeBlock, ApplyTabs],
+  imports: [SectionHeading, CodeBlock, ApplyTabs, VeneerDirective],
   template: `
     <app-section-heading eyebrow="Get started" title="Add it to your Angular app in three steps">
       Works with standalone components, signals, server-side rendering and hydration. No stylesheet
@@ -93,6 +94,20 @@ const USE = [
         underneath.
       </p>
       <app-apply-tabs />
+
+      <div class="rounded-box border-base-300 bg-base-100 mt-6 border p-5">
+        <h4 class="text-lg font-bold">Markup inside is fine</h4>
+        <p class="mt-2 text-lg leading-relaxed" veneer>
+          Links, <strong>bold</strong> and <em>italic</em> words keep working inside a protected
+          paragraph, like <a class="link link-primary" href="#how">this one</a>. Only the text is
+          scrambled.
+        </p>
+        <p class="text-base-content/60 mt-2 text-sm">
+          The attribute rewrites each text node in place and leaves the elements alone.
+          <code>code</code> elements and anything marked <code>veneer-skip</code> stay readable. For
+          HTML from a CMS, bind it with <code>[veneerHtml]</code>, which sanitizes it first.
+        </p>
+      </div>
     </div>
   `,
 })

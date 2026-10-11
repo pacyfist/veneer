@@ -118,19 +118,51 @@ That is the whole setup. No stylesheet to import - the directives set
 
 ### Static text - `[veneer]` directive
 
-The directive takes the element's own content, replaces it with the scrambled
-form, and points the element at the forged font:
+The directive scrambles every text node inside the element and points the
+element at the forged font. Markup inside stays as it is: links, emphasis and
+footnotes keep working, and only their text is scrambled.
 
 ```html
-<p veneer>Text a scraper should not be able to read.</p>
+<p veneer>Text a scraper should <a href="/why">not</a> be able to <em>read</em>.</p>
 ```
+
+Each text node is rewritten in place, so the nodes Angular created (or claimed
+during hydration) keep working. These stay readable: text inside `script`,
+`style`, `code`, `textarea` and `noscript`, and anything you mark with
+`veneer-skip` (drawn in `fallbackFontFamily`, since it is not scrambled). A
+nested `veneer` or `veneerFont` element protects its own text. `pre` is
+protected: code inside `<pre><code>` is skipped through `code`, and a bare
+`pre` is usually prose.
+
+```html
+<article veneer>
+  <p>Protected, <strong>all</strong> of it.</p>
+  <p>Install with <code>npm i some-package</code>, by <span veneer-skip>Ada Lovelace</span>.</p>
+</article>
+```
+
+The walk happens when the element renders and whenever protection changes
+(font ready, fail-open, readable mode). Text added or changed inside the
+element later is not watched: bind it instead (below).
 
 ### Text you hand it directly
 
-Bind a string and the directive owns the element's content:
+Bind a string and the directive renders it as the element's only content. A
+binding that changes to `''` (or `undefined`) clears the text:
 
 ```html
-<p [veneer]="article().body"></p>
+<p [veneer]="article().title"></p>
+```
+
+### HTML from a CMS - `[veneerHtml]`
+
+Bind HTML and the directive renders it sanitized, the way Angular sanitizes
+`[innerHTML]` (scripts, event handlers and unsafe URLs are stripped), then
+protects its text nodes. A `SafeHtml` from `DomSanitizer.bypassSecurityTrustHtml()`
+is rendered as is.
+
+```html
+<div [veneerHtml]="article().bodyHtml"></div>
 ```
 
 ### Interpolated text - `veneer` pipe + `veneerFont`
@@ -143,9 +175,10 @@ with `veneerFont`:
 ```
 
 > [!WARNING]
-> Do not put `veneer` on an element Angular also interpolates into. The directive
-> owns `textContent` and the two will fight over it. Interpolation → pipe;
-> everything else → directive.
+> Do not interpolate inside a `veneer` element (`<p veneer>{{ title() }}</p>`).
+> The directive scrambles first and the interpolation then writes readable text
+> over it, in the forged font. Interpolation → pipe; everything else →
+> directive. Development builds warn ([VNR001](#vnr001)).
 
 `veneerFont` on its own only applies the font, without touching text - use it on
 any element that renders already-scrambled content.

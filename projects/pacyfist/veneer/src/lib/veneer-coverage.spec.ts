@@ -69,7 +69,7 @@ async function hydrate(config: Partial<VeneerConfig>) {
   const service = TestBed.inject(VeneerFontService);
   const fixture = TestBed.createComponent(Host);
   const el = fixture.nativeElement.querySelector('p') as HTMLElement;
-  el.textContent = scrambleText(TEXT, service.initialMap);
+  el.textContent = scrambleText(TEXT, service.initialMap()!);
   el.setAttribute('data-veneer-ssr', '');
   fixture.detectChanges();
   return { fixture, service, el };
@@ -81,17 +81,17 @@ describe('strictCoverage: false (default)', () => {
     const { fixture, service, el } = await hydrate({});
 
     // Hydration inverted the server's ciphertext with the initial map.
-    expect(service.map()).toBe(service.initialMap);
-    expect(el.textContent).toBe(scrambleText(TEXT, service.initialMap));
+    expect(service.map()).toBe(service.initialMap()!);
+    expect(el.textContent).toBe(scrambleText(TEXT, service.initialMap()!));
 
     await vi.waitFor(() => expect(service.status()).toBe('active'));
     fixture.detectChanges();
 
     const map = service.map();
-    expect(map).not.toBe(service.initialMap);
+    expect(map).not.toBe(service.initialMap()!);
     expect(map.seed).toBe(7);
     for (const cp of UNCOVERED) {
-      expect(service.initialMap.forward.has(cp)).toBe(true);
+      expect(service.initialMap()!.forward.has(cp)).toBe(true);
       expect(map.forward.has(cp)).toBe(false);
     }
     expect(el.textContent).toBe(scrambleText(TEXT, map));
@@ -134,7 +134,7 @@ describe('strictCoverage: false (default)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { service } = await hydrate({ charset: DEFAULT_CHARSET });
     await vi.waitFor(() => expect(service.status()).toBe('active'));
-    expect(service.map()).toBe(service.initialMap);
+    expect(service.map()).toBe(service.initialMap()!);
     expect(warn).not.toHaveBeenCalled();
   });
 });
@@ -149,7 +149,7 @@ describe('strictCoverage: true', () => {
 
     expect(service.failed()?.code).toBe('VNR012');
     expect(service.failed()?.missing).toEqual(['ƀ', 'ƃ']);
-    expect(service.map()).toBe(service.initialMap);
+    expect(service.map()).toBe(service.initialMap()!);
     expect(el.textContent).toBe(TEXT);
     expect(registered).toHaveLength(0);
   });

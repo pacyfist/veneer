@@ -88,10 +88,11 @@ attribute.
 
 | Situation                         | Use                                           |
 | --------------------------------- | --------------------------------------------- |
-| Text written in the template      | `<p veneer>Hello</p>`                         |
-| Text from a variable or an API    | `<p [veneer]="article().body"></p>`           |
+| Text written in the template      | `<p veneer>Hello <em>you</em></p>`            |
+| Text from a variable or an API    | `<p [veneer]="article().title"></p>`          |
+| HTML from a CMS                   | `<div [veneerHtml]="article().html"></div>`   |
 | Text you already interpolate      | `<h1 veneerFont>{{ title() \| veneer }}</h1>` |
-| ⚠️ Don't: `{{ }}` inside `veneer` | `<p veneer>{{ title() }}</p>` renders empty   |
+| ⚠️ Don't: `{{ }}` inside `veneer` | `<p veneer>{{ title() }}</p>` leaks it        |
 
 ## A speed bump, not a vault
 

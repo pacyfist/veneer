@@ -90,6 +90,19 @@ describe('provideVeneerTesting', () => {
     expect(TestBed.inject(VENEER_CONFIG).disabled).toBe(true);
   });
 
+  it('simulates an initial map that is not known yet', () => {
+    const { service } = setup({ seed: 7 });
+    expect(service.initialMap()).toBe(service.map());
+
+    service.setInitialMap(null);
+    expect(service.initialMap()).toBeNull();
+
+    const other = buildScrambleMap(8);
+    service.setInitialMap(other);
+    expect(service.initialMap()).toBe(other);
+    expect(service.map()).not.toBe(other);
+  });
+
   it('withholds the font while revealed', () => {
     const { fixture, el, service } = setup();
     service.revealed.set(true);

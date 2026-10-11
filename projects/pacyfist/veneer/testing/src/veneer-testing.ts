@@ -1,6 +1,7 @@
 import {
   EnvironmentProviders,
   Signal,
+  WritableSignal,
   computed,
   makeEnvironmentProviders,
   signal,
@@ -81,7 +82,9 @@ export class VeneerTestingFontService implements VeneerFontState {
   private readonly state = signal<VeneerTestingState>('ready');
   private readonly fallbackFontFamily: string;
 
-  readonly initialMap: ScrambleMap;
+  private readonly initial: WritableSignal<ScrambleMap | null>;
+
+  readonly initialMap: Signal<ScrambleMap | null>;
   readonly map: Signal<ScrambleMap>;
   readonly familyName: string;
 
@@ -102,8 +105,10 @@ export class VeneerTestingFontService implements VeneerFontState {
 
   constructor(options: VeneerTestingOptions = {}) {
     const seed = options.seed ?? DEFAULT_TESTING_SEED;
-    this.initialMap = buildScrambleMap(seed, options.charset ?? DEFAULT_CHARSET);
-    this.map = signal(this.initialMap).asReadonly();
+    const map = buildScrambleMap(seed, options.charset ?? DEFAULT_CHARSET);
+    this.initial = signal(map);
+    this.initialMap = this.initial.asReadonly();
+    this.map = signal(map).asReadonly();
     this.familyName = `Veneer-${seed.toString(36)}`;
     this.fallbackFontFamily = options.fallbackFontFamily ?? 'sans-serif';
     this.state.set(options.state ?? 'ready');
@@ -117,6 +122,22 @@ export class VeneerTestingFontService implements VeneerFontState {
   /** Force a state, for example to simulate the font failing after first render. */
   setState(state: VeneerTestingState): void {
     this.state.set(state);
+  }
+
+  /**
+   * Set what `initialMap()` returns: the map server-rendered text was
+   * scrambled with. Pass `null` to simulate a client that does not know it
+   * yet (it is learned from the forged font), then the map to simulate the
+   * moment it arrives. It starts out as the testing cipher's map.
+   *
+   * ```ts
+   * service.setInitialMap(null);   // before the component hydrates
+   * // ...render, assert the server's text is left in place...
+   * service.setInitialMap(service.map());
+   * ```
+   */
+  setInitialMap(map: ScrambleMap | null): void {
+    this.initial.set(map);
   }
 }
 

@@ -112,14 +112,12 @@ const SNIPPETS = {
             >
               <p class="text-lg" aria-hidden="true" veneer #specimen>{{ piped() }}</p>
             </div>
-            @if (isEmpty()) {
-              <p class="text-error text-sm italic">↑ this element is empty</p>
-            }
             <div class="alert alert-error alert-soft">
               <span>
-                The <code>veneer</code> attribute and <code>{{ braces }}</code> both try to own the
-                element's text, and the text ends up empty. Use the "Inside {{ braces }}" form
-                instead.
+                The <code>veneer</code> attribute scrambles the element first, then
+                <code>{{ braces }}</code> writes the readable words over it. Bots read them in plain
+                form, and the decoder font turns them into gibberish for people. Development builds
+                warn about it (VNR001). Use the "Inside {{ braces }}" form instead.
               </span>
             </div>
           }

@@ -8,8 +8,8 @@ import { VeneerFontDirective, VeneerPipe } from '@pacyfist/veneer';
  * paragraph there would make this a claim rather than a demonstration.
  *
  * It uses the pipe with `veneerFont` rather than the `veneer` directive because the
- * text is bound and changes as the visitor types. The directive owns
- * `textContent` and would fight the binding.
+ * text is bound and changes as the visitor types. Interpolating inside the
+ * directive would write readable text over the scrambled text.
  */
 @Component({
   selector: 'app-mirror-panel',

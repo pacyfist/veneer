@@ -6,9 +6,11 @@ import { join } from 'node:path';
  * leak and adversary checks cannot drift from what the site actually protects.
  *
  * Three forms reach the forged font:
- * - `element`: `<p veneer>Text</p>`. Found by scanning component templates;
- *   `${CONST}` splices are resolved from the same file.
- * - `bound`: `[veneer]="expr"`, and `pipe`: `{{ expr | veneer }}`. The string
+ * - `element`: `<p veneer>Text</p>`, markup inside included (`<p veneer>A
+ *   <a href="#x">link</a></p>` is the specimen "A link"). Found by scanning
+ *   component templates; `${CONST}` splices are resolved from the same file.
+ * - `bound`: `[veneer]="expr"` and `[veneerHtml]="expr"`, and `pipe`:
+ *   `{{ expr | veneer }}`. The string
  *   behind `expr` lives in code, often in another component, so each binding
  *   site is mapped by hand in BINDINGS below. A new binding site in the demo
  *   that is not listed there throws, rather than going unchecked.
@@ -102,16 +104,18 @@ function collect(): Specimen[] {
       const text = squash(
         content
           .replace(/<!--[\s\S]*?-->/g, '')
-          .replace(/\$\{(\w+)\}/g, (_, name: string) => literal(file, name)),
+          .replace(/\$\{(\w+)\}/g, (_, name: string) => literal(file, name))
+          // The walker protects text inside nested markup; the tags are not text.
+          .replace(/<[^>]*>/g, ''),
       );
       // `<p veneer>{{ x }}</p>` is the documented trap; its string is the pipe specimen.
       if (text && !text.includes('{{')) add(file, 'element', text);
     }
 
     const sites = [
-      ...[...template.matchAll(/\[veneer\]="([^"]+)"/g)].map((m) => ({
+      ...[...template.matchAll(/\[(veneer|veneerHtml)\]="([^"]+)"/g)].map((m) => ({
         form: 'bound' as const,
-        site: `${file}: [veneer]="${m[1]}"`,
+        site: `${file}: [${m[1]}]="${m[2]}"`,
       })),
       ...[...template.matchAll(/\{\{\s*([^}|]+?)\s*\|\s*veneer\s*\}\}/g)].map((m) => ({
         form: 'pipe' as const,

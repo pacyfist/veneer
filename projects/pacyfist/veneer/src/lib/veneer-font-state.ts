@@ -18,10 +18,12 @@ export interface VeneerFontState {
   readonly map: Signal<ScrambleMap>;
 
   /**
-   * The map built at startup over the configured charset. Server-rendered
-   * text was scrambled with it, so hydration inverts with it.
+   * The map server-rendered text was scrambled with, so hydration inverts
+   * with it. Null while the client does not know it yet: directives then keep
+   * the server's text in place and recover the originals once it is set.
+   * Without server rendering it is the client's own map from the start.
    */
-  readonly initialMap: ScrambleMap;
+  readonly initialMap: Signal<ScrambleMap | null>;
 
   /** Family name of the forged font. */
   readonly familyName: string;

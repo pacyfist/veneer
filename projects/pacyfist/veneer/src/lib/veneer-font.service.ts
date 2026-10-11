@@ -99,16 +99,21 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   /** The seed the cipher was built from. */
   private readonly seed: number;
 
+  /** The map built at startup over the configured charset. */
+  private readonly startMap: ScrambleMap;
+
   /**
-   * The map built at startup over the configured charset: the one the server
-   * rendered with, and so the one hydration inverts.
+   * The map server-rendered text was scrambled with, and so the one hydration
+   * inverts. Null while it is not known yet; directives then leave the
+   * server's text in place until it is. Today it is always set: it is the map
+   * built at startup, which the server and the client share through the seed.
    */
-  readonly initialMap: ScrambleMap;
+  readonly initialMap: Signal<ScrambleMap | null>;
 
   private readonly currentMap: WritableSignal<ScrambleMap>;
 
   /**
-   * The substitution in force. Starts as `initialMap`; when the base font
+   * The substitution in force. Starts as the map built at startup; when the base font
    * lacks glyphs for some charset characters (and `strictCoverage` is off) it
    * is rebuilt from the same seed without them, once the font has loaded.
    */
@@ -170,8 +175,9 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     }
 
     this.seed = seed;
-    this.initialMap = buildScrambleMap(seed, this.config.charset);
-    this.currentMap = signal(this.initialMap);
+    this.startMap = buildScrambleMap(seed, this.config.charset);
+    this.initialMap = signal(this.startMap).asReadonly();
+    this.currentMap = signal(this.startMap);
     this.map = this.currentMap.asReadonly();
     this.familyName = `Veneer-${seed.toString(36)}`;
 
@@ -205,7 +211,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
       stage = 'forge';
       const { coveredCodepoints, forgeScrambledFont } = await forge;
       const map = this.config.strictCoverage
-        ? this.initialMap
+        ? this.startMap
         : this.narrow(coveredCodepoints, bases);
       // One seed, one family: every face is forged from the same map, and the
       // descriptors let the browser pick the right one for bold or italic text.
@@ -252,14 +258,14 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
    * only characters every face can draw stay in the cipher.
    */
   private narrow(coveredCodepoints: Forge['coveredCodepoints'], bases: BaseFont[]): ScrambleMap {
-    const scrambled = [...this.initialMap.forward.keys()];
+    const scrambled = [...this.startMap.forward.keys()];
     const covered = new Set(
       bases.reduce((candidates, base) => coveredCodepoints(base, candidates), scrambled),
     );
     const dropped = scrambled
       .filter((cp) => !covered.has(cp))
       .map((cp) => String.fromCodePoint(cp));
-    if (dropped.length === 0) return this.initialMap;
+    if (dropped.length === 0) return this.startMap;
 
     if (typeof ngDevMode === 'undefined' || ngDevMode) {
       const key = dropped.join('');
@@ -277,7 +283,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     }
 
     const charset = this.config.charset.filter(
-      (cp) => covered.has(cp) || !this.initialMap.forward.has(cp),
+      (cp) => covered.has(cp) || !this.startMap.forward.has(cp),
     );
     try {
       return buildScrambleMap(this.seed, charset);

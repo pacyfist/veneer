@@ -1,6 +1,7 @@
-import { Directive, ElementRef, OnInit, Renderer2, effect, inject } from '@angular/core';
+import { Directive, ElementRef, OnDestroy, OnInit, Renderer2, effect, inject } from '@angular/core';
 import { injectVeneerState } from './veneer-inject';
 import { VeneerFontState } from './veneer-font-state';
+import { registerHost, unregisterHost } from './veneer-hosts';
 
 /**
  * Points an element at the forged font without touching its text.
@@ -15,12 +16,14 @@ import { VeneerFontState } from './veneer-font-state';
  * into the consuming application for the library to work.
  */
 @Directive({ selector: '[veneerFont]' })
-export class VeneerFontDirective implements OnInit {
+export class VeneerFontDirective implements OnInit, OnDestroy {
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly renderer = inject(Renderer2);
   private readonly service: VeneerFontState = injectVeneerState('The veneerFont directive');
 
   constructor() {
+    registerHost(this.element.nativeElement, { state: this.service, kind: 'font', copy: false });
+
     effect(() => {
       this.service.fontStack();
       this.service.hidden();
@@ -30,6 +33,10 @@ export class VeneerFontDirective implements OnInit {
 
   ngOnInit(): void {
     this.apply();
+  }
+
+  ngOnDestroy(): void {
+    unregisterHost(this.element.nativeElement);
   }
 
   private apply(): void {
