@@ -1,7 +1,8 @@
 /*
  * Public API Surface of @pacyfist/veneer/core
  *
- * The framework-free cipher. The font forge is `@pacyfist/veneer/forge`. Nothing here imports Angular, so it
+ * The framework-free cipher. The font forge is `@pacyfist/veneer/forge`.
+ * Nothing here imports Angular, so it
  * runs in plain Node — pre-scrambling static content in a build script, for
  * example. The main entry point re-exports all of it.
  */

@@ -10,7 +10,7 @@
  *
  * Framework-free and dependency-free, like the cipher in `@pacyfist/veneer/core`.
  * Published as its own entry point, `@pacyfist/veneer/forge`, so the Angular
- * service can load it lazily, and re-exported from `@pacyfist/veneer/core`.
+ * service can load it lazily.
  */
 
 import { VeneerFontError } from './font-error';
