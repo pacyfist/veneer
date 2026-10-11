@@ -89,7 +89,9 @@ const SPOKEN = 'Protect article bodies, not navigation.';
       <p>
         <strong>Good use:</strong> article bodies, recipes, lyrics, product descriptions.
         <strong>Leave alone:</strong> menus, headings, form labels, and anything you want Google to
-        rank. <strong>Never:</strong> secrets. This is not encryption.
+        rank. <strong>Never:</strong> secrets. This is not encryption. <strong>Styling:</strong>
+        <code>text-transform</code> and <code>small-caps</code> paint the wrong letters on protected
+        text.
       </p>
     </div>
   `,

@@ -23,7 +23,7 @@ const SAMPLE = 'Rendered with the settings on the left. Accents like cafe and na
           <label class="flex items-center gap-3 text-xs">
             <span class="w-32">charset</span>
             <select class="select select-sm flex-1" (change)="onCharset($event)">
-              <option value="ascii">printable ASCII, no space</option>
+              <option value="ascii">default (layout-safe ASCII)</option>
               <option value="letters">letters only</option>
               <option value="digits">digits only</option>
             </select>

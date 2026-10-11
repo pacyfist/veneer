@@ -71,13 +71,14 @@ describe('forgeScrambledFont', () => {
   });
 
   it('refuses to forge when the base font cannot draw a charset character', () => {
-    // U+4E2D is a CJK ideograph Roboto has no glyph for.
-    const cjkMap = buildScrambleMap(1, [0x61, 0x62, 0x4e2d]);
+    // U+4E2D and U+6587 are CJK ideographs Roboto has no glyph for. Two of
+    // them, because a lone member of a class is left out of the map.
+    const cjkMap = buildScrambleMap(1, [0x61, 0x62, 0x4e2d, 0x6587]);
     expect(() => forgeScrambledFont(base, cjkMap, 'Veneer-test')).toThrow(VeneerFontError);
     try {
       forgeScrambledFont(base, cjkMap, 'Veneer-test');
     } catch (e) {
-      expect((e as VeneerFontError).missing).toEqual(['中']);
+      expect((e as VeneerFontError).missing).toEqual(['中', '文']);
     }
   });
 });

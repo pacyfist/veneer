@@ -10,6 +10,7 @@ export {
   DEFAULT_CHARSET,
   buildScrambleMap,
   invertScrambleMap,
+  isScramblable,
   randomSeed,
   scrambleText,
 } from './scramble-map';
