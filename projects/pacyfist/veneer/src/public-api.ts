@@ -49,4 +49,5 @@ export * from '@pacyfist/veneer/core';
 // Internal. Exported only for `@pacyfist/veneer/testing`; not covered by
 // semver and may change in any release.
 export { VENEER_CONFIG as ɵVENEER_CONFIG } from './lib/veneer.config';
+export { installReadableCopy as ɵinstallReadableCopy } from './lib/veneer-copy';
 export type { ResolvedVeneerConfig as ɵResolvedVeneerConfig } from './lib/veneer.config';

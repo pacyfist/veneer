@@ -21,7 +21,7 @@ import { walkTextNodes } from './veneer-hosts';
 import { VeneerHtml, sanitizeHtml } from './veneer-sanitize';
 import { VENEER_CONFIG } from './veneer.config';
 import { HostPresentation } from './veneer-presentation';
-import { describeElement, devWarn, warnCaseStyles } from './veneer-dev';
+import { hasForeignText, warnCaseStyles, warnForeignText } from './veneer-dev';
 import { invertScrambleMap, scrambleText } from '@pacyfist/veneer/core';
 
 /**
@@ -131,9 +131,6 @@ export class VeneerDirective implements OnInit, AfterViewChecked, OnDestroy {
   /** The mode of the last pass. */
   private current: Mode = 'content';
 
-  /** Set once VNR001 has been reported for this element. */
-  private warnedForeignText = false;
-
   /**
    * Text nodes holding the server's ciphertext that could not be inverted yet
    * because `initialMap()` is still null. They are left exactly as the server
@@ -176,7 +173,16 @@ export class VeneerDirective implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   ngAfterViewChecked(): void {
-    if (typeof ngDevMode === 'undefined' || ngDevMode) this.checkForeignText();
+    // VNR001: text the directive did not write, found after the view that
+    // contains this element was checked (an interpolation, an @if inside it).
+    if (
+      (typeof ngDevMode === 'undefined' || ngDevMode) &&
+      this.current === 'content' &&
+      this.service.active() &&
+      hasForeignText(this.element.nativeElement, this.written, this.serverTexts)
+    ) {
+      warnForeignText(this.element.nativeElement);
+    }
   }
 
   ngOnDestroy(): void {
@@ -268,41 +274,11 @@ export class VeneerDirective implements OnInit, AfterViewChecked, OnDestroy {
         // scrambled, most likely an interpolation. Take theirs as the latest
         // original rather than putting the stale one back.
         this.originals.set(text, text.data);
-        if (typeof ngDevMode === 'undefined' || ngDevMode) this.reportForeignText();
+        if (typeof ngDevMode === 'undefined' || ngDevMode)
+          warnForeignText(this.element.nativeElement);
       }
     }
     this.texts = texts;
-  }
-
-  /**
-   * VNR001. After each check of the view that contains this element, look for
-   * text the directive did not write: a node whose text changed since it was
-   * scrambled, or a new node. That is an interpolation, an `@if` or another
-   * binding writing readable text into protected content, which stays
-   * readable (and is drawn as gibberish) until protection next changes. A
-   * pass that finds such text (and adopts it) reports it too.
-   */
-  private checkForeignText(): void {
-    if (this.warnedForeignText || this.current !== 'content' || !this.service.active()) return;
-    const pending = new Set(this.serverTexts);
-    const foreign = walkTextNodes(this.element.nativeElement).texts.some((text) => {
-      if (pending.has(text) || !text.data.trim()) return false;
-      const written = this.written.get(text);
-      return written === undefined || text.data !== written;
-    });
-    if (foreign) this.reportForeignText();
-  }
-
-  private reportForeignText(): void {
-    if (this.warnedForeignText) return;
-    this.warnedForeignText = true;
-    devWarn(
-      'VNR001',
-      `text inside a veneer element changed after it was scrambled (${describeElement(this.element.nativeElement)}). ` +
-        'This is usually {{ interpolation }} or an @if inside the element: the new text is ' +
-        'readable to scrapers and drawn as gibberish for people. Use <p veneerFont>{{ text | veneer }}</p> ' +
-        'or bind the string: <p [veneer]="text"></p>.',
-    );
   }
 
   /** Inverts the server's ciphertext once the map it was scrambled with is known. */

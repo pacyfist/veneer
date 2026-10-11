@@ -4,7 +4,6 @@ import type { VeneerFontState } from './veneer-font-state';
 import { VENEER_CONFIG } from './veneer.config';
 import { HIDDEN_BY_ATTRIBUTE, HIDE_ATTRIBUTE, ensureHideRules } from './veneer-hide';
 import { ProtectedHost, registerHost, unregisterHost } from './veneer-hosts';
-import { installReadableCopy } from './veneer-copy';
 import { describeElement, devWarn } from './veneer-dev';
 
 declare const ngDevMode: boolean | undefined;
@@ -37,9 +36,9 @@ export class HostPresentation {
     private readonly service: VeneerFontState,
     kind: ProtectedHost['kind'],
   ) {
-    const copy = this.config.readableCopy;
-    registerHost(element, { state: service, kind, copy });
-    if (copy && this.isBrowser) installReadableCopy(this.document);
+    const install = this.config.readableCopy;
+    registerHost(element, { state: service, kind, copy: !!install });
+    if (install && this.isBrowser) install(this.document);
   }
 
   destroy(): void {

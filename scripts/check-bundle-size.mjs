@@ -40,9 +40,18 @@ import { gzipSync } from 'node:zlib';
  * `.` and `./testing` raised 2026-10-11 at the end of the runtime work:
  * `.` 8,965 B (strictCoverage narrowing, withFaces, id), `./testing` 4,136 B
  * (findVeneerLeaks).
+ *
+ * `.` raised 2026-10-11 to 22,600 B after the directive and accessibility
+ * work measured 20,468 B: the text-node walker and `veneerHtml`, hiding
+ * without inline styles (CSP nonces, hashes), `translate="no"`, readable mode
+ * and its toggle component, `withA11y`, `withReadableCopy` and the dev-mode
+ * checks (VNR001, VNR002, VNR020, VNR021). About half of the FESM is doc
+ * comments; minified, the entry went from 3,593 B to 7,798 B gzip with
+ * `ngDevMode` off, before an app's tree-shaking drops the copy handler and
+ * the toggle when unused.
  */
 const BUDGETS = {
-  '.': 9_900,
+  '.': 22_600,
   './core': 5_500,
   './forge': 10_800,
   './testing': 4_600,

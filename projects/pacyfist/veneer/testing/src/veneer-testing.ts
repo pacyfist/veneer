@@ -13,6 +13,7 @@ import {
   VeneerStatus,
   ɵResolvedVeneerConfig as ResolvedVeneerConfig,
   ɵVENEER_CONFIG as VENEER_CONFIG,
+  ɵinstallReadableCopy as installReadableCopy,
 } from '@pacyfist/veneer';
 import {
   DEFAULT_CHARSET,
@@ -178,7 +179,7 @@ export function provideVeneerTesting(options: VeneerTestingOptions = {}): Enviro
     statusListeners: [],
     statusAttribute: false,
     a11y: options.a11y ?? 'none',
-    readableCopy: options.readableCopy ?? false,
+    readableCopy: options.readableCopy ? installReadableCopy : null,
   };
   return makeEnvironmentProviders([
     { provide: VENEER_CONFIG, useValue: config },

@@ -1,5 +1,7 @@
 import { veneerMessage } from './veneer-errors';
-import { hostOf } from './veneer-hosts';
+import { DOCUMENT, Injector, afterNextRender } from '@angular/core';
+import type { VeneerFontState } from './veneer-font-state';
+import { hostOf, walkTextNodes } from './veneer-hosts';
 
 /**
  * Development-mode checks for misuse that otherwise fails silently. Every
@@ -101,4 +103,83 @@ export function placePipeOutput(
     if (!protectedHere) return 'unprotected';
   }
   return found ? 'protected' : 'absent';
+}
+
+/**
+ * VNR001: whether a `veneer` element holds text the directive did not write:
+ * a node whose text changed since it was scrambled, or a new node. That is an
+ * interpolation, an `@if` or another binding writing readable text into
+ * protected content, which stays readable (and is drawn as gibberish) until
+ * protection next changes.
+ */
+export function hasForeignText(
+  host: Element,
+  written: WeakMap<Text, string>,
+  pending: readonly Text[],
+): boolean {
+  return walkTextNodes(host).texts.some((text) => {
+    if (pending.includes(text) || !text.data.trim()) return false;
+    const last = written.get(text);
+    return last === undefined || text.data !== last;
+  });
+}
+
+const warnedForeign = new WeakSet<Element>();
+
+/** VNR001, once per element. */
+export function warnForeignText(host: Element): void {
+  if (warnedForeign.has(host)) return;
+  warnedForeign.add(host);
+  devWarn(
+    'VNR001',
+    `text inside a veneer element changed after it was scrambled (${describeElement(host)}). ` +
+      'This is usually {{ interpolation }} or an @if inside the element: the new text is ' +
+      'readable to scrapers and drawn as gibberish for people. Use ' +
+      '<p veneerFont>{{ text | veneer }}</p> or bind the string: <p [veneer]="text"></p>.',
+  );
+}
+
+/** How many renders the VNR002 check looks for output it cannot find before giving up. */
+const MAX_PLACEMENT_CHECKS = 3;
+
+/**
+ * VNR002 for one pipe instance. A pipe is not told which element renders its
+ * result, so after the next render this looks for the output in the page's
+ * text nodes and checks that they sit inside a protected element. Output used
+ * in an attribute is never found; the check gives up quietly after a few
+ * renders. Settles after the first verdict.
+ */
+export class PipePlacementCheck {
+  private state: 'idle' | 'scheduled' | 'settled' = 'idle';
+  private misses = 0;
+  private output = '';
+
+  constructor(
+    private readonly injector: Injector,
+    private readonly service: VeneerFontState,
+  ) {}
+
+  check(output: string): void {
+    if (this.state === 'settled') return;
+    this.output = output;
+    if (this.state === 'scheduled') return;
+    this.state = 'scheduled';
+    afterNextRender(
+      () => {
+        this.state = 'idle';
+        const document = this.injector.get(DOCUMENT);
+        const where = placePipeOutput(document, this.output, this.service.familyName);
+        if (where === 'unprotected') {
+          devWarn(
+            'VNR002',
+            `the veneer pipe's output "${this.output.slice(0, 40)}" is rendered outside any ` +
+              'veneerFont or veneer element, so readers see it scrambled. Add veneerFont to the ' +
+              'element that renders it: <h1 veneerFont>{{ title() | veneer }}</h1>.',
+          );
+        }
+        if (where !== 'absent' || ++this.misses >= MAX_PLACEMENT_CHECKS) this.state = 'settled';
+      },
+      { injector: this.injector },
+    );
+  }
 }

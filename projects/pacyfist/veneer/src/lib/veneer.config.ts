@@ -1,6 +1,7 @@
 import { EnvironmentProviders, InjectionToken, makeEnvironmentProviders } from '@angular/core';
 import { DEFAULT_CHARSET } from '@pacyfist/veneer/core';
 import { VeneerFontService } from './veneer-font.service';
+import { installReadableCopy } from './veneer-copy';
 import type { VeneerStatusListener } from './veneer-status';
 
 /** Where the base outlines come from. A URL, the bytes themselves, or a loader. */
@@ -118,8 +119,11 @@ export type ResolvedVeneerConfig = Required<Omit<VeneerConfig, 'seed' | 'id'>> &
     readonly statusAttribute: boolean;
     /** From `withA11y()`. */
     readonly a11y: VeneerA11yMode | 'none';
-    /** From `withReadableCopy()`. */
-    readonly readableCopy: boolean;
+    /**
+     * From `withReadableCopy()`: the copy handler's installer, carried by the
+     * feature so apps without it do not ship the handler.
+     */
+    readonly readableCopy: ((document: Document) => void) | null;
   };
 
 /** What `withA11y()` does to protected elements. */
@@ -243,7 +247,10 @@ export function withA11y(mode: VeneerA11yMode): VeneerFeature<'a11y'> {
  * more than that.
  */
 export function withReadableCopy(): VeneerFeature<'readableCopy'> {
-  return { ɵkind: 'readableCopy', ɵapply: (config) => ({ ...config, readableCopy: true }) };
+  return {
+    ɵkind: 'readableCopy',
+    ɵapply: (config) => ({ ...config, readableCopy: installReadableCopy }),
+  };
 }
 
 /**
@@ -281,7 +288,7 @@ export function provideVeneer(
     statusListeners: [],
     statusAttribute: false,
     a11y: 'none',
-    readableCopy: false,
+    readableCopy: null,
   } as ResolvedVeneerConfig);
   return makeEnvironmentProviders([
     { provide: VENEER_CONFIG, useValue: resolved },

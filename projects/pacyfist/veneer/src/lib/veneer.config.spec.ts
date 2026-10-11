@@ -31,7 +31,7 @@ describe('provideVeneer', () => {
       statusListeners: [],
       statusAttribute: false,
       a11y: 'none',
-      readableCopy: false,
+      readableCopy: null,
     });
   });
 
