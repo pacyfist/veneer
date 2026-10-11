@@ -43,6 +43,11 @@ jobs:
 
       - run: npm test
 
+      # Build with the oldest Angular in peerDependencies: partially compiled
+      # code links in newer Angular versions, not older ones.
+      - name: Switch to Angular 20
+        run: node scripts/use-angular.mjs 20
+
       - name: Build library
         run: npm run build:lib
 

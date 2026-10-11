@@ -40,7 +40,7 @@ const LENS = 90;
             />
           </svg>
           An Angular library
-          <span class="text-base-content/50 font-normal">· Angular 21.2+ · SSR ready</span>
+          <span class="text-base-content/50 font-normal">· Angular 20–22 · SSR ready</span>
         </p>
         <h1 class="text-5xl leading-[1.05] font-bold tracking-tight md:text-6xl">
           Readable by <span class="text-primary">people</span>.<br />
