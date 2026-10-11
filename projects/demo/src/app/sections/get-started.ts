@@ -15,7 +15,7 @@ const CONFIG = [
   'export const appConfig: ApplicationConfig = {',
   '  providers: [',
   '    provideVeneer({',
-  "      font: '/fonts/Roboto-Regular.ttf',",
+  "      font: 'fonts/Roboto-Regular.ttf',",
   '      fallbackFontFamily: "\'Roboto\', sans-serif",',
   '    }),',
   '  ],',
@@ -60,7 +60,9 @@ const USE = [
           <h3 class="text-xl font-bold">Point it at your font</h3>
           <p class="text-base-content/70 mt-1">
             Use the same typeface your page already uses, so protected text blends in. The fallback
-            shows while the font loads and covers characters your font lacks.
+            shows while the font loads and covers characters your font lacks. Keep the path relative
+            (no leading slash) so it resolves against <code>&lt;base href&gt;</code> and still works
+            when the app is deployed under a subpath.
           </p>
         </div>
         <app-code-block file="app.config.ts" [lines]="config" />

@@ -58,12 +58,14 @@ import { provideVeneer } from '@pacyfist/veneer';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideVeneer({
-      font: '/fonts/Roboto-Regular.ttf',
+      font: 'fonts/Roboto-Regular.ttf',
       fallbackFontFamily: "'Roboto', sans-serif",
     }),
   ],
 };
 ```
+
+Keep the path relative (no leading slash): it resolves against `<base href>`, so it keeps working when the app is deployed under a subpath such as `/my-app/`.
 
 **3. Mark your text**
 

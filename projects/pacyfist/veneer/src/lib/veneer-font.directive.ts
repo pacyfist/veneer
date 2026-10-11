@@ -1,5 +1,5 @@
 import { Directive, ElementRef, OnInit, Renderer2, effect, inject } from '@angular/core';
-import { VeneerFontService } from './veneer-font.service';
+import { injectVeneerState } from './veneer-inject';
 import { VeneerFontState } from './veneer-font-state';
 
 /**
@@ -18,7 +18,7 @@ import { VeneerFontState } from './veneer-font-state';
 export class VeneerFontDirective implements OnInit {
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly renderer = inject(Renderer2);
-  private readonly service: VeneerFontState = inject(VeneerFontService);
+  private readonly service: VeneerFontState = injectVeneerState('The veneerFont directive');
 
   constructor() {
     effect(() => {

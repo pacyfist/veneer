@@ -11,7 +11,7 @@ import {
   signal,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { VENEER_CONFIG, VeneerFontSource } from './veneer.config';
+import { VENEER_CONFIG } from './veneer.config';
 import {
   ScrambleMap,
   buildScrambleMap,
@@ -21,6 +21,7 @@ import {
   scrambleText,
 } from '@pacyfist/veneer/core';
 import { VeneerFontState } from './veneer-font-state';
+import { loadBaseFont } from './base-font';
 
 /**
  * Carries the seed from the server render to the client so both build the same
@@ -32,17 +33,6 @@ import { VeneerFontState } from './veneer-font-state';
  * does not defend against.
  */
 const SEED_KEY = makeStateKey<number>('veneerSeed');
-
-async function resolveFontSource(source: VeneerFontSource): Promise<ArrayBuffer> {
-  if (typeof source === 'function') return source();
-  if (typeof source !== 'string') return source;
-
-  const response = await fetch(source);
-  if (!response.ok) {
-    throw new Error(`[veneer] base font request failed: ${response.status} ${response.statusText}`);
-  }
-  return response.arrayBuffer();
-}
 
 /**
  * Owns the cipher and the generated font.
@@ -130,8 +120,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
 
   private async load(): Promise<void> {
     try {
-      const buffer = await resolveFontSource(this.config.font);
-      const base = await parseBaseFont(buffer);
+      const base = await loadBaseFont(this.config.font, this.document.baseURI, parseBaseFont);
       const forged = forgeScrambledFont(base, this.map, this.familyName);
       const face = new FontFace(this.familyName, forged);
       await face.load();

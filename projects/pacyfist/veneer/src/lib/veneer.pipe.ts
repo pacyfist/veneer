@@ -1,5 +1,5 @@
-import { Pipe, PipeTransform, inject } from '@angular/core';
-import { VeneerFontService } from './veneer-font.service';
+import { Pipe, PipeTransform } from '@angular/core';
+import { injectVeneerState } from './veneer-inject';
 import { VeneerFontState } from './veneer-font-state';
 
 /**
@@ -19,7 +19,7 @@ import { VeneerFontState } from './veneer-font-state';
  */
 @Pipe({ name: 'veneer', pure: false })
 export class VeneerPipe implements PipeTransform {
-  private readonly service: VeneerFontState = inject(VeneerFontService);
+  private readonly service: VeneerFontState = injectVeneerState('The veneer pipe');
 
   transform(value: string | null | undefined): string {
     return value == null ? '' : this.service.scramble(value);

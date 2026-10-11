@@ -83,12 +83,14 @@ import { provideVeneer } from '@pacyfist/veneer';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideVeneer({
-      font: '/fonts/Roboto-Regular.ttf',
+      font: 'fonts/Roboto-Regular.ttf',
       fallbackFontFamily: "'Roboto', sans-serif",
     }),
   ],
 };
 ```
+
+Keep the font path relative (no leading slash): it resolves against `<base href>`, so it keeps working when the app is deployed under a subpath such as `/my-app/`.
 
 **2. Import the pieces** you need into a component and protect some text:
 
@@ -170,7 +172,7 @@ scraper receives, which is a convincing way to show the mechanism working.
 
 ```ts
 provideVeneer({
-  font: '/fonts/Roboto-Regular.ttf',
+  font: 'fonts/Roboto-Regular.ttf',
   fallbackFontFamily: "'Roboto', sans-serif",
   charset: undefined,
   seed: undefined,
@@ -377,7 +379,7 @@ or decode it in the app with a decoder you pick, through the loader:
 ```ts
 provideVeneer({
   font: async () => {
-    const woff2 = await (await fetch('/fonts/Font.woff2')).arrayBuffer();
+    const woff2 = await (await fetch('fonts/Font.woff2')).arrayBuffer();
     const { decompress } = await import('some-woff2-decoder'); // your choice
     return decompress(woff2); // must resolve to .ttf/.otf bytes
   },
@@ -428,6 +430,25 @@ scrambleText('$&[[4` v4j[7', invertScrambleMap(map));
 Useful for pre-scrambling static content in a build step, paired with
 `forgeScrambledFont` to emit the matching font file.
 
+## Error codes
+
+Every message veneer logs or throws starts with `[veneer] VNRxxx:` and links here.
+
+### VNR003
+
+A directive or the pipe found no `VeneerFontService`: `provideVeneer()` is missing
+from the injector tree. Add it to the `providers` of your `ApplicationConfig` (or of
+the route or component that uses veneer). In unit tests, use `provideVeneerTesting()`
+from `@pacyfist/veneer/testing`.
+
+### VNR010
+
+The base font could not be loaded: the request failed (the message names the
+resolved URL and the status) or the `font` loader rejected. Check that the file is
+served at that URL. Use a relative path such as `'fonts/Roboto-Regular.ttf'`: it
+resolves against `<base href>`, while a leading slash ignores it and breaks subpath
+deploys. Protection fails open.
+
 ## Troubleshooting
 
 | Symptom                                         | Cause                                                                                                          |
@@ -435,7 +456,7 @@ Useful for pre-scrambling static content in a build step, paired with
 | `could not parse the base font`                 | The file is not a font. veneer reads `.ttf`, `.otf` and `.woff`                                                |
 | `the base font is WOFF2`                        | Convert it to `.ttf`, or decode it in the `font` loader. See [WOFF2 and Google Fonts](#woff2-and-google-fonts) |
 | `the base font has no glyph for N character(s)` | Base font doesn't cover the charset. Use a fuller font, or narrow `charset`                                    |
-| `base font request failed: 404`                 | The `font` URL isn't served. Check it's in your `assets`/`public` output                                       |
+| `VNR010 ... request for <url> failed: 404`      | The `font` URL isn't served. Check it's in your `public` output and the path has no leading slash              |
 | Protected text is invisible and never appears   | The font never loaded and JS is disabled, or `hideUntilReady` is on while the request hangs. Check the console |
 | Text renders readable, protection seems off     | The library failed open. Inspect `failed()`, or `disabled` is set                                              |
 | Protected text is in the wrong typeface         | `fallbackFontFamily` doesn't name the same typeface as `font`                                                  |

@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/c
 import { DEFAULT_CHARSET, VeneerConfig } from '@pacyfist/veneer';
 import { SectionHeading } from '../ui/section-heading';
 import { IsolatedInstance } from '../ui/isolated-instance';
-import { baseFontBuffer } from '../font-source';
 
 type Mode = 'healthy' | 'no-font' | 'missing-glyph' | 'flash';
 
@@ -89,7 +88,8 @@ export class Breakage {
           hideUntilReady: false,
           font: async () => {
             await new Promise((resolve) => setTimeout(resolve, 2000));
-            return baseFontBuffer();
+            const response = await fetch('fonts/Roboto-Regular.ttf');
+            return response.arrayBuffer();
           },
         };
       default:

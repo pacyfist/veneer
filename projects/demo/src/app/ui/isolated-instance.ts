@@ -13,7 +13,6 @@ import {
   untracked,
 } from '@angular/core';
 import { VeneerConfig, provideVeneer, randomSeed } from '@pacyfist/veneer';
-import { baseFontBuffer } from '../font-source';
 import { SpecimenCard } from './specimen-card';
 
 /**
@@ -82,7 +81,9 @@ export class IsolatedInstance {
     const child = createEnvironmentInjector(
       [
         provideVeneer({
-          font: baseFontBuffer,
+          // The library fetches and parses each URL once per page, so every
+          // instance shares the shell's download.
+          font: 'fonts/Roboto-Regular.ttf',
           fallbackFontFamily: "'Roboto', sans-serif",
           seed: randomSeed(),
           ...config,
