@@ -41,7 +41,7 @@ import { gzipSync } from 'node:zlib';
  * `.` 8,965 B (strictCoverage narrowing, withFaces, id), `./testing` 4,136 B
  * (findVeneerLeaks).
  *
- * Raised 2026-10-11 when the key left the HTML (Next #2): `.` 10,785 B (the
+ * Raised 2026-10-11 when the key left the HTML (Next #2): `.` 10,866 B (the
  * hydrate path that fetches the server's forged font and reads the map back,
  * VNR015/VNR016), `./core` 5,507 B (randomScrambleMap), `./forge` 10,639 B
  * (readScrambleMap, parseBaseFontSync), and the new server-only `./server`
