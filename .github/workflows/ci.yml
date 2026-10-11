@@ -3,19 +3,27 @@ name: validate
 # Checks every Angular major the library's peerDependencies accept. The library
 # is built once, with the oldest major, because that is the build npm gets (see
 # publish.yml): partially compiled code links in newer Angular, not older. Each
-# major then builds the demo against that very build and runs the e2e suite.
+# major then builds the demo against that very build and runs the e2e suite in
+# Chromium, Firefox and WebKit.
+#
+# publish.yml calls this workflow (workflow_call) and publishes the `library`
+# artifact uploaded below only after every job here has passed.
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
+# When called from publish.yml, github.workflow is the caller's name, so this
+# group never collides with the caller's own concurrency group. Only pushes and
+# pull requests cancel an older run; a release validation always finishes.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
 jobs:
   library:
@@ -25,7 +33,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -38,6 +46,9 @@ jobs:
         with:
           name: library
           path: dist/pacyfist/veneer
+          # The directory holds dotfiles (.npmignore) that npm publish reads.
+          include-hidden-files: true
+          if-no-files-found: error
 
   demo:
     needs: library
@@ -52,7 +63,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -73,7 +84,7 @@ jobs:
       - name: Build static site
         run: npx ng build demo --configuration production,github-pages
 
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
 
       - name: End-to-end tests
         run: npm run e2e

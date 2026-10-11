@@ -23,7 +23,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -32,10 +32,12 @@ jobs:
         run: npm run build:pages
 
       # A build that ships readable text must fail here rather than publish.
+      # Chromium is enough for that guard; validate (ci.yml) covers the other
+      # engines on every push and pull request.
       - run: npx playwright install --with-deps chromium
 
       - name: End-to-end tests
-        run: npm run e2e
+        run: npx playwright test --project=chromium
 
       - name: Add SPA fallback and disable Jekyll
         run: |
