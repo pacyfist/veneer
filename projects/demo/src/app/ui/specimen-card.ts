@@ -44,7 +44,9 @@ import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
           <p class="text-secondary mt-1 font-mono text-sm break-all">{{ botReads() }}</p>
         </div>
         @if (veneer.failed(); as failure) {
-          <p class="text-warning font-mono text-xs break-all">{{ failure.message }}</p>
+          <p class="text-warning font-mono text-xs break-all">
+            {{ failure.code }}: {{ failure.message }}
+          </p>
         }
       </div>
     </div>

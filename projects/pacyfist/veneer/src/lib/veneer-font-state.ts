@@ -11,8 +11,17 @@ import type { VeneerFailure, VeneerStatus } from './veneer-status';
  * `VeneerFontService` token.
  */
 export interface VeneerFontState {
-  /** The substitution in force for this page load. */
-  readonly map: ScrambleMap;
+  /**
+   * The substitution in force. It can change once, after the font loads, when
+   * characters the font cannot draw are dropped (see `strictCoverage`).
+   */
+  readonly map: Signal<ScrambleMap>;
+
+  /**
+   * The map built at startup over the configured charset. Server-rendered
+   * text was scrambled with it, so hydration inverts with it.
+   */
+  readonly initialMap: ScrambleMap;
 
   /** Family name of the forged font. */
   readonly familyName: string;

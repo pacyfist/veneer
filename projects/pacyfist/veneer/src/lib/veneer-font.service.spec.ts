@@ -44,7 +44,7 @@ describe('VeneerFontService', () => {
     TestBed.resetTestingModule();
     const b = await createService({ font: new ArrayBuffer(0), seed: 99, disabled: true });
 
-    expect([...a.map.forward]).toEqual([...b.map.forward]);
+    expect([...a.map().forward]).toEqual([...b.map().forward]);
   });
 
   it('names the font after the seed, so two ciphers never share a family', async () => {
@@ -65,7 +65,7 @@ describe('VeneerFontService', () => {
   it('scrambles text when active', async () => {
     const service = await createService({ font: new ArrayBuffer(0), seed: 5, disabled: true });
     // `disabled` short-circuits scramble(), so verify the map itself instead.
-    expect(scrambleText('Hello', service.map)).not.toBe('Hello');
+    expect(scrambleText('Hello', service.map())).not.toBe('Hello');
   });
 
   it('fails open when the font source throws', async () => {
@@ -131,13 +131,14 @@ describe('VeneerFontService', () => {
     expect(service.failed()?.message).toMatch(/could not parse/);
   });
 
-  it('reports glyphs the font lacks as VNR012, listing them', async () => {
+  it('with strictCoverage, reports glyphs the font lacks as VNR012, listing them', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const service = await createService({
       font: roboto(),
       // ƀ and ƃ (Latin Extended-B): letters Roboto has no glyph for. Two of
       // them, because the cipher drops a class with a single member.
       charset: [...DEFAULT_CHARSET, 0x180, 0x183],
+      strictCoverage: true,
     });
     await vi.waitFor(() => expect(service.failed()).toBeTruthy());
     expect(service.failed()?.code).toBe('VNR012');

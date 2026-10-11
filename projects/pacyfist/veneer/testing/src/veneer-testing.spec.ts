@@ -43,21 +43,21 @@ describe('provideVeneerTesting', () => {
   it('builds the cipher from the seed', () => {
     const { service } = setup({ seed: 7 });
     expect(service.status()).toBe('active');
-    expect([...service.map.forward]).toEqual([...buildScrambleMap(7).forward]);
+    expect([...service.map().forward]).toEqual([...buildScrambleMap(7).forward]);
     expect(service.familyName).toBe(`Veneer-${(7).toString(36)}`);
   });
 
   it('is deterministic without a seed', () => {
-    const a = setup().service.map;
+    const a = setup().service.map();
     TestBed.resetTestingModule();
-    const b = setup().service.map;
+    const b = setup().service.map();
     expect([...a.forward]).toEqual([...b.forward]);
   });
 
   it('scrambles through the pipe and points the element at the font when ready', () => {
     const { el, service } = setup({ seed: 7 });
     expect(service.ready()).toBe(true);
-    expect(el.textContent).toBe(scrambleText('Hello, world', service.map));
+    expect(el.textContent).toBe(scrambleText('Hello, world', service.map()));
     expect(el.style.fontFamily).toContain(service.familyName);
     expect(el.style.visibility).toBe('');
   });
@@ -106,7 +106,7 @@ describe('decodeVeneer', () => {
 
   it('decodes a string', () => {
     const { service } = setup({ seed: 99 });
-    expect(decodeVeneer(scrambleText('abc XYZ', service.map))).toBe('abc XYZ');
+    expect(decodeVeneer(scrambleText('abc XYZ', service.map()))).toBe('abc XYZ');
   });
 
   it('returns readable text untouched while the stand-in is failed', () => {

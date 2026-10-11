@@ -56,9 +56,10 @@ export class VeneerDirective implements OnInit {
       if (bound) this.original = bound;
 
       // Read the reactive state so this re-runs when the font lands, when the
-      // reveal toggle flips, or when loading fails.
+      // reveal toggle flips, when loading fails, or when the map is narrowed.
       this.service.fontStack();
       this.service.hidden();
+      this.service.map();
 
       this.apply();
     });
@@ -85,7 +86,8 @@ export class VeneerDirective implements OnInit {
 
     if (!el.hasAttribute(SSR_MARKER)) return text;
 
-    return scrambleText(text, invertScrambleMap(this.service.map));
+    // The server scrambled with the initial map, whatever the map is now.
+    return scrambleText(text, invertScrambleMap(this.service.initialMap));
   }
 
   private apply(): void {

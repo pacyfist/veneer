@@ -3,9 +3,15 @@ import { DEFAULT_CHARSET, VeneerConfig } from '@pacyfist/veneer';
 import { SectionHeading } from '../ui/section-heading';
 import { IsolatedInstance } from '../ui/isolated-instance';
 
-type Mode = 'healthy' | 'no-font' | 'missing-glyph' | 'flash';
+type Mode = 'healthy' | 'no-font' | 'missing-glyph' | 'strict' | 'flash';
 
 const SAMPLE = 'The page stays usable no matter which of these you pick.';
+
+/**
+ * ƀ and ƃ (Latin Extended-B). Roboto-Regular has no glyph for either. Two,
+ * because a character with no swap partner is left unscrambled anyway.
+ */
+const UNCOVERED = [0x180, 0x183];
 
 /** Controls that genuinely break the library, rather than describing breakage. */
 @Component({
@@ -34,13 +40,17 @@ const SAMPLE = 'The page stays usable no matter which of these you pick.';
           <p class="text-base-content/50 text-sm">{{ current().detail }}</p>
         </div>
       </div>
-      <app-isolated-instance [text]="sample" [config]="config()" />
+      <app-isolated-instance [text]="sample()" [config]="config()" />
     </div>
   `,
 })
 export class Breakage {
-  protected readonly sample = SAMPLE;
   protected readonly mode = signal<Mode>('healthy');
+  protected readonly sample = computed(() =>
+    this.mode() === 'missing-glyph' || this.mode() === 'strict'
+      ? `${SAMPLE} Even with ƀ and ƃ in it.`
+      : SAMPLE,
+  );
 
   protected readonly modes = [
     {
@@ -58,11 +68,19 @@ export class Breakage {
     },
     {
       id: 'missing-glyph' as const,
-      label: 'Character the font lacks',
+      label: 'Characters the font lacks',
       plain:
-        "The font can't draw two letters (ƀ, ƃ) it was asked to cover, so the library refuses to guess and falls back to plain text.",
+        "The font can't draw ƀ or ƃ, which the charset asks it to cover. Those two letters are left unscrambled and drawn in the fallback font; everything else stays protected.",
       detail:
-        'forgeScrambledFont throws VeneerFontError listing the missing characters rather than silently showing a reader the wrong letter. The throw is caught, so the page fails open.',
+        'strictCoverage: false, the default. Once the font loads, the library drops the characters it has no glyph for, rebuilds the cipher from the same seed, re-scrambles the text and warns in dev mode (VNR014).',
+    },
+    {
+      id: 'strict' as const,
+      label: 'Strict coverage',
+      plain:
+        'The same font and charset with strictCoverage: true. The library refuses to guess and falls back to plain text.',
+      detail:
+        'forgeScrambledFont throws VeneerFontError listing the missing characters rather than silently showing a reader the wrong letter. The service catches it, sets failed() to code VNR012 with the missing characters, and the page fails open.',
     },
     {
       id: 'flash' as const,
@@ -81,9 +99,9 @@ export class Breakage {
       case 'no-font':
         return { font: () => Promise.reject(new Error('deliberately broken by the demo')) };
       case 'missing-glyph':
-        // U+1F600 and U+1F603, two grinning faces Roboto-Regular has no glyph
-        // for. Two, because a character with no swap partner is left unscrambled.
-        return { charset: [...DEFAULT_CHARSET, 0x1f600, 0x1f603] };
+        return { charset: [...DEFAULT_CHARSET, ...UNCOVERED] };
+      case 'strict':
+        return { charset: [...DEFAULT_CHARSET, ...UNCOVERED], strictCoverage: true };
       case 'flash':
         return {
           hideUntilReady: false,

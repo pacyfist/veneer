@@ -3,6 +3,8 @@ import {
   Injectable,
   OnDestroy,
   PLATFORM_ID,
+  Signal,
+  WritableSignal,
   TransferState,
   afterNextRender,
   computed,
@@ -15,8 +17,9 @@ import { isPlatformBrowser } from '@angular/common';
 import { VENEER_CONFIG } from './veneer.config';
 import { ScrambleMap, buildScrambleMap, randomSeed, scrambleText } from '@pacyfist/veneer/core';
 import { VeneerFontState } from './veneer-font-state';
-import { FontSourceError, loadBaseFont, loadForge } from './base-font';
-import { docsUrl } from './veneer-errors';
+import { Forge, FontSourceError, loadBaseFont, loadForge } from './base-font';
+import type { BaseFont } from '@pacyfist/veneer/forge';
+import { docsUrl, veneerMessage } from './veneer-errors';
 import type { VeneerFailure, VeneerStatus } from './veneer-status';
 
 /**
@@ -35,6 +38,11 @@ const STATUS_ATTRIBUTE = 'data-veneer-status';
 
 /** Which step of `load()` an error came from. */
 type Stage = 'source' | 'forge' | 'face';
+
+declare const ngDevMode: boolean | undefined;
+
+/** Dropped-character sets already warned about, so each is reported once per page. */
+const warnedUncovered = new Set<string>();
 
 /** Turn whatever `load()` caught into a structured failure with a stable code. */
 function describeFailure(error: unknown, stage: Stage): VeneerFailure {
@@ -75,8 +83,23 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
 
   private readonly failure = signal<VeneerFailure | null>(null);
 
-  /** The substitution in force for this page load. */
-  readonly map: ScrambleMap;
+  /** The seed the cipher was built from. */
+  private readonly seed: number;
+
+  /**
+   * The map built at startup over the configured charset: the one the server
+   * rendered with, and so the one hydration inverts.
+   */
+  readonly initialMap: ScrambleMap;
+
+  private readonly currentMap: WritableSignal<ScrambleMap>;
+
+  /**
+   * The substitution in force. Starts as `initialMap`; when the base font
+   * lacks glyphs for some charset characters (and `strictCoverage` is off) it
+   * is rebuilt from the same seed without them, once the font has loaded.
+   */
+  readonly map: Signal<ScrambleMap>;
 
   /** Family name of the forged font. Unique per load so nothing caches across ciphers. */
   readonly familyName: string;
@@ -132,7 +155,10 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
       this.transferState.set(SEED_KEY, seed);
     }
 
-    this.map = buildScrambleMap(seed, this.config.charset);
+    this.seed = seed;
+    this.initialMap = buildScrambleMap(seed, this.config.charset);
+    this.currentMap = signal(this.initialMap);
+    this.map = this.currentMap.asReadonly();
     this.familyName = `Veneer-${seed.toString(36)}`;
 
     if (this.config.disabled) {
@@ -145,7 +171,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
 
   /** Scramble a string, or return it untouched when protection is off or broken. */
   scramble(text: string): string {
-    return this.active() ? scrambleText(text, this.map) : text;
+    return this.active() ? scrambleText(text, this.map()) : text;
   }
 
   private async load(): Promise<void> {
@@ -157,7 +183,8 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
         (await forge).parseBaseFont(bytes),
       );
       stage = 'forge';
-      const forged = (await forge).forgeScrambledFont(base, this.map, this.familyName);
+      const map = this.config.strictCoverage ? this.initialMap : this.narrow(await forge, base);
+      const forged = (await forge).forgeScrambledFont(base, map, this.familyName);
       stage = 'face';
       const face = new FontFace(this.familyName, forged);
       await face.load();
@@ -170,6 +197,9 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
 
       this.face = face;
       this.document.fonts.add(face);
+      // Together, so text is re-scrambled with the map the font was forged for
+      // in the same change detection pass that reveals it.
+      this.currentMap.set(map);
       this.ready.set(true);
     } catch (error) {
       if (this.destroyed) return;
@@ -185,6 +215,47 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
       this.ready.set(true);
     }
     this.report();
+  }
+
+  /**
+   * The initial map, or when the font lacks glyphs for some of its characters,
+   * a map rebuilt from the same seed without them. Those characters then pass
+   * through unscrambled and render in the fallback font.
+   */
+  private narrow(forge: Forge, base: BaseFont): ScrambleMap {
+    const scrambled = [...this.initialMap.forward.keys()];
+    const covered = new Set(forge.coveredCodepoints(base, scrambled));
+    const dropped = scrambled
+      .filter((cp) => !covered.has(cp))
+      .map((cp) => String.fromCodePoint(cp));
+    if (dropped.length === 0) return this.initialMap;
+
+    if (typeof ngDevMode === 'undefined' || ngDevMode) {
+      const key = dropped.join('');
+      if (!warnedUncovered.has(key)) {
+        warnedUncovered.add(key);
+        console.warn(
+          veneerMessage(
+            'VNR014',
+            `the base font has no glyph for ${dropped.length} charset character(s): ${key}. ` +
+              'They are left out of the cipher and shown as they are, in the fallback font. ' +
+              'Narrow `charset` to silence this, or set `strictCoverage: true` to fail instead.',
+          ),
+        );
+      }
+    }
+
+    const charset = this.config.charset.filter(
+      (cp) => covered.has(cp) || !this.initialMap.forward.has(cp),
+    );
+    try {
+      return buildScrambleMap(this.seed, charset);
+    } catch {
+      throw Object.assign(
+        new Error(`[veneer] the base font covers too little of the charset to scramble anything.`),
+        { missing: dropped },
+      );
+    }
   }
 
   /** Tell the status attribute and the listeners about a status change. */

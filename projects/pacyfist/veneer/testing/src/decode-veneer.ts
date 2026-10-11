@@ -10,7 +10,7 @@ import { currentTestingService, defaultTestingMap } from './veneer-testing';
  * service, or of its default seed if none was created. In that mode text is
  * returned untouched while that service is `failed` or `disabled`, since the
  * DOM then already holds the readable text. Pass `map` (for example
- * `TestBed.inject(VeneerFontService).map`) to always invert with that cipher.
+ * `TestBed.inject(VeneerFontService).map()`) to always invert with that cipher.
  */
 export function decodeVeneer(input: Element | string, map?: ScrambleMap): string {
   const text = typeof input === 'string' ? input : (input.textContent ?? '');
@@ -19,5 +19,5 @@ export function decodeVeneer(input: Element | string, map?: ScrambleMap): string
 
   const service = currentTestingService();
   if (service && !service.active()) return text;
-  return scrambleText(text, invertScrambleMap(service?.map ?? defaultTestingMap()));
+  return scrambleText(text, invertScrambleMap(service?.map() ?? defaultTestingMap()));
 }

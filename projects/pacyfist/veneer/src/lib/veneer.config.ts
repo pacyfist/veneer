@@ -46,6 +46,19 @@ export interface VeneerConfig {
 
   /** Turns the whole thing off; text renders untouched. Useful per-environment. */
   disabled?: boolean;
+
+  /**
+   * What to do when the base font has no glyph for some charset characters.
+   *
+   * `false` (the default): leave those characters out of the cipher. They pass
+   * through unscrambled and render in the fallback font, and a dev-mode
+   * warning (VNR014) lists them. The map is rebuilt from the same seed once
+   * the font has loaded, and protected text is re-scrambled with it.
+   *
+   * `true`: fail open instead (VNR012), switching protection off for the whole
+   * instance, as before 0.1.
+   */
+  strictCoverage?: boolean;
 }
 
 /** Config with defaults applied and features folded in, as injected. */
@@ -130,6 +143,7 @@ export function provideVeneer(
     charset: DEFAULT_CHARSET,
     hideUntilReady: true,
     disabled: false,
+    strictCoverage: false,
     ...config,
     statusListeners: [],
     statusAttribute: false,

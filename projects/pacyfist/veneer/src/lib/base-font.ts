@@ -77,7 +77,8 @@ export async function resolveFontSource(
   }
 }
 
-type Forge = typeof import('@pacyfist/veneer/forge');
+/** The `@pacyfist/veneer/forge` module. */
+export type Forge = typeof import('@pacyfist/veneer/forge');
 
 let forge: Promise<Forge> | undefined;
 

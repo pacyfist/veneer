@@ -1,4 +1,10 @@
-import { EnvironmentProviders, computed, makeEnvironmentProviders, signal } from '@angular/core';
+import {
+  EnvironmentProviders,
+  Signal,
+  computed,
+  makeEnvironmentProviders,
+  signal,
+} from '@angular/core';
 import {
   ResolvedVeneerConfig,
   VENEER_CONFIG,
@@ -75,7 +81,8 @@ export class VeneerTestingFontService implements VeneerFontState {
   private readonly state = signal<VeneerTestingState>('ready');
   private readonly fallbackFontFamily: string;
 
-  readonly map: ScrambleMap;
+  readonly initialMap: ScrambleMap;
+  readonly map: Signal<ScrambleMap>;
   readonly familyName: string;
 
   readonly ready = computed(() => this.state() !== 'loading');
@@ -95,7 +102,8 @@ export class VeneerTestingFontService implements VeneerFontState {
 
   constructor(options: VeneerTestingOptions = {}) {
     const seed = options.seed ?? DEFAULT_TESTING_SEED;
-    this.map = buildScrambleMap(seed, options.charset ?? DEFAULT_CHARSET);
+    this.initialMap = buildScrambleMap(seed, options.charset ?? DEFAULT_CHARSET);
+    this.map = signal(this.initialMap).asReadonly();
     this.familyName = `Veneer-${seed.toString(36)}`;
     this.fallbackFontFamily = options.fallbackFontFamily ?? 'sans-serif';
     this.state.set(options.state ?? 'ready');
@@ -103,7 +111,7 @@ export class VeneerTestingFontService implements VeneerFontState {
   }
 
   scramble(text: string): string {
-    return this.active() ? scrambleText(text, this.map) : text;
+    return this.active() ? scrambleText(text, this.map()) : text;
   }
 
   /** Force a state, for example to simulate the font failing after first render. */
@@ -131,6 +139,7 @@ export function provideVeneerTesting(options: VeneerTestingOptions = {}): Enviro
     hideUntilReady: true,
     disabled: options.state === 'disabled',
     seed: options.seed ?? DEFAULT_TESTING_SEED,
+    strictCoverage: false,
     statusListeners: [],
     statusAttribute: false,
   };

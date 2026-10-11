@@ -111,7 +111,7 @@ export class HowItWorks {
 
   protected readonly word = signal('Hello');
 
-  protected readonly stored = computed(() => scrambleText(this.word(), this.veneer.map));
+  protected readonly stored = computed(() => scrambleText(this.word(), this.veneer.map()));
 
   protected readonly pairs = computed<readonly Pair[]>(() => {
     const real = [...this.word()];

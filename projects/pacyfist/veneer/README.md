@@ -197,17 +197,19 @@ provideVeneer({
   seed: undefined,
   hideUntilReady: true,
   disabled: false,
+  strictCoverage: false,
 });
 ```
 
-| Option               | Type                                                  | Default                   | Purpose                                                        |
-| -------------------- | ----------------------------------------------------- | ------------------------- | -------------------------------------------------------------- |
-| `font`               | `string \| ArrayBuffer \| () => Promise<ArrayBuffer>` | _required_                | Base font supplying the glyph outlines                         |
-| `fallbackFontFamily` | `string`                                              | `'sans-serif'`            | Used until the font is ready, when off, and for missing glyphs |
-| `charset`            | `readonly number[]`                                   | `DEFAULT_CHARSET` (ASCII) | Codepoints the cipher covers                                   |
-| `seed`               | `number`                                              | random per page load      | Pins the cipher. Tests and reproducible builds only            |
-| `hideUntilReady`     | `boolean`                                             | `true`                    | Keep protected text invisible until the font lands             |
-| `disabled`           | `boolean`                                             | `false`                   | Turn everything off, per environment                           |
+| Option               | Type                                                  | Default                   | Purpose                                                                                |
+| -------------------- | ----------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------- |
+| `font`               | `string \| ArrayBuffer \| () => Promise<ArrayBuffer>` | _required_                | Base font supplying the glyph outlines                                                 |
+| `fallbackFontFamily` | `string`                                              | `'sans-serif'`            | Used until the font is ready, when off, and for missing glyphs                         |
+| `charset`            | `readonly number[]`                                   | `DEFAULT_CHARSET` (ASCII) | Codepoints the cipher covers                                                           |
+| `seed`               | `number`                                              | random per page load      | Pins the cipher. Tests and reproducible builds only                                    |
+| `hideUntilReady`     | `boolean`                                             | `true`                    | Keep protected text invisible until the font lands                                     |
+| `disabled`           | `boolean`                                             | `false`                   | Turn everything off, per environment                                                   |
+| `strictCoverage`     | `boolean`                                             | `false`                   | Fail open on any glyph the font lacks, instead of leaving those characters unscrambled |
 
 **`charset`** defaults to `DEFAULT_CHARSET`: the 84 printable ASCII characters
 the cipher can swap without moving a line break. The browser wraps lines based on
@@ -240,6 +242,13 @@ scrambled, so `e` + U+0301 is protected like `é`.
 **`seed`** should normally be left alone. A constant seed means every visitor and
 every crawl sees the same substitution, which is solvable once by frequency
 analysis and reusable forever after.
+
+**`strictCoverage`** decides what happens when the base font has no glyph for
+some charset characters. Off (the default), they are dropped from the cipher once
+the font has loaded: the map is rebuilt from the same seed without them, protected
+text is re-scrambled, those characters show as themselves in the fallback font,
+and a dev-mode warning ([VNR014](#vnr014)) lists them. On, the instance fails open
+instead ([VNR012](#vnr012)).
 
 **`hideUntilReady`** trades one flaw for another. Left on, scrambled characters
 never flash on screen, but a visitor with JavaScript disabled sees nothing where
@@ -274,18 +283,19 @@ input string never changed. The cost is one `Map` lookup per character per call.
 **`VeneerFontService`** - provided by `provideVeneer`. Its public shape is the
 exported `VeneerFontState` interface, which the testing stand-in implements too.
 
-| Member           | Type                            | Description                                                    |
-| ---------------- | ------------------------------- | -------------------------------------------------------------- |
-| `map`            | `ScrambleMap`                   | The substitution in force for this page load                   |
-| `familyName`     | `string`                        | Family name of the forged font, unique per load                |
-| `ready`          | `Signal<boolean>`               | Font registered and text is safe to show                       |
-| `status`         | `Signal<VeneerStatus>`          | `loading`, `active`, `failed` or `disabled`                    |
-| `failed`         | `Signal<VeneerFailure \| null>` | `{ code, message, missing? }` when the font could not be built |
-| `revealed`       | `WritableSignal<boolean>`       | Withhold the font, exposing raw scrambled characters           |
-| `active`         | `Signal<boolean>`               | `!disabled && !failed`                                         |
-| `fontStack`      | `Signal<string>`                | The `font-family` value protected elements use                 |
-| `hidden`         | `Signal<boolean>`               | Protected text should stay hidden right now                    |
-| `scramble(text)` | `string`                        | Scramble, or return unchanged when protection is off           |
+| Member           | Type                            | Description                                                                  |
+| ---------------- | ------------------------------- | ---------------------------------------------------------------------------- |
+| `map`            | `Signal<ScrambleMap>`           | The substitution in force. Narrowed once after load if the font lacks glyphs |
+| `initialMap`     | `ScrambleMap`                   | The map built at startup; server-rendered text uses it                       |
+| `familyName`     | `string`                        | Family name of the forged font, unique per load                              |
+| `ready`          | `Signal<boolean>`               | Font registered and text is safe to show                                     |
+| `status`         | `Signal<VeneerStatus>`          | `loading`, `active`, `failed` or `disabled`                                  |
+| `failed`         | `Signal<VeneerFailure \| null>` | `{ code, message, missing? }` when the font could not be built               |
+| `revealed`       | `WritableSignal<boolean>`       | Withhold the font, exposing raw scrambled characters                         |
+| `active`         | `Signal<boolean>`               | `!disabled && !failed`                                                       |
+| `fontStack`      | `Signal<string>`                | The `font-family` value protected elements use                               |
+| `hidden`         | `Signal<boolean>`               | Protected text should stay hidden right now                                  |
+| `scramble(text)` | `string`                        | Scramble, or return unchanged when protection is off                         |
 
 ### Framework-free core
 
@@ -411,11 +421,13 @@ starting `[veneer] disabled (VNRxxx)` is logged, `failed()` holds
 `{ code, message, missing? }`, and the page renders normally. Unreadable content
 is worse than unprotected content. Use `withStatusListener()` to report it.
 
-`forgeScrambledFont` throws instead when the base font lacks a glyph for a
-charset character - silently dropping it would show readers the _wrong letter_
-with no other symptom. The thrown `VeneerFontError` lists the missing characters in
-`missing`. That throw is still caught by the service, so the page fails open
-either way.
+A base font without a glyph for some charset characters does not fail by default:
+those characters are left out of the cipher (see `strictCoverage`). The forge
+itself never guesses: `forgeScrambledFont` throws when the font lacks a glyph for
+a character in the map it is given, because silently dropping it would show
+readers the _wrong letter_. The thrown `VeneerFontError` lists the missing
+characters in `missing`. With `strictCoverage: true` that throw reaches the
+service, which fails open with `VNR012`.
 
 ## WOFF2 and Google Fonts
 
@@ -447,8 +459,9 @@ the static file that matches the weight your text uses, e.g.
 are in the `google/fonts` GitHub repository under `ofl/<family>/` or
 `apache/<family>/`.
 
-**Charset for a font:** a font without, say, `~` or `|` makes the forge throw and
-the page fail open. Check coverage at build time and paste the result into
+**Charset for a font:** characters the font lacks are dropped at runtime with a
+dev-mode warning (or fail the instance with `strictCoverage: true`). To keep the
+charset honest, check coverage at build time and paste the result into
 `charset`:
 
 ```ts
@@ -511,8 +524,8 @@ which. Protection fails open.
 ### VNR012
 
 The base font has no glyph for some charset characters; `failed().missing` lists
-them. Narrow `charset` (see `charsetFromFont`) or use a fuller font. Protection
-fails open.
+them. Only with `strictCoverage: true`. Narrow `charset` (see `charsetFromFont`)
+or use a fuller font. Protection fails open.
 
 ### VNR013
 
@@ -520,13 +533,21 @@ The browser rejected the forged font, or has no CSS Font Loading API (`FontFace`
 Check the console for the browser's reason, and a `font-src` Content Security
 Policy. Protection fails open.
 
+### VNR014
+
+Dev-mode warning: the base font has no glyph for the listed charset characters, so
+they were left out of the cipher and show as themselves, in the fallback font.
+Protection stays on for everything else. Narrow `charset` to the characters the
+font covers (see `charsetFromFont`) to silence it, or set `strictCoverage: true`
+to fail instead.
+
 ## Troubleshooting
 
 | Symptom                                         | Cause                                                                                                          |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `could not parse the base font`                 | The file is not a font. veneer reads `.ttf`, `.otf` and `.woff`                                                |
 | `the base font is WOFF2`                        | Convert it to `.ttf`, or decode it in the `font` loader. See [WOFF2 and Google Fonts](#woff2-and-google-fonts) |
-| `the base font has no glyph for N character(s)` | Base font doesn't cover the charset. Use a fuller font, or narrow `charset`                                    |
+| `the base font has no glyph for N character(s)` | Base font doesn't cover the charset (`strictCoverage: true`). Use a fuller font, or narrow `charset`           |
 | `VNR010 ... request for <url> failed: 404`      | The `font` URL isn't served. Check it's in your `public` output and the path has no leading slash              |
 | Protected text is invisible and never appears   | The font never loaded and JS is disabled, or `hideUntilReady` is on while the request hangs. Check the console |
 | Text renders readable, protection seems off     | The library failed open. Inspect `failed()`, or `disabled` is set                                              |
