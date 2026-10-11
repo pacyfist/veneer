@@ -1,0 +1,29 @@
+/* Declarations for the API reports (scripts/api-report.mjs), emitted by plain tsc
+   from the library source. Each entry point resolves to the source of the
+   others, so no library build is needed and Angular's compiler adds nothing. */
+{
+  "extends": "../tsconfig.lib.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "../../../../out-tsc/api/dts",
+    "declaration": true,
+    "declarationMap": false,
+    "emitDeclarationOnly": true,
+    "stripInternal": false,
+    "paths": {
+      "@pacyfist/veneer": ["../src/public-api.ts"],
+      "@pacyfist/veneer/core": ["../core/src/public-api.ts"],
+      "@pacyfist/veneer/forge": ["../forge/src/public-api.ts"],
+      "@pacyfist/veneer/server": ["../server/src/public-api.ts"],
+      "@pacyfist/veneer/testing": ["../testing/src/public-api.ts"]
+    }
+  },
+  "include": [
+    "../src/**/*.ts",
+    "../core/src/**/*.ts",
+    "../forge/src/**/*.ts",
+    "../server/src/**/*.ts",
+    "../testing/src/**/*.ts"
+  ],
+  "exclude": ["../**/*.spec.ts"]
+}

@@ -32,6 +32,7 @@ import {
  */
 export type VeneerTestingState = 'ready' | 'loading' | 'failed' | 'disabled';
 
+/** The options of `provideVeneerTesting()`. All optional. */
 export interface VeneerTestingOptions {
   /** Seed for the cipher. Defaults to a fixed value, so tests are reproducible. */
   seed?: number;

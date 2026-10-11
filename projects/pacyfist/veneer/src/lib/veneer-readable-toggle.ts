@@ -28,8 +28,10 @@ import { injectVeneerState } from './veneer-inject';
   template: '<ng-content>Readable text</ng-content>',
 })
 export class VeneerReadableToggle {
+  /** @internal */
   protected readonly service = injectVeneerState('The veneerReadableToggle button');
 
+  /** Switches readable mode. Bound to the button's `click`. */
   toggle(): void {
     this.service.readable.update((on) => !on);
   }

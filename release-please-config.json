@@ -23,7 +23,8 @@
     "projects/pacyfist/veneer": {
       "package-name": "@pacyfist/veneer",
       "component": "veneer",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "release-as": "0.1.0"
     }
   }
 }

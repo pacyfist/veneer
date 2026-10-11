@@ -1,3 +1,6 @@
 # Written by release-please, which uses its own Markdown and JSON layout.
 projects/pacyfist/veneer/CHANGELOG.md
 .release-please-manifest.json
+
+# Written by API Extractor (npm run api:update).
+projects/pacyfist/veneer/api/*.api.md

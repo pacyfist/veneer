@@ -46,6 +46,7 @@ innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
 - [WOFF2 and Google Fonts](#woff2-and-google-fonts)
 - [Using the cipher outside Angular](#using-the-cipher-outside-angular)
 - [Troubleshooting](#troubleshooting)
+- [Stability and support](#stability-and-support)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -53,11 +54,11 @@ innerText:  Qi& sgY.a Rj4vE @4' Pg8So 4c&j Gi& [xN? 74O_
 
 ## Requirements
 
-| Requirement | Version / notes                                                                                                                          |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Angular     | 20, 21 or 22 (`@angular/core`, `@angular/common`)                                                                                        |
-| Base font   | A **`.ttf`, `.otf` or `.woff`** file you are licensed to embed. WOFF2 needs a decoder you choose, see below                              |
-| Browser     | Anything with the [CSS Font Loading API](https://developer.mozilla.org/docs/Web/API/CSS_Font_Loading_API) (`FontFace`, `document.fonts`) |
+| Requirement | Version / notes                                                                                             |
+| ----------- | ----------------------------------------------------------------------------------------------------------- |
+| Angular     | 20, 21 or 22 (`@angular/core`, `@angular/common`)                                                           |
+| Base font   | A **`.ttf`, `.otf` or `.woff`** file you are licensed to embed. WOFF2 needs a decoder you choose, see below |
+| Browser     | Chromium, Firefox and WebKit: see [Browsers](#browsers). Anything without `FontFace` fails open             |
 
 veneer has no runtime dependency besides Angular. It reads TrueType, CFF
 OpenType and WOFF 1.0 itself (WOFF through the browser's `DecompressionStream`).
@@ -861,6 +862,72 @@ out of protected elements, or rely on readable mode for that content.
 | Server HTML has readable protected text         | `provideVeneerServer()` is missing or cannot read the font ([VNR015](#vnr015)). Check the server log           |
 | `VNR016 ... forged font request ... failed`     | The server's forged font is not served. Mount `veneerFontMiddleware()`, or copy `emitDir` after prerendering   |
 
+## Stability and support
+
+### Versioning while 0.x
+
+veneer follows semver with the usual 0.x rule: a **minor** release (0.1 to 0.2)
+may break your code, a **patch** release (0.1.0 to 0.1.1) does not. npm's caret
+range already works that way for 0.x, so `^0.1.0` takes patches and stops before
+0.2.0. Every breaking change is listed under "BREAKING CHANGES" in the
+[CHANGELOG](CHANGELOG.md), with what to change.
+
+The public API is what the API reports in
+[`api/`](https://github.com/pacyfist/veneer/tree/main/projects/pacyfist/veneer/api)
+list for each entry point, plus the directive selectors and inputs, the `VNRxxx`
+error codes and the `data-veneer-status` values. CI fails when an export changes
+without its report changing too. Not covered:
+
+- exports whose names start with `ɵ`, and members marked `@internal`;
+- the ciphertext a fixed `seed` produces, which can change in any minor
+  release (it did in 0.1.0);
+- the exact wording of messages (alert on the code, not the text) and of the
+  forged font's bytes.
+
+### Deprecation policy
+
+An API that is going away is first marked `@deprecated` in its doc comment and in
+this README, with the replacement, and keeps working for at least one minor
+release before it is removed. From 1.0 on, removals wait for a major release.
+
+### Angular
+
+| Angular      | Supported | Tested in CI                                                         |
+| ------------ | --------- | -------------------------------------------------------------------- |
+| 22           | Yes       | Unit tests, demo e2e (Chromium, Firefox, WebKit), packed example app |
+| 21           | Yes       | The same                                                             |
+| 20           | Yes       | Demo e2e and packed example app; the library is built with 20        |
+| 19 and older | No        | -                                                                    |
+
+The supported majors are the `ci.yml` matrix and the `peerDependencies` range.
+The package is built with the oldest supported major, because partially compiled
+Angular code links in newer majors, not older ones. A new Angular major is added
+once CI passes on it. Dropping a major is a breaking change and ships in a minor
+release while veneer is 0.x.
+
+### Browsers
+
+veneer needs the [CSS Font Loading API](https://developer.mozilla.org/docs/Web/API/CSS_Font_Loading_API)
+(`FontFace`, `document.fonts`), `fetch`, and for WOFF base fonts
+`DecompressionStream`. Where something is missing or the browser rejects the
+forged font, veneer fails open ([VNR013](#vnr013)): readable text, never
+unreadable text.
+
+| Engine   | Status                       | Evidence                                                                                                                       |
+| -------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Chromium | Supported, measured          | Full e2e suite on Linux, locally and in CI: forging, hydration, pixel comparison, line breaks, CSP, accessibility, adversaries |
+| Firefox  | Supported, measured          | Full e2e suite on Linux, locally and in CI                                                                                     |
+| WebKit   | Supported, tested in CI only | Full e2e suite on Linux in CI (Playwright's WebKit). Not measured on Safari for macOS or iOS                                   |
+
+Firefox on Linux hints glyphs with FreeType's auto-hinter, which measures letters
+through the `cmap`. With the scrambled `cmap`, some letters snap a pixel
+differently than the base font does. Widths, kerning and ligatures match exactly;
+Chromium draws identical pixels. The e2e pixel test bounds the difference per
+engine.
+
+Edge, Opera and other Chromium browsers share Chromium's engine but are not
+tested separately. Windows and macOS font rendering is not measured.
+
 ## Contributing
 
 The library lives in an Angular workspace alongside an SSR demo app that consumes
@@ -871,6 +938,7 @@ npm install
 npm start        # build the library, serve the demo on :4321
 npm test         # library unit tests (vitest)
 npm run test:node-core  # load the built core in plain Node and forge a font
+npm run api:check       # public API against the reports in api/ (api:update rewrites them)
 npm run e2e      # Playwright checks against the built static site
 npm run build    # library + demo production build
 ```

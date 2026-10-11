@@ -19,9 +19,11 @@ export interface VeneerFace {
   stretch?: string;
 }
 
+/** The options of `provideVeneer()`. Only `font` is required. */
 export interface VeneerConfig {
   /**
-   * Base font supplying the glyph outlines, as a .ttf or .otf (not WOFF/WOFF2).
+   * Base font supplying the glyph outlines, as a .ttf, .otf or .woff (not
+   * WOFF2). A URL resolves against `<base href>`: keep it relative.
    *
    * Pick the font your body text already uses — the forged font replaces it
    * wherever veneer is applied, so a mismatch is visible.
@@ -29,8 +31,9 @@ export interface VeneerConfig {
   font: VeneerFontSource;
 
   /**
-   * CSS families to fall back to for characters outside the charset — spaces,
-   * accented letters, emoji — which the forged font does not contain.
+   * CSS families used before the forged font is ready, when protection is
+   * off, for `veneer-skip` content, and for characters the base font has no
+   * glyph for (the forged font keeps every glyph of the base font).
    *
    * Should name the same typeface as `font` so the two are indistinguishable.
    */

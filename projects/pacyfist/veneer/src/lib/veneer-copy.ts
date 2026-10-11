@@ -23,6 +23,11 @@ import { protectingHost } from './veneer-hosts';
 
 const installed = new WeakSet<Document>();
 
+/**
+ * Installs the document's copy listener, once per document.
+ *
+ * @internal Exported as `ɵinstallReadableCopy` for the testing entry point only.
+ */
 export function installReadableCopy(document: Document): void {
   if (installed.has(document)) return;
   installed.add(document);

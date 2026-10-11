@@ -187,7 +187,10 @@ Releases are cut by [release-please](https://github.com/googleapis/release-pleas
 merging its release PR bumps `projects/pacyfist/veneer/package.json`, updates the
 library [CHANGELOG](projects/pacyfist/veneer/CHANGELOG.md), tags `vX.Y.Z`, and
 starts `publish.yml`, which publishes only after the full validate run passes.
-The workspace root `package.json` is private and unversioned.
+The workspace root `package.json` is private and unversioned. The next release
+is pinned to 0.1.0 by `release-as` in `release-please-config.json`, because it
+carries breaking changes; remove that line once 0.1.0 is out, or every later
+release PR proposes 0.1.0 again.
 
 ## License
 

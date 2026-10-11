@@ -55,6 +55,11 @@ const SKIPPED_TAGS = new Set(['script', 'style', 'template', 'code', 'textarea',
 /** The opt-out attribute: `<span veneer-skip>` keeps its subtree readable. */
 export const SKIP_ATTRIBUTE = 'veneer-skip';
 
+/**
+ * Whether the walker leaves `el` and its subtree readable.
+ *
+ * @internal Exported as `ɵisSkippedElement` for the testing entry point only.
+ */
 export function isSkippedElement(el: Element): boolean {
   return SKIPPED_TAGS.has(el.localName) || el.hasAttribute(SKIP_ATTRIBUTE);
 }

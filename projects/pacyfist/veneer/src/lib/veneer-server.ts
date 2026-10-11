@@ -9,7 +9,11 @@ import type { ResolvedVeneerConfig } from './veneer.config';
  * server entry point only; not covered by semver.
  */
 
-/** What the server built for one instance. */
+/**
+ * What the server built for one instance.
+ *
+ * @internal Exported as `ɵVeneerServerCipher` for the server entry point only.
+ */
 export interface VeneerServerCipher {
   /** The map the server renders with. Never sent to the client. */
   readonly map: ScrambleMap;
@@ -22,7 +26,11 @@ export interface VeneerServerCipher {
   readonly urls: readonly string[];
 }
 
-/** Builds the cipher and the forged fonts during a server render. */
+/**
+ * Builds the cipher and the forged fonts during a server render.
+ *
+ * @internal Exported as `ɵVeneerServerForge` for the server entry point only.
+ */
 export interface VeneerServerForge {
   /**
    * Synchronous, because the first render scrambles synchronously. Throws when
@@ -31,7 +39,11 @@ export interface VeneerServerForge {
   prepare(config: ResolvedVeneerConfig): VeneerServerCipher;
 }
 
-/** Provided by `provideVeneerServer()`. */
+/**
+ * Provided by `provideVeneerServer()`.
+ *
+ * @internal Exported as `ɵVENEER_SERVER_FORGE` for the server entry point only.
+ */
 export const VENEER_SERVER_FORGE = new InjectionToken<VeneerServerForge>('VENEER_SERVER_FORGE');
 
 /**

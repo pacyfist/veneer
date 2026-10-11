@@ -56,6 +56,14 @@ jobs:
       - name: Bundle size budget
         run: npm run size
 
+      # The public API of every entry point against the reports checked in
+      # under projects/pacyfist/veneer/api/ (API Extractor). They are generated
+      # from the library source with plain tsc, so they are the same on every
+      # Angular major (see scripts/api-report.mjs). After an intended change:
+      # npm run api:update, and commit the reports.
+      - name: Public API report
+        run: npm run api:check
+
       # npm pack into dist/pack, then publint and arethetypeswrong on that file.
       - name: Pack and lint the tarball
         run: npm run check:package
