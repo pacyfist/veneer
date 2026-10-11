@@ -17,4 +17,11 @@ export {
 export type { ScrambleMap, ScrambleTextOptions } from './scramble-map';
 export { LATIN_1, LATIN_EXT_A, charsetFromText } from './charsets';
 export type { CharsetFromTextOptions } from './charsets';
-export { VeneerFontError, forgeScrambledFont, parseBaseFont } from './font-forge';
+export {
+  VeneerFontError,
+  charsetFromFont,
+  coveredCodepoints,
+  forgeScrambledFont,
+  parseBaseFont,
+} from './font-forge';
+export type { BaseFont } from './font-forge';

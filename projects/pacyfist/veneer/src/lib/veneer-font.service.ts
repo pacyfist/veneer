@@ -131,7 +131,8 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   private async load(): Promise<void> {
     try {
       const buffer = await resolveFontSource(this.config.font);
-      const forged = forgeScrambledFont(parseBaseFont(buffer), this.map, this.familyName);
+      const base = await parseBaseFont(buffer);
+      const forged = forgeScrambledFont(base, this.map, this.familyName);
       const face = new FontFace(this.familyName, forged);
       await face.load();
 

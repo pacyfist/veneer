@@ -7,7 +7,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import opentype from 'opentype.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const bundle = join(root, 'dist/pacyfist/veneer/fesm2022/pacyfist-veneer-core.mjs');
@@ -25,6 +24,8 @@ const {
   scrambleText,
   parseBaseFont,
   forgeScrambledFont,
+  coveredCodepoints,
+  charsetFromFont,
 } = core;
 
 // Cipher round trip.
@@ -39,32 +40,41 @@ assert.deepEqual(
   'the same seed built a different map',
 );
 
-// Forge round trip: the glyph addressed by each scrambled codepoint must be the
-// base font's glyph for the readable character.
+// Forge round trip: the glyph addre// Forge round trip: the glyph addressed by each scrambled codepoint must be the
+// base font's glyph for the readable character, and everything else unchanged.
 const bytes = readFileSync(fixture);
 const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-const base = parseBaseFont(buffer);
+let started = performance.now();
+const base = await parseBaseFont(buffer);
 const forgedBytes = forgeScrambledFont(base, map, 'Veneer-smoke');
+const firstRun = performance.now() - started;
 assert.ok(forgedBytes instanceof ArrayBuffer && forgedBytes.byteLength > 0, 'empty forged font');
 
-const forged = opentype.parse(forgedBytes);
-assert.equal(forged.getEnglishName('fontFamily'), 'Veneer-smoke');
+const forged = await parseBaseFont(forgedBytes);
+assert.equal(forged.familyName, 'Veneer-smoke');
+assert.equal(forged.numGlyphs, base.numGlyphs, 'glyph count changed');
 for (const cp of DEFAULT_CHARSET) {
   const readable = String.fromCodePoint(cp);
-  const target = String.fromCodePoint(map.forward.get(cp));
-  const want = base.charToGlyph(readable);
-  const got = forged.charToGlyph(target);
-  assert.ok(got && got.index !== 0, `no glyph for ${JSON.stringify(readable)}`);
-  assert.equal(got.advanceWidth, want.advanceWidth, `advance of ${JSON.stringify(readable)}`);
-  // The forge writes CFF (cubic) outlines from TrueType (quadratic) ones, so
-  // compare the drawn extent rather than the path data.
-  const a = got.path.getBoundingBox();
-  const b = want.path.getBoundingBox();
-  for (const k of ['x1', 'y1', 'x2', 'y2']) {
-    assert.ok(Math.abs(a[k] - b[k]) <= 1, `outline of ${JSON.stringify(readable)} (${k})`);
-  }
+  const want = base.glyphId(cp);
+  assert.ok(want !== 0, `no base glyph for ${JSON.stringify(readable)}`);
+  assert.equal(forged.glyphId(map.forward.get(cp)), want, `glyph of ${JSON.stringify(readable)}`);
+}
+const charset = new Set(DEFAULT_CHARSET);
+for (const cp of base.codepoints()) {
+  if (!charset.has(cp)) assert.equal(forged.glyphId(cp), base.glyphId(cp), `U+${cp.toString(16)}`);
 }
 
+// DecompressionStream exists in Node 18+, so WOFF input must work here too.
+assert.deepEqual(coveredCodepoints(base, [0x61, 0x4e2d]), [0x61]);
+assert.ok((await charsetFromFont(bytes, DEFAULT_CHARSET)).length === DEFAULT_CHARSET.length);
+
+started = performance.now();
+const runs = 20;
+for (let i = 0; i < runs; i++) forgeScrambledFont(await parseBaseFont(buffer), map, 'Veneer-smoke');
+const warm = (performance.now() - started) / runs;
+
 console.log(
-  `node-core smoke: ok (${DEFAULT_CHARSET.length} glyphs, ${forgedBytes.byteLength} bytes forged)`,
+  `node-core smoke: ok (${DEFAULT_CHARSET.length} glyphs remapped, ` +
+    `${forgedBytes.byteLength} bytes forged from ${bytes.byteLength}, ` +
+    `parse+forge ${firstRun.toFixed(1)} ms first run, ${warm.toFixed(2)} ms warm)`,
 );

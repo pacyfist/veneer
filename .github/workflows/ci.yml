@@ -3,19 +3,34 @@ name: validate
 # Checks every Angular major the library's peerDependencies accept. The library
 # is built once, with the oldest major, because that is the build npm gets (see
 # publish.yml): partially compiled code links in newer Angular, not older. Each
-# major then builds the demo against that very build and runs the e2e suite.
+# major then builds the demo against that very build and runs the e2e suite in
+# Chromium, Firefox and WebKit.
+#
+# A second matrix installs the packed tarball into a small consumer app
+# (examples/basic-ssr) on every major.
+#
+# publish.yml calls this workflow (workflow_call) and publishes the `library`
+# artifact uploaded below only after every job here has passed.
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+  # Weekly, to catch drift: each major resolves its newest release at install
+  # time (scripts/use-angular.mjs), and the example app has no lockfile.
+  schedule:
+    - cron: '23 5 * * 1'
 
 permissions:
   contents: read
 
+# When called from publish.yml, github.workflow is the caller's name, so this
+# group never collides with the caller's own concurrency group. Only pushes and
+# pull requests cancel an older run; a release validation always finishes.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
 jobs:
   library:
@@ -25,19 +40,39 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
+
+      - name: Formatting
+        run: npm run format:check
 
       - run: node scripts/use-angular.mjs 20
 
       - run: npm run build:lib
 
+      # Gzip budgets for every FESM entry point (scripts/check-bundle-size.mjs).
+      - name: Bundle size budget
+        run: npm run size
+
+      # npm pack into dist/pack, then publint and arethetypeswrong on that file.
+      - name: Pack and lint the tarball
+        run: npm run check:package
+
       - uses: actions/upload-artifact@v4
         with:
           name: library
           path: dist/pacyfist/veneer
+          # The directory holds dotfiles (.npmignore) that npm publish reads.
+          include-hidden-files: true
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: library-tarball
+          path: dist/pack/*.tgz
+          if-no-files-found: error
 
   demo:
     needs: library
@@ -52,7 +87,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -73,9 +108,43 @@ jobs:
       - name: Build static site
         run: npx ng build demo --configuration production,github-pages
 
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
 
       - name: End-to-end tests
         run: npm run e2e
         env:
           ANGULAR_MAJOR: ${{ matrix.angular }}
+
+  # A consumer app (examples/basic-ssr) installed from the packed tarball, not
+  # through workspace paths, with strict peer dependencies, on every major:
+  # an SSR build with zone.js, a zoneless SSR build and a CSR-only build.
+  example:
+    needs: library
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        angular: [20, 21, 22]
+    name: example (Angular ${{ matrix.angular }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Only for Playwright; the example installs its own dependencies.
+      - run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: library-tarball
+          path: dist/pack
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Install, build and test the example
+        run: node scripts/example-smoke.mjs --angular ${{ matrix.angular }}
+        env:
+          EXAMPLE_WORK_DIR: ${{ runner.temp }}/veneer-example

@@ -52,7 +52,6 @@
               }
             ],
             "styles": ["projects/demo/src/styles.css"],
-            "allowedCommonJsDependencies": ["opentype.js"],
             "server": "projects/demo/src/main.server.ts",
             "outputMode": "server",
             "security": {

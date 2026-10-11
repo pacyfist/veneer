@@ -1,0 +1,31 @@
+{
+  "name": "veneer-example-basic-ssr",
+  "private": true,
+  "description": "Minimal Angular app that installs @pacyfist/veneer from the npm pack tarball. Run it through scripts/example-smoke.mjs, which installs it outside the repository.",
+  "scripts": {
+    "build": "ng build && ng build --configuration zoneless && ng build --configuration csr"
+  },
+  "dependencies": {
+    "@angular/common": "^21.0.0",
+    "@angular/compiler": "^21.0.0",
+    "@angular/core": "^21.0.0",
+    "@angular/platform-browser": "^21.0.0",
+    "@angular/platform-server": "^21.0.0",
+    "@angular/router": "^21.0.0",
+    "@angular/ssr": "^21.0.0",
+    "@pacyfist/veneer": "file:../veneer.tgz",
+    "express": "^5.1.0",
+    "opentype.js": "^2.0.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^21.0.0",
+    "@angular/cli": "^21.0.0",
+    "@angular/compiler-cli": "^21.0.0",
+    "@types/express": "^5.0.1",
+    "@types/node": "^24.0.0",
+    "typescript": "~5.9.2"
+  }
+}

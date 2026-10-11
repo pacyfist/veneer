@@ -1,62 +1,102 @@
 name: Publish to npm
 
-# Runs when a GitHub Release is published. The release tag must match the
-# library version, e.g. tag v0.1.0 for "version": "0.1.0".
+# Runs when a GitHub Release is published, or when dispatched on a release
+# tag. The release tag must match the library version, e.g. tag v0.1.0 for
+# "version": "0.1.0".
+#
+# release-please (release-please.yml) creates releases with GITHUB_TOKEN, and
+# GitHub does not start workflows from events that token causes, except
+# workflow_dispatch. So release-please.yml dispatches this workflow on the new
+# tag (`gh workflow run publish.yml --ref vX.Y.Z`). It still runs as
+# publish.yml, which is the workflow npm trusted publishing is set up for.
+#
+# Order: check the tag, run the full validate workflow (every Angular major,
+# every browser), then publish the very `library` artifact that validate built
+# and tested. Nothing is rebuilt between validation and publishing.
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  # Trusted publishing: npm verifies this run through GitHub's OIDC token, so
-  # no NPM_TOKEN secret is needed and the package gets provenance attached.
-  id-token: write
 
 concurrency:
   group: npm-publish
   cancel-in-progress: false
 
 jobs:
-  publish:
+  tag:
+    name: check the tag
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches the library version
+        run: |
+          version=$(node -p "require('./projects/pacyfist/veneer/package.json').version")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::Release tag $GITHUB_REF_NAME does not match library version $version"
+            exit 1
+          fi
+
+  validate:
+    needs: tag
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Trusted publishing: npm verifies this run through GitHub's OIDC token,
+      # so no NPM_TOKEN secret is needed and the package gets provenance.
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
+          node-version-file: .nvmrc
           registry-url: https://registry.npmjs.org
 
-      # Trusted publishing needs npm 11.5.1 or newer.
-      - run: npm install -g npm@latest
-
-      - run: npm ci
-
-      - name: Check the tag matches the library version
+      # Trusted publishing needs npm 11.5.1 or newer. Install the exact version
+      # pinned in the root package.json "packageManager" field, not @latest.
+      - name: Install the pinned npm
         run: |
-          version=$(node -p "require('./projects/pacyfist/veneer/package.json').version")
+          npm_spec=$(node -p "require('./package.json').packageManager")
+          npm install -g "$npm_spec"
+          npm --version
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: library
+          path: dist/pacyfist/veneer
+
+      # Guard against publishing anything but the version this release is for.
+      - name: Check the artifact version matches the tag
+        run: |
+          version=$(node -p "require('./dist/pacyfist/veneer/package.json').version")
           if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
-            echo "::error::Release tag $GITHUB_REF_NAME does not match library version $version"
+            echo "::error::Artifact version $version does not match release tag $GITHUB_REF_NAME"
             exit 1
           fi
 
-      - run: npm test
-
-      # Build with the oldest Angular in peerDependencies: partially compiled
-      # code links in newer Angular versions, not older ones.
-      - name: Switch to Angular 20
-        run: node scripts/use-angular.mjs 20
-
-      - name: Build library
-        run: npm run build:lib
-
       # Pre-releases (versions with a hyphen, e.g. 0.2.0-beta.1) go to the
       # "next" dist-tag so `npm install` keeps resolving the latest stable.
+      # A version already on npm is skipped, so a release event and a dispatch
+      # for the same tag cannot fail each other.
       - name: Publish
         working-directory: dist/pacyfist/veneer
         run: |
-          case "${GITHUB_REF_NAME#v}" in
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "::notice::$name@$version is already on npm, nothing to publish"
+            exit 0
+          fi
+          case "$version" in
             *-*) npm publish --tag next ;;
             *) npm publish ;;
           esac

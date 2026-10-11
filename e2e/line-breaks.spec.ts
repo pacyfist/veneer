@@ -29,7 +29,6 @@ const FILES: Record<string, { path: string; type: string }> = {
     path: 'dist/pacyfist/veneer/fesm2022/pacyfist-veneer-core.mjs',
     type: 'text/javascript',
   },
-  'opentype.mjs': { path: 'node_modules/opentype.js/dist/opentype.mjs', type: 'text/javascript' },
   'Roboto-Regular.ttf': {
     path: 'projects/pacyfist/veneer/testing/Roboto-Regular.ttf',
     type: 'font/ttf',
@@ -40,7 +39,6 @@ const PAGE = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <script type="importmap">{ "imports": { "opentype.js": "./opentype.mjs" } }</script>
     <style>
       p {
         margin: 0 0 24px;
@@ -116,7 +114,7 @@ async function layouts(page: Page, seeds: number[], naive = false): Promise<Layo
       const core = await import(new URL('core.mjs', location.href).href);
       const bytes = await (await fetch('Roboto-Regular.ttf')).arrayBuffer();
       document.fonts.add(await new FontFace('LineBreakBase', bytes).load());
-      const parsed = core.parseBaseFont(bytes);
+      const parsed = await core.parseBaseFont(bytes);
       const charset = [...core.DEFAULT_CHARSET, ...core.LATIN_1, ...core.LATIN_EXT_A];
 
       const naiveMap = (seed: number) => {
@@ -213,14 +211,14 @@ test.describe('line breaks', () => {
       // The cipher alone, drawn in the base font: the browser must see exactly
       // the same opportunities in the ciphertext as in the readable text.
       expect(at(r.cipherOpportunities), `seed ${r.seed}`).toEqual(at(r.opportunities));
-      // As a reader sees it. No word may gain a break the readable text lacks.
-      // Losing one is tolerated: Firefox 153 drops the break after a `-`
-      // between digits ("2024-10-11") when the hyphen is drawn by the fallback
-      // font and the digits by the forged one, because the forged font only
-      // covers scrambled codepoints. A forged font that also kept the
-      // pass-through characters would remove that difference.
+      // As a reader sees it, in the forged font. Pass-through characters keep
+      // their base glyphs in that font, so no font seam splits the text run
+      // (with a fallback seam, Firefox dropped the break after a `-` between
+      // digits): the opportunities must match exactly, and above all no word
+      // may gain a break the readable text lacks.
       const added = r.forgedOpportunities.filter((i) => !r.opportunities.includes(i));
       expect(at(added), `seed ${r.seed}: breaks inside words`).toEqual([]);
+      expect(at(r.forgedOpportunities), `seed ${r.seed}`).toEqual(at(r.opportunities));
     }
   });
 

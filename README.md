@@ -41,13 +41,13 @@ writes the scrambled text into the HTML, so crawlers never see the real words.
 
 ## Get started
 
-You need Angular 20, 21 or 22, opentype.js 2, and a `.ttf` or `.otf` copy of the font
-your page already uses. WOFF and WOFF2 won't work.
+You need Angular 20, 21 or 22 and a `.ttf`, `.otf` or `.woff` copy of the font your
+page already uses. WOFF2 needs converting first (see the library README).
 
 **1. Install**
 
 ```bash
-npm install @pacyfist/veneer opentype.js
+npm install @pacyfist/veneer
 ```
 
 **2. Point it at your font** in `app.config.ts`
@@ -153,13 +153,23 @@ What's planned next, and why: [ROADMAP.md](ROADMAP.md).
 | `projects/pacyfist/veneer` | The library, published as `@pacyfist/veneer` |
 | `projects/demo`            | The showcase site on GitHub Pages            |
 | `e2e`                      | Playwright checks against the built site     |
+| `examples/basic-ssr`       | Consumer app installed from the npm tarball  |
 
 ```bash
 npm install
 npm start            # demo at http://localhost:4321
 npm test             # library unit tests
 npm run build:pages  # static site in dist/demo/browser
+npm run e2e          # Playwright (Chromium, Firefox, WebKit) against that build
+npm run check:package   # npm pack + publint + arethetypeswrong (after build:lib)
+npm run example:smoke   # install that tarball into examples/basic-ssr and test it
 ```
+
+Releases are cut by [release-please](https://github.com/googleapis/release-please):
+merging its release PR bumps `projects/pacyfist/veneer/package.json`, updates the
+library [CHANGELOG](projects/pacyfist/veneer/CHANGELOG.md), tags `vX.Y.Z`, and
+starts `publish.yml`, which publishes only after the full validate run passes.
+The workspace root `package.json` is private and unversioned.
 
 ## License
 

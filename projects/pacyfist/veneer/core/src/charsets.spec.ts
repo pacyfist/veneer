@@ -88,7 +88,7 @@ describe('charsetFromText', () => {
   });
 
   it('never takes whitespace, NBSP, soft hyphen or break-significant characters', () => {
-    const charset = charsetFromText('a b\tc d­e-f/g?h!i|j}k—l…m​n');
+    const charset = charsetFromText('a b\tc\u00a0d\u00ade-f/g?h!i|j}k—l…m\u200bn');
     expect(charset).toEqual(cps('abcdefghijklmn'));
   });
 

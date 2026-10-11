@@ -45,17 +45,31 @@ test.describe('demo site', () => {
     expect(errors).toEqual([]);
   });
 
-  test('the forged font draws the scrambled text as the original words', async ({ page }) => {
+  test('the forged font draws the scrambled text as the original words', async ({
+    page,
+    browserName,
+  }) => {
     await page.goto('./');
     const hero = page.locator(HERO);
     await expect(hero).toBeVisible();
 
     // Draw each ciphertext character next to the plain character in the base
-    // font and count the pixels that differ. Per character, because whole-line
-    // metrics drift apart by a pixel or two. The forged font drops hinting, so
-    // a working one is close rather than pixel-identical; the control, which
-    // draws the ciphertext in the base font as a scraper would see it, shows
-    // how far apart wrong glyphs land.
+    // font and count the pixels that differ. The forged font is the base font
+    // with only its cmap replaced, so the same glyph and the same hinting
+    // bytecode draw both. The control, which draws the ciphertext in the base
+    // font as a scraper would see it, shows how far apart wrong glyphs land
+    // (about 1.2).
+    //
+    // Chromium 151 measures exactly 0. Firefox 153 on Linux does not: it
+    // rasterises with FreeType's auto-hinter, which derives blue zones and
+    // stem widths from reference letters looked up through the cmap ("x",
+    // "o", "e"...). The scrambled cmap points those letters at other glyphs,
+    // so vertical snapping shifts by a pixel here and there. The cipher is
+    // the cause, not the forge: a forge with an empty map renders 0 in every
+    // engine (e2e/forge.spec.ts). Measured over 41 seeds with the
+    // class-preserving cipher: 0.008-0.182, median 0.096. WebKit on Linux also
+    // rasterises with FreeType and is unmeasured here, so it gets the same
+    // bound.
     const { forged, control } = await hero.evaluate(async (el, original) => {
       const family = getComputedStyle(el).fontFamily.split(',')[0].trim();
       const scrambled = (el.textContent ?? '').trim();
@@ -90,6 +104,7 @@ test.describe('demo site', () => {
     }, HERO_TEXT);
 
     expect(control).toBeGreaterThan(0.5);
-    expect(forged).toBeLessThan(0.15);
+    const limit = browserName === 'chromium' ? 0.01 : 0.3;
+    expect(forged).toBeLessThan(limit);
   });
 });

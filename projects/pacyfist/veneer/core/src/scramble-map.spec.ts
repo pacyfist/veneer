@@ -165,7 +165,7 @@ describe('buildScrambleMap', () => {
   });
 
   it('drops break-significant characters and whitespace from a custom charset', () => {
-    const { forward } = buildScrambleMap(9, cps('abc-/?!  ­'));
+    const { forward } = buildScrambleMap(9, cps('abc-/?! \u00a0\u00ad'));
     expect([...forward.keys()].sort()).toEqual(cps('abc'));
   });
 

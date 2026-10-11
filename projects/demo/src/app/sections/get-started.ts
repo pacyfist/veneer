@@ -7,7 +7,7 @@ import { ApplyTabs } from './apply-tabs';
  * Snippets live here rather than inline in the template: an Angular template
  * would parse any `{{ }}` inside them as interpolation.
  */
-const INSTALL = ['npm install @pacyfist/veneer opentype.js'];
+const INSTALL = ['npm install @pacyfist/veneer'];
 
 const CONFIG = [
   "import { provideVeneer } from '@pacyfist/veneer';",
@@ -47,8 +47,8 @@ const USE = [
           <span class="badge badge-primary badge-lg mb-2">Step 1</span>
           <h3 class="text-xl font-bold">Install it</h3>
           <p class="text-base-content/70 mt-1">
-            Also put a <strong>.ttf</strong> or <strong>.otf</strong> copy of your body font in
-            <code>public/fonts/</code>. WOFF and WOFF2 won't work.
+            Also put a <strong>.ttf</strong>, <strong>.otf</strong> or <strong>.woff</strong> copy
+            of your body font in <code>public/fonts/</code>. WOFF2 needs converting first.
           </p>
         </div>
         <app-code-block prefix="shell" [lines]="install" />
@@ -60,7 +60,7 @@ const USE = [
           <h3 class="text-xl font-bold">Point it at your font</h3>
           <p class="text-base-content/70 mt-1">
             Use the same typeface your page already uses, so protected text blends in. The fallback
-            covers characters that aren't scrambled, like spaces.
+            shows while the font loads and covers characters your font lacks.
           </p>
         </div>
         <app-code-block file="app.config.ts" [lines]="config" />
