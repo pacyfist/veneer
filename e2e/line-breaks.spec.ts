@@ -65,14 +65,15 @@ const TEXT = [
   'the address https://example.com/path?q=1&r=2#top, (parentheses), [brackets], {braces},',
   '"double" and \'single\' quotes, <angle> brackets, a|b pipes, snake_case, back`ticks`,',
   'tilde~waves, carets^up, a+b=c*d, 3:45 p.m.; 2024-10-11; ratio 16:9; 1.5x faster (v2.0).',
-  'Accents travel too: Zażółć gęślą jaźń, Größe, façade, naïve café, Łódź, Kraków, Ærøskøbing,',
+  'Accents travel too: Zażółć gęślą jaźń, Größe, façade, naïve cafe\u0301, Łódź, Kraków, Ærøskøbing,',
   'señor, coração, Dvořák, Đorđe, İstanbul. Also “curly” and ‘single’ quotes, «guillemets»,',
   'em—dashes, en–dashes, ellipses… and 10°C ± 2, © 2026, 3×4÷2, ½ cup, 50 € or £20 for §7.',
   'Mid-word punctuation (like this.one, that,one, x:y, a;b, #tag, &amp, *star, =eq, >gt,',
   '~tilde, %pct, +plus, \\back, @at, ^hat, _under, `tick) must keep every word in one piece.',
-]
-  .join(' ')
-  .normalize('NFC');
+].join(' ');
+
+/** What the readable paragraph shows: `scrambleText` normalizes, so compare against NFC. */
+const READABLE = TEXT.normalize('NFC');
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => ((i + 1) * 0x9e3779b1) >>> 0);
 const COLUMNS = [180, 240, 320];
@@ -116,7 +117,7 @@ async function layouts(page: Page, seeds: number[], naive = false): Promise<Layo
       const bytes = await (await fetch('Roboto-Regular.ttf')).arrayBuffer();
       document.fonts.add(await new FontFace('LineBreakBase', bytes).load());
       const parsed = core.parseBaseFont(bytes);
-      const charset = [...core.DEFAULT_CHARSET];
+      const charset = [...core.DEFAULT_CHARSET, ...core.LATIN_1, ...core.LATIN_EXT_A];
 
       const naiveMap = (seed: number) => {
         const pool = Array.from({ length: 94 }, (_, i) => 0x21 + i);
@@ -138,7 +139,7 @@ async function layouts(page: Page, seeds: number[], naive = false): Promise<Layo
       const plain = document.getElementById('plain')!;
       const prot = document.getElementById('protected')!;
       plain.style.fontFamily = 'LineBreakBase';
-      plain.textContent = text;
+      plain.textContent = text.normalize('NFC');
 
       /** Offsets of the first non-space character of every line after the first. */
       const lineStarts = (el: HTMLElement, width: number): number[] => {
@@ -190,14 +191,14 @@ async function layouts(page: Page, seeds: number[], naive = false): Promise<Layo
 /** Where `offsets` falls in the text, for a readable failure message. */
 function at(offsets: number[]): string[] {
   return offsets.map(
-    (i) => `${i} "${TEXT.slice(Math.max(0, i - 12), i)}|${TEXT.slice(i, i + 12)}"`,
+    (i) => `${i} "${READABLE.slice(Math.max(0, i - 12), i)}|${READABLE.slice(i, i + 12)}"`,
   );
 }
 
 /** Words per line, given where lines start. */
 function wordsPerLine(starts: number[]): number[] {
   return [0, ...starts].map((from, i) => {
-    const line = TEXT.slice(from, starts[i] ?? TEXT.length).trim();
+    const line = READABLE.slice(from, starts[i] ?? READABLE.length).trim();
     return line.split(/ +/).length;
   });
 }

@@ -200,6 +200,20 @@ a single member in your charset cannot be deranged and passes through too.
 Characters outside the charset render in `fallbackFontFamily`, so set it to the
 same family as your base font if you load that font normally as well.
 
+Accented letters are not in the default. Add the Latin presets by spreading them
+(order and duplicates do not matter); Roboto covers both:
+
+```ts
+import { DEFAULT_CHARSET, LATIN_1, LATIN_EXT_A } from '@pacyfist/veneer';
+
+provideVeneer({ font, charset: [...DEFAULT_CHARSET, ...LATIN_1, ...LATIN_EXT_A] });
+```
+
+Accented letters swap only with other accented letters. `charsetFromText(text,
+{ base })` lists the codepoints in your content that can be scrambled, for
+pasting into the config at build time. Text is NFC-normalized before it is
+scrambled, so `e` + U+0301 is protected like `é`.
+
 **`seed`** should normally be left alone. A constant seed means every visitor and
 every crawl sees the same substitution, which is solvable once by frequency
 analysis and reusable forever after.
@@ -257,10 +271,12 @@ re-exported from `@pacyfist/veneer`.
 | `DEFAULT_CHARSET`                           | The 84 ASCII characters that are safe to swap (see `charset`)          |
 | `buildScrambleMap(seed, charset?)`          | Derange per class. Throws if nothing in the charset can be swapped     |
 | `isScramblable(codepoint)`                  | Whether a codepoint can take part in the cipher                        |
-| `scrambleText(text, map)`                   | Apply a map; unmapped characters pass through                          |
+| `LATIN_1`, `LATIN_EXT_A`                    | Letter presets: U+00C0-U+00FF (no `×` `÷`) and U+0100-U+017F           |
+| `charsetFromText(text, { base? })`          | The scramblable codepoints in `text`, sorted, plus `base`              |
+| `scrambleText(text, map, { normalize? })`   | Apply a map, NFC first; unmapped characters pass through               |
 | `invertScrambleMap(map)`                    | The reverse substitution - decode your own output                      |
 | `randomSeed()`                              | A seed from the CSPRNG when there is one                               |
-| `ScrambleMap`                               | `{ seed, forward: ReadonlyMap<number, number> }`                       |
+| `ScrambleMap`                               | `{ seed, forward: ReadonlyMap<number, number>, inverse? }`             |
 | `parseBaseFont(buffer)`                     | Parse a `.ttf`/`.otf` into an opentype.js `Font`                       |
 | `forgeScrambledFont(base, map, familyName)` | Produce the font binary whose `cmap` is scrambled                      |
 | `VeneerFontError`                           | Thrown on parse failure or missing glyphs; carries `missing: string[]` |

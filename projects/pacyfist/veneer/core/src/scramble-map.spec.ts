@@ -254,6 +254,68 @@ describe('scrambleText', () => {
   });
 });
 
+describe('NFC normalization', () => {
+  // é and ñ precomposed, plus letters without a precomposed accented form.
+  const charset = [...DEFAULT_CHARSET, 0xe9, 0xf1, 0xe0, 0xfc];
+  const map = buildScrambleMap(2026, charset);
+  const decomposed = 'Cafe\u0301 man\u0303ana';
+  const composed = 'Café mañana';
+
+  it('scrambles decomposed input exactly like its precomposed form', () => {
+    expect(decomposed).not.toBe(composed);
+    expect(scrambleText(decomposed, map)).toBe(scrambleText(composed, map));
+  });
+
+  it('scrambles the accented letter, not the bare letter plus a visible mark', () => {
+    const scrambled = scrambleText(decomposed, map);
+    expect(scrambled).not.toContain('\u0301');
+    expect([...scrambled]).toHaveLength([...composed].length);
+  });
+
+  it('round-trips decomposed input to its NFC form', () => {
+    const back = scrambleText(scrambleText(decomposed, map), invertScrambleMap(map));
+    expect(back).toBe(composed);
+    expect(back).toBe(decomposed.normalize('NFC'));
+  });
+
+  it('can be switched off', () => {
+    const raw = scrambleText(decomposed, map, { normalize: false });
+    expect(raw).toContain('\u0301');
+    expect(scrambleText(raw, invertScrambleMap(map))).toBe(decomposed);
+  });
+
+  it('marks inverted maps so decoding never normalizes ciphertext', () => {
+    const inverse = invertScrambleMap(map);
+    expect(inverse.inverse).toBe(true);
+    expect(invertScrambleMap(inverse).inverse).toBeUndefined();
+    expect([...invertScrambleMap(inverse).forward]).toEqual([...map.forward]);
+  });
+
+  it('decodes ciphertext whose marks would compose with the scrambled letter', () => {
+    // q + U+0301 has no precomposed form, so NFC keeps the mark. Find a seed
+    // where q lands on e, which does compose with U+0301 into é.
+    const seed = Array.from({ length: 5000 }, (_, i) => i).find(
+      (s) => buildScrambleMap(s, charset).forward.get(0x71) === 0x65,
+    )!;
+    const m = buildScrambleMap(seed, charset);
+    const original = 'q\u0301';
+    const scrambled = scrambleText(original, m);
+    expect(scrambled).toBe('e\u0301');
+    expect(scrambleText(scrambled, invertScrambleMap(m))).toBe(original);
+  });
+
+  it('survives the SSR hydration path with decomposed input', () => {
+    // The server scrambles the bound text, the browser inverts the server's
+    // ciphertext to recover the original, then scrambles it again.
+    for (const text of [decomposed, composed, 'A\u030Angstro\u0308m 2026', 'q\u0301 x\u0308']) {
+      const server = scrambleText(text, map);
+      const recovered = scrambleText(server, invertScrambleMap(map));
+      expect(recovered).toBe(text.normalize('NFC'));
+      expect(scrambleText(recovered, map)).toBe(server);
+    }
+  });
+});
+
 describe('randomSeed', () => {
   it('returns a 32-bit unsigned integer', () => {
     const seed = randomSeed();

@@ -179,6 +179,8 @@ export function isScramblable(cp: number): boolean {
  *   least one browser engine;
  * - `" ' $ <`, which break differently from every other character next to
  *   brackets, so no swap partner keeps the layout intact.
+ *
+ * Combine with `LATIN_1` and `LATIN_EXT_A` to cover accented letters.
  */
 export const DEFAULT_CHARSET: readonly number[] = Object.freeze(
   Array.from({ length: 0x7e - 0x21 + 1 }, (_, i) => 0x21 + i).filter(isScramblable),
@@ -190,6 +192,12 @@ export interface ScrambleMap {
   readonly seed: number;
   /** Readable codepoint -> codepoint that appears in the DOM. */
   readonly forward: ReadonlyMap<number, number>;
+  /**
+   * True for a map made by {@link invertScrambleMap}. `scrambleText` does not
+   * NFC-normalize text it decodes: ciphertext must be inverted exactly as it
+   * was written.
+   */
+  readonly inverse?: boolean;
 }
 
 /** A seed drawn from the CSPRNG when there is one, so page loads don't share a cipher. */
@@ -274,19 +282,48 @@ export function buildScrambleMap(
   return { seed, forward };
 }
 
-/** Apply a map. Characters outside the map pass through unchanged. */
-export function scrambleText(text: string, map: ScrambleMap): string {
+/** Options for {@link scrambleText}. */
+export interface ScrambleTextOptions {
+  /**
+   * NFC-normalize the text first, so `e` + U+0301 maps like `é`. Defaults to
+   * `true`, except for maps from {@link invertScrambleMap}, whose input is
+   * ciphertext.
+   */
+  readonly normalize?: boolean;
+}
+
+/**
+ * Apply a map. Characters outside the map pass through unchanged.
+ *
+ * Text is NFC-normalized first (see {@link ScrambleTextOptions}), so
+ * decoding scrambled text returns the normalized form of the original, and the
+ * server and the browser scramble `e` + U+0301 and `é` the same way. Decoding
+ * does not normalize: a combining mark with no precomposed form on its own
+ * letter (`q` + U+0301) can land after a scrambled letter that has one
+ * (`e` + U+0301), and normalizing that ciphertext would change it.
+ */
+export function scrambleText(
+  text: string,
+  map: ScrambleMap,
+  options: ScrambleTextOptions = {},
+): string {
+  const source = (options.normalize ?? !map.inverse) ? text.normalize('NFC') : text;
   let out = '';
-  for (const ch of text) {
+  for (const ch of source) {
     const mapped = map.forward.get(ch.codePointAt(0)!);
     out += mapped === undefined ? ch : String.fromCodePoint(mapped);
   }
   return out;
 }
 
-/** The reverse substitution. Useful in tests, and for decoding your own output. */
+/**
+ * The reverse substitution. Useful in tests, and for decoding your own output.
+ *
+ * The result is marked `inverse`, so `scrambleText` decodes with it without
+ * normalizing. Inverting it again gives a regular, normalizing map.
+ */
 export function invertScrambleMap(map: ScrambleMap): ScrambleMap {
   const forward = new Map<number, number>();
   for (const [from, to] of map.forward) forward.set(to, from);
-  return { seed: map.seed, forward };
+  return map.inverse ? { seed: map.seed, forward } : { seed: map.seed, forward, inverse: true };
 }
