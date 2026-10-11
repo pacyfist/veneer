@@ -29,8 +29,9 @@ interface Pair {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <p class="text-base-content/70 mb-4 max-w-3xl">
-      A freshly drawn cipher. No character ever maps to itself, and spaces are never swapped,
-      because they are the only place a browser can wrap a line.
+      A freshly drawn cipher. No character ever maps to itself, and letters only swap with letters,
+      digits with digits. Spaces and <code>- / ? ! | &#125;</code> are never swapped, because a
+      browser may wrap a line at them.
     </p>
 
     <div class="card bg-base-200/60">

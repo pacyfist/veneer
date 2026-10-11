@@ -204,19 +204,38 @@ provideVeneer({
 | -------------------- | ----------------------------------------------------- | ------------------------- | -------------------------------------------------------------- |
 | `font`               | `string \| ArrayBuffer \| () => Promise<ArrayBuffer>` | _required_                | Base font supplying the glyph outlines                         |
 | `fallbackFontFamily` | `string`                                              | `'sans-serif'`            | Used until the font is ready, when off, and for missing glyphs |
-| `charset`            | `readonly number[]`                                   | printable ASCII, no space | Codepoints the cipher covers                                   |
+| `charset`            | `readonly number[]`                                   | `DEFAULT_CHARSET` (ASCII) | Codepoints the cipher covers                                   |
 | `seed`               | `number`                                              | random per page load      | Pins the cipher. Tests and reproducible builds only            |
 | `hideUntilReady`     | `boolean`                                             | `true`                    | Keep protected text invisible until the font lands             |
 | `disabled`           | `boolean`                                             | `false`                   | Turn everything off, per environment                           |
 
-**`charset`** defaults to `U+0021`-`U+007E` - printable ASCII **without the
-space**. Space is excluded deliberately: it is the only character the browser can
-break a line at, so mapping it to something else would collapse a paragraph into
-one unbreakable word. The cipher is a _derangement_ - every character maps to a
-different character, so nothing survives untouched. Characters outside the
-charset pass through unchanged and render from the same forged font, which keeps
-every base glyph; only characters the base font lacks fall back to
+**`charset`** defaults to `DEFAULT_CHARSET`: the 84 printable ASCII characters
+the cipher can swap without moving a line break. The browser wraps lines based on
+the codepoints in the DOM, not on the glyphs it draws, so the cipher only swaps
+characters it treats the same: letters with letters, digits with digits, and
+punctuation within groups measured to break identically in Chromium and Firefox.
+The space, `- / ? ! | }` (they let a line wrap inside a word in at least one
+engine) and `" ' $ <` (no safe swap partner) are left out and stay as they are.
+Within each group the cipher is a _derangement_ - every character maps to a
+different character, so nothing in the charset survives untouched. A group with
+a single member in your charset cannot be deranged and passes through too.
+Characters outside the map render from the same forged font, which keeps every
+base glyph; only characters the base font lacks fall back to
 `fallbackFontFamily`.
+
+Accented letters are not in the default. Add the Latin presets by spreading them
+(order and duplicates do not matter); Roboto covers both:
+
+```ts
+import { DEFAULT_CHARSET, LATIN_1, LATIN_EXT_A } from '@pacyfist/veneer';
+
+provideVeneer({ font, charset: [...DEFAULT_CHARSET, ...LATIN_1, ...LATIN_EXT_A] });
+```
+
+Accented letters swap only with other accented letters. `charsetFromText(text,
+{ base })` lists the codepoints in your content that can be scrambled, for
+pasting into the config at build time. Text is NFC-normalized before it is
+scrambled, so `e` + U+0301 is protected like `é`.
 
 **`seed`** should normally be left alone. A constant seed means every visitor and
 every crawl sees the same substitution, which is solvable once by frequency
@@ -275,12 +294,15 @@ re-exported from `@pacyfist/veneer`.
 
 | Export                                      | Description                                                                  |
 | ------------------------------------------- | ---------------------------------------------------------------------------- |
-| `DEFAULT_CHARSET`                           | Printable ASCII minus the space                                              |
-| `buildScrambleMap(seed, charset?)`          | Build the derangement. Throws below 2 distinct codepoints                    |
-| `scrambleText(text, map)`                   | Apply a map; unmapped characters pass through                                |
+| `DEFAULT_CHARSET`                           | The 84 ASCII characters that are safe to swap (see `charset`)                |
+| `buildScrambleMap(seed, charset?)`          | Derange per class. Throws if nothing in the charset can be swapped           |
+| `isScramblable(codepoint)`                  | Whether a codepoint can take part in the cipher                              |
+| `LATIN_1`, `LATIN_EXT_A`                    | Letter presets: U+00C0-U+00FF (no `×` `÷`) and U+0100-U+017F                 |
+| `charsetFromText(text, { base? })`          | The scramblable codepoints in `text`, sorted, plus `base`                    |
+| `scrambleText(text, map, { normalize? })`   | Apply a map, NFC first; unmapped characters pass through                     |
 | `invertScrambleMap(map)`                    | The reverse substitution - decode your own output                            |
 | `randomSeed()`                              | A seed from the CSPRNG when there is one                                     |
-| `ScrambleMap`                               | `{ seed, forward: ReadonlyMap<number, number> }`                             |
+| `ScrambleMap`                               | `{ seed, forward: ReadonlyMap<number, number>, inverse? }`                   |
 | `parseBaseFont(buffer)`                     | Async. Parse a `.ttf`/`.otf`/`.woff` into a `BaseFont`                       |
 | `BaseFont`                                  | `{ outlines, unitsPerEm, numGlyphs, familyName, glyphId(cp), codepoints() }` |
 | `forgeScrambledFont(base, map, familyName)` | Produce the font binary whose `cmap` is scrambled                            |
@@ -368,6 +390,10 @@ On protected text only:
   ligatures match exactly everywhere, and Chromium draws identical pixels. Firefox
   on Linux hints with FreeType's auto-hinter, which measures letters such as `x`
   and `o` through the `cmap`; the scrambled `cmap` shifts some vertical snapping.
+- **`text-transform` and `small-caps` paint the wrong letters** - the browser
+  changes the case of the scrambled codepoints, and the forged font then draws
+  whatever readable letter sits at the new codepoint. Style protected text with
+  real capitals in the source instead.
 
 These are the same mechanism as the protection, not bugs to be fixed. Protect
 article bodies. Leave navigation, headings, form labels, and anything assistive
@@ -444,9 +470,9 @@ import { buildScrambleMap, scrambleText, invertScrambleMap } from '@pacyfist/ven
 const map = buildScrambleMap(12345);
 
 scrambleText('Hello, world', map);
-// '$&[[4` v4j[7'
+// 'qiBBA; kAoBj'
 
-scrambleText('$&[[4` v4j[7', invertScrambleMap(map));
+scrambleText('qiBBA; kAoBj', invertScrambleMap(map));
 // 'Hello, world'
 ```
 

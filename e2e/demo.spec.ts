@@ -66,9 +66,10 @@ test.describe('demo site', () => {
     // "o", "e"...). The scrambled cmap points those letters at other glyphs,
     // so vertical snapping shifts by a pixel here and there. The cipher is
     // the cause, not the forge: a forge with an empty map renders 0 in every
-    // engine (e2e/forge.spec.ts). Measured over 40 seeds: 0.061-0.190, median
-    // 0.096. WebKit on Linux also rasterises with FreeType and is unmeasured
-    // here, so it gets the same bound.
+    // engine (e2e/forge.spec.ts). Measured over 41 seeds with the
+    // class-preserving cipher: 0.008-0.182, median 0.096. WebKit on Linux also
+    // rasterises with FreeType and is unmeasured here, so it gets the same
+    // bound.
     const { forged, control } = await hero.evaluate(async (el, original) => {
       const family = getComputedStyle(el).fontFamily.split(',')[0].trim();
       const scrambled = (el.textContent ?? '').trim();

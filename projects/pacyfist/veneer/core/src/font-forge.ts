@@ -14,7 +14,7 @@
 import { VeneerFontError } from './font-error';
 import { Cmap, readCmap, writeCmap } from './cmap';
 import { readFamilyName, renameFamily, stripGlyphNames } from './name-post';
-import type { ScrambleMap } from './scramble-map';
+import { isScramblable, type ScrambleMap } from './scramble-map';
 import { FLAVOR_CFF, Sfnt, isSfntFlavor, readSfnt, viewOf, writeSfnt } from './sfnt';
 import { WOFF2_SIGNATURE, WOFF_SIGNATURE, decodeWoff } from './woff';
 
@@ -159,19 +159,14 @@ export function coveredCodepoints(base: BaseFont, candidate: Iterable<number>): 
 }
 
 /**
- * Characters a charset must never contain: whitespace and the no-break space
- * (line breaking), the soft hyphen, controls and other format characters
- * (joiners, bidi marks), combining marks (they attach to the previous
- * character), surrogates, private use and unassigned codepoints.
- */
-const INELIGIBLE = /[\p{White_Space}\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Cn}\p{M}]/u;
-
-/**
  * Build-time helper: the codepoints of `candidate` (default: every codepoint
  * the font maps) that the font can draw and that are safe to scramble.
  *
- * Always leaves out whitespace (including U+00A0), U+00AD, control and format
- * characters and combining marks. Print the result as a charset literal:
+ * Eligibility is {@link isScramblable}: letters, decimal digits and
+ * punctuation with a layout-safe swap partner. Always leaves out whitespace
+ * (including U+00A0), U+00AD, control and format characters, combining marks
+ * and characters that create line breaks (`- / ? !`...). Print the result as a
+ * charset literal:
  *
  * ```ts
  * const charset = await charsetFromFont(readFileSync('Font.ttf'), DEFAULT_CHARSET);
@@ -183,9 +178,7 @@ export async function charsetFromFont(
   candidate?: Iterable<number>,
 ): Promise<number[]> {
   const base = await parseBaseFont(bytes);
-  return coveredCodepoints(base, candidate ?? base.codepoints()).filter(
-    (cp) => !INELIGIBLE.test(String.fromCodePoint(cp)),
-  );
+  return coveredCodepoints(base, candidate ?? base.codepoints()).filter(isScramblable);
 }
 
 /**

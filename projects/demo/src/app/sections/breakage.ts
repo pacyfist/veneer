@@ -81,8 +81,9 @@ export class Breakage {
       case 'no-font':
         return { font: () => Promise.reject(new Error('deliberately broken by the demo')) };
       case 'missing-glyph':
-        // U+1F600 GRINNING FACE. Roboto-Regular has no glyph for it.
-        return { charset: [...DEFAULT_CHARSET, 0x1f600] };
+        // U+1F600 and U+1F603, two grinning faces Roboto-Regular has no glyph
+        // for. Two, because a character with no swap partner is left unscrambled.
+        return { charset: [...DEFAULT_CHARSET, 0x1f600, 0x1f603] };
       case 'flash':
         return {
           hideUntilReady: false,

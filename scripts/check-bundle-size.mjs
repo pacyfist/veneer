@@ -27,10 +27,13 @@ import { gzipSync } from 'node:zlib';
  * testing entry points and the dependency-free font forge landed:
  * `.` 4,547 B, `./core` 11,407 B (the sfnt reader/writer that replaced
  * opentype.js), `./testing` 1,894 B.
+ *
+ * `./core` raised 2026-10-11 to 15,400 B: the layout-safe cipher (measured
+ * line-break classes, Latin presets, charsetFromText, NFC) measured 14,006 B.
  */
 const BUDGETS = {
   '.': 5_000,
-  './core': 12_500,
+  './core': 15_400,
   './testing': 2_100,
 };
 

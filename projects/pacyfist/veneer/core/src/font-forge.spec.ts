@@ -202,13 +202,14 @@ describe('forgeScrambledFont (TrueType)', async () => {
   });
 
   it('refuses to forge when the base font cannot draw a charset character', () => {
-    // U+4E2D is a CJK ideograph Roboto has no glyph for.
-    const cjkMap = buildScrambleMap(1, [0x61, 0x62, 0x4e2d]);
+    // U+4E2D and U+6587 are CJK ideographs Roboto has no glyph for. Two of
+    // them, because a lone member of a class is left out of the map.
+    const cjkMap = buildScrambleMap(1, [0x61, 0x62, 0x4e2d, 0x6587]);
     expect(() => forgeScrambledFont(base, cjkMap, 'Veneer-test')).toThrow(VeneerFontError);
     try {
       forgeScrambledFont(base, cjkMap, 'Veneer-test');
     } catch (e) {
-      expect((e as VeneerFontError).missing).toEqual(['中']);
+      expect((e as VeneerFontError).missing).toEqual(['中', '文']);
     }
   });
 
@@ -423,7 +424,17 @@ describe('coveredCodepoints and charsetFromFont', async () => {
   it('defaults to everything the font draws, minus ineligible characters', async () => {
     const charset = await charsetFromFont(toArrayBuffer(bytes));
     expect(charset.length).toBeGreaterThan(500);
-    for (const excluded of [0x20, 0xa0, 0xad, 0x0d, 0x2009, 0x300]) {
+    // Whitespace, NBSP, soft hyphen, controls, marks, and break-significant
+    // characters (`- / ? ! | }`, en dash, ellipsis), which would move line breaks.
+    for (const excluded of [
+      0x20,
+      0xa0,
+      0xad,
+      0x0d,
+      0x2009,
+      0x300,
+      ...[...'-/?!|}–…'].map((c) => c.codePointAt(0)!),
+    ]) {
       expect(charset).not.toContain(excluded);
     }
     for (const included of DEFAULT_CHARSET) expect(charset).toContain(included);
