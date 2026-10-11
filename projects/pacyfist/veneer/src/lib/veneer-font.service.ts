@@ -164,8 +164,10 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   /** Family name of the forged font. Random, and the same on server and client. */
   readonly familyName: string;
 
+  private readonly isReady = signal(false);
+
   /** True once the forged font is registered and text is safe to show. */
-  readonly ready = signal(false);
+  readonly ready = this.isReady.asReadonly();
 
   /** Set when the font could not be built. The library fails open when this happens. */
   readonly failed = this.failure.asReadonly();
@@ -285,7 +287,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     if (failure) this.failure.set(failure);
 
     if (this.config.disabled) {
-      this.ready.set(true);
+      this.isReady.set(true);
     } else if (this.isBrowser) {
       afterNextRender(() => void (this.mode === 'hydrate' ? this.hydrate() : this.load()));
     }
@@ -345,7 +347,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
       // Together, so text is re-scrambled with the map the font was forged for
       // in the same change detection pass that reveals it.
       this.currentMap.set(map);
-      this.ready.set(true);
+      this.isReady.set(true);
     } catch (error) {
       if (this.destroyed) return;
       // Fail open. Unreadable content is worse than unprotected content.
@@ -410,7 +412,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
       if (this.destroyed) return;
       this.faces = loaded;
       for (const face of loaded) this.document.fonts.add(face);
-      this.ready.set(true);
+      this.isReady.set(true);
     } catch (error) {
       if (this.destroyed) return;
       this.fail(error, stage);
@@ -427,7 +429,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
       error,
     );
     this.failure.set(failure);
-    this.ready.set(true);
+    this.isReady.set(true);
   }
 
   /**
