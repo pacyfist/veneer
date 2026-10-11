@@ -47,7 +47,7 @@ test.describe('side channels', () => {
     expect(new Set(SPECIMENS.map((s) => s.form))).toEqual(new Set(['element', 'bound', 'pipe']));
   });
 
-  test('ng-state holds only hydration data and the seed, no HttpClient transfer cache', async ({
+  test('ng-state holds only hydration data and the forged font URL, no HttpClient transfer cache', async ({
     request,
   }) => {
     const { document } = await fetchServedPage(request);
@@ -55,8 +55,8 @@ test.describe('side channels', () => {
 
     // A new key here is most likely a cached HttpClient response, serialized
     // with its body. See withHttpTransferCacheOptions({ filter }) in the docs.
-    // `veneerSeed` goes away with Next #2.
-    expect(Object.keys(state).filter((k) => k !== '__nghData__' && k !== 'veneerSeed')).toEqual([]);
+    // `veneer` holds the forged font's URL and family name, never a seed.
+    expect(Object.keys(state).filter((k) => k !== '__nghData__' && k !== 'veneer')).toEqual([]);
   });
 
   for (const specimen of SPECIMENS) {

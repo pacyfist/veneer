@@ -247,6 +247,10 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     } else {
       const transfer = this.transferState.get(key, null);
       if (transfer) {
+        // Taken once: the instance hydrating the server render owns it. One
+        // created later in the browser (with the same id or none) did not
+        // render on the server and draws its own cipher.
+        this.transferState.remove(key);
         this.mode = 'hydrate';
         familyName = transfer.family;
         this.serverFonts = transfer.fonts;
