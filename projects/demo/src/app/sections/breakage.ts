@@ -88,7 +88,7 @@ export class Breakage {
       plain:
         "With hiding turned off, you'll see a two-second flash of gibberish while the font loads. That's why hiding is on by default.",
       detail:
-        'hideUntilReady: false plus a font loader delayed by two seconds. Leave it on unless visitors without JavaScript seeing nothing is worse for you than a brief flash.',
+        'hideUntilReady: false plus a font loader delayed by two seconds. Leave it on: visitors without JavaScript still get the text either way, scrambled.',
     },
   ];
 

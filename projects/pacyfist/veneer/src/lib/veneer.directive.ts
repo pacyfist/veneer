@@ -20,6 +20,7 @@ import { VeneerFontState } from './veneer-font-state';
 import { registerHost, unregisterHost, walkTextNodes } from './veneer-hosts';
 import { VeneerHtml, sanitizeHtml } from './veneer-sanitize';
 import { VENEER_CONFIG } from './veneer.config';
+import { HostPresentation } from './veneer-presentation';
 import { describeElement, devWarn, warnCaseStyles } from './veneer-dev';
 import { invertScrambleMap, scrambleText } from '@pacyfist/veneer/core';
 
@@ -89,6 +90,7 @@ export class VeneerDirective implements OnInit, AfterViewChecked, OnDestroy {
   private readonly sanitizer = inject(Sanitizer, { optional: true });
   private readonly service: VeneerFontState = injectVeneerState('The veneer directive');
   private readonly config = inject(VENEER_CONFIG);
+  private readonly presentation = new HostPresentation(this.element.nativeElement, this.service);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   /**
@@ -218,8 +220,9 @@ export class VeneerDirective implements OnInit, AfterViewChecked, OnDestroy {
       this.written.set(text, value);
     }
 
+    this.presentation.apply();
+
     const fontStack = this.service.fontStack();
-    this.renderer.setStyle(el, 'font-family', fontStack);
     // Opted-out text is readable, so it must not inherit the forged font,
     // which would draw it as gibberish.
     for (const skipped of this.optedOut) {
@@ -235,12 +238,6 @@ export class VeneerDirective implements OnInit, AfterViewChecked, OnDestroy {
     // readable, and inverting that on the client would corrupt it.
     if (!this.isBrowser && this.service.active()) {
       this.renderer.setAttribute(el, SSR_MARKER, '');
-    }
-
-    if (this.service.hidden()) {
-      this.renderer.setStyle(el, 'visibility', 'hidden');
-    } else {
-      this.renderer.removeStyle(el, 'visibility');
     }
   }
 

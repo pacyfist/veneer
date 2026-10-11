@@ -51,10 +51,32 @@ export interface VeneerConfig {
    * Keep protected text invisible until the forged font is ready, so scrambled
    * characters never flash on screen. Defaults to true.
    *
-   * The cost is that a visitor with JavaScript disabled sees nothing where
-   * protected text would be. Set false to accept the flash instead.
+   * Server-rendered text is hidden by a small inline `<style>` and `<script>`
+   * veneer adds to `<head>` (see `hideWith`), so readers that never run
+   * JavaScript still get the scrambled text rather than blank space. Set false
+   * to accept the flash instead.
    */
   hideUntilReady?: boolean;
+
+  /**
+   * How server-rendered text is hidden while `hideUntilReady` is on.
+   *
+   * `'stylesheet'` (the default): a marker attribute plus an inline `<style>`
+   * rule that a tiny inline `<script>` switches on. Readers without
+   * JavaScript see the scrambled text. Under a Content Security Policy both
+   * need the page's nonce (Angular's `CSP_NONCE`, added automatically) or
+   * the hashes in `VENEER_CSP_HASHES`; if the CSP blocks them, the text shows
+   * scrambled in the fallback font until the app hydrates.
+   *
+   * `'hidden'`: the HTML `hidden` attribute, which the browser's own
+   * stylesheet applies, so no CSP can block it and no inline code is added.
+   * The costs: readers without JavaScript see nothing, and the text takes no
+   * space until the client takes over, so the layout shifts.
+   *
+   * In the browser veneer always hides with a CSSOM style, which a strict CSP
+   * allows.
+   */
+  hideWith?: 'stylesheet' | 'hidden';
 
   /** Turns the whole thing off; text renders untouched. Useful per-environment. */
   disabled?: boolean;
@@ -200,6 +222,7 @@ export function provideVeneer(
     fallbackFontFamily: 'sans-serif',
     charset: DEFAULT_CHARSET,
     hideUntilReady: true,
+    hideWith: 'stylesheet',
     disabled: false,
     strictCoverage: false,
     ...config,

@@ -30,7 +30,7 @@ const QUESTIONS: readonly Question[] = [
   },
   {
     q: 'What if the font fails to load?',
-    a: 'It fails open: text turns readable again and an error is logged. With JavaScript disabled, protected text stays hidden by default. Set hideUntilReady: false if you would rather show a brief flash of gibberish.',
+    a: 'It fails open: text turns readable again and an error is logged. With JavaScript disabled, visitors see the scrambled text instead of blank space: the hiding is switched on by a one-line inline script, which never runs for them.',
   },
   {
     q: 'Is it slow?',

@@ -43,6 +43,9 @@ export interface VeneerTestingOptions {
 
   /** Families after the forged one in `fontStack`. Defaults to `'sans-serif'`. */
   fallbackFontFamily?: string;
+
+  /** As `hideWith` in `provideVeneer()`. Defaults to `'stylesheet'`. */
+  hideWith?: 'stylesheet' | 'hidden';
 }
 
 /** Seed used when a test does not pass one. Any fixed value would do. */
@@ -158,6 +161,7 @@ export function provideVeneerTesting(options: VeneerTestingOptions = {}): Enviro
     fallbackFontFamily: options.fallbackFontFamily ?? 'sans-serif',
     charset: options.charset ?? DEFAULT_CHARSET,
     hideUntilReady: true,
+    hideWith: options.hideWith ?? 'stylesheet',
     disabled: options.state === 'disabled',
     seed: options.seed ?? DEFAULT_TESTING_SEED,
     strictCoverage: false,

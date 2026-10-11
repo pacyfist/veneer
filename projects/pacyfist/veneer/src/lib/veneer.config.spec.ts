@@ -24,6 +24,7 @@ describe('provideVeneer', () => {
       fallbackFontFamily: 'sans-serif',
       charset: DEFAULT_CHARSET,
       hideUntilReady: true,
+      hideWith: 'stylesheet',
       disabled: false,
       strictCoverage: false,
       faces: [],

@@ -229,6 +229,7 @@ provideVeneer({
   charset: undefined,
   seed: undefined,
   hideUntilReady: true,
+  hideWith: 'stylesheet',
   disabled: false,
   strictCoverage: false,
   id: undefined,
@@ -242,6 +243,7 @@ provideVeneer({
 | `charset`            | `readonly number[]`                                   | `DEFAULT_CHARSET` (ASCII) | Codepoints the cipher covers                                                                       |
 | `seed`               | `number`                                              | random per page load      | Pins the cipher. Tests and reproducible builds only                                                |
 | `hideUntilReady`     | `boolean`                                             | `true`                    | Keep protected text invisible until the font lands                                                 |
+| `hideWith`           | `'stylesheet' \| 'hidden'`                            | `'stylesheet'`            | How server-rendered text is hidden; `'hidden'` needs no inline code under a CSP                    |
 | `disabled`           | `boolean`                                             | `false`                   | Turn everything off, per environment                                                               |
 | `strictCoverage`     | `boolean`                                             | `false`                   | Fail open on any glyph the font lacks, instead of leaving those characters unscrambled             |
 | `id`                 | `string`                                              | none                      | Namespaces the seed carried from server to client, for several implicit-seed instances on one page |
@@ -307,9 +309,52 @@ dropped from the cipher (see `strictCoverage`).
 render on one server page (for example in lazy routes). Each publishes its seed
 for hydration; give each a distinct `id` so they don't overwrite one another.
 
-**`hideUntilReady`** trades one flaw for another. Left on, scrambled characters
-never flash on screen, but a visitor with JavaScript disabled sees nothing where
-protected text would be. Turn it off to accept the flash instead.
+**`hideUntilReady`** keeps scrambled characters from flashing on screen before
+the forged font is ready. Turn it off to accept the flash instead. The served
+HTML has no inline `visibility: hidden`: the server marks hidden elements with
+`data-veneer-hidden` and adds a one-line `<style>` rule to `<head>`, which a
+one-line inline `<script>` switches on by adding `veneer-js` to `<html>`. Readers
+that never run that script (JavaScript off, reader modes and archives that strip
+scripts) see the scrambled text instead of blank space. In the browser veneer
+hides with a CSSOM style, which a strict CSP allows, and drops the marker.
+
+**`hideWith`** matters under a Content Security Policy without `'unsafe-inline'`:
+
+- `'stylesheet'` (default): the inline `<style>` and `<script>` need the page's
+  nonce or their hashes. veneer adds Angular's `CSP_NONCE` to both when it is set
+  (provide `CSP_NONCE`, or put `ngCspNonce` on the root element). On prerendered
+  pages, where there is no per-request nonce, add the hashes from
+  `VENEER_CSP_HASHES` to `script-src` and `style-src`. If the CSP blocks them, the
+  text shows scrambled in the fallback font until the app hydrates (never
+  readable).
+- `'hidden'`: the HTML `hidden` attribute, applied by the browser's own
+  stylesheet, so no CSP can block it and nothing inline is added. Readers without
+  JavaScript then see nothing, and the text takes no space until the client takes
+  over, so the layout shifts.
+
+```ts
+import { VENEER_CSP_HASHES } from '@pacyfist/veneer';
+
+const csp = `script-src 'self' ${VENEER_CSP_HASHES.script}; style-src 'self' ${VENEER_CSP_HASHES.style}`;
+```
+
+`e2e/csp.spec.ts` serves the demo with a nonce CSP and samples every frame: the
+protected text is never visible before the forged font is loaded.
+
+### Reader mode, translation, print and archives
+
+- **Readers without JavaScript, "cached page" views, archives that strip
+  scripts:** they get the scrambled text in the fallback font, not blank space.
+- **Reader modes** (Firefox, Safari, Edge) re-render the page's text in their own
+  font, so protected text shows as ciphertext. With `withA11y('hide')`, Firefox's
+  reader drops it, because it skips `aria-hidden` content.
+- **Translation:** protected elements carry `translate="no"` and the `notranslate`
+  class while protection is on, so browser and Google translation leave them
+  alone instead of translating gibberish. They are removed when protection is off.
+- **Print:** prints what is on screen. The forged font is registered in
+  `document.fonts`, so printed text is readable.
+- **Archives that replay JavaScript** (Wayback Machine) work if they archived the
+  base font; if the font request fails there, veneer fails open as usual.
 
 ## API reference
 
@@ -640,7 +685,7 @@ not synthesize them.
 | `the base font is WOFF2`                        | Convert it to `.ttf`, or decode it in the `font` loader. See [WOFF2 and Google Fonts](#woff2-and-google-fonts) |
 | `the base font has no glyph for N character(s)` | Base font doesn't cover the charset (`strictCoverage: true`). Use a fuller font, or narrow `charset`           |
 | `VNR010 ... request for <url> failed: 404`      | The `font` URL isn't served. Check it's in your `public` output and the path has no leading slash              |
-| Protected text is invisible and never appears   | The font never loaded and JS is disabled, or `hideUntilReady` is on while the request hangs. Check the console |
+| Protected text is invisible and never appears   | `hideUntilReady` is on while the font request hangs, or the app never booted. Check the console                |
 | Text renders readable, protection seems off     | The library failed open. Inspect `failed()`, or `disabled` is set                                              |
 | Protected text is in the wrong typeface         | `fallbackFontFamily` doesn't name the same typeface as `font`                                                  |
 | Reader sees gibberish after hydration           | Interpolating into an element that also has `veneer` ([VNR001](#vnr001)). Use the pipe + `veneerFont`          |

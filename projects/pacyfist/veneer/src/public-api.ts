@@ -17,6 +17,10 @@ export type {
   VeneerFontSource,
 } from './lib/veneer.config';
 
+// Strict CSP: hashes of the inline <style> and <script> that hide
+// server-rendered text until the font is ready (when no nonce is available)
+export { VENEER_CSP_HASHES } from './lib/veneer-hide';
+
 // Template pieces
 export { VeneerDirective } from './lib/veneer.directive';
 export { VeneerFontDirective } from './lib/veneer-font.directive';
