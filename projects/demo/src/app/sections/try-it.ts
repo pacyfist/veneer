@@ -12,6 +12,15 @@ import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
 import { SectionHeading } from '../ui/section-heading';
 import { MirrorPanel } from '../ui/mirror-panel';
 import { ServedSource } from './served-source';
+import { Keyless } from './keyless';
+
+/** What the "what a crawler downloads" card can show from the served page. */
+const CRAWLER_TABS = [
+  { id: 'paragraph', label: 'The paragraph' },
+  { id: 'key', label: 'Is the key in it?' },
+] as const;
+
+type CrawlerTab = (typeof CRAWLER_TABS)[number]['id'];
 
 const COPY_ME = 'Copy this sentence and paste it anywhere you like.';
 
@@ -29,7 +38,7 @@ const NEEDLE = 'haystack';
 @Component({
   selector: 'app-try-it',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SectionHeading, VeneerDirective, MirrorPanel, ServedSource],
+  imports: [SectionHeading, VeneerDirective, MirrorPanel, ServedSource, Keyless],
   host: { '(document:keydown)': 'onKey($event)' },
   template: `
     <app-section-heading eyebrow="Try it yourself" title="Don't take our word for it">
@@ -125,10 +134,31 @@ const NEEDLE = 'haystack';
         <div class="card-body">
           <h3 class="card-title">4. Look at what a crawler downloads</h3>
           <p class="text-base-content/70">
-            This box downloads this very page again, the way a scraper would, and shows the hero
-            paragraph exactly as the server sent it, before any JavaScript runs.
+            These tabs download this very page again, the way a scraper would, and show what is in
+            the response, before any JavaScript runs.
           </p>
-          <app-served-source />
+          <div role="tablist" class="tabs tabs-border">
+            @for (t of crawlerTabs; track t.id) {
+              <button
+                type="button"
+                role="tab"
+                class="tab"
+                [class.tab-active]="crawlerTab() === t.id"
+                [attr.aria-selected]="crawlerTab() === t.id"
+                (click)="crawlerTab.set(t.id)"
+              >
+                {{ t.label }}
+              </button>
+            }
+          </div>
+          @switch (crawlerTab()) {
+            @case ('paragraph') {
+              <app-served-source />
+            }
+            @case ('key') {
+              <app-keyless />
+            }
+          }
         </div>
       </div>
     </div>
@@ -143,6 +173,9 @@ export class TryIt {
   protected readonly copied = signal('');
   protected readonly searched = signal(false);
   protected readonly text = signal('My secret sauce recipe');
+
+  protected readonly crawlerTabs = CRAWLER_TABS;
+  protected readonly crawlerTab = signal<CrawlerTab>('paragraph');
 
   protected readonly scrambled = computed(() => this.veneer.scramble(this.text()));
   protected readonly needleScrambled = computed(() => this.veneer.scramble(NEEDLE));

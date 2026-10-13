@@ -7,7 +7,7 @@ import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
  * prerender and carries the data-veneer-ssr marker the "what a crawler
  * downloads" panel goes looking for.
  */
-const HERO_TEXT =
+export const HERO_TEXT =
   'This paragraph looks perfectly normal to you. Copy it, search it, or feed it to a scraper, and all you get is gibberish.';
 
 /** Radius of the bot-vision lens, in pixels. */

@@ -1,11 +1,5 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DOCUMENT,
-  afterNextRender,
-  inject,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, afterNextRender, inject, signal } from '@angular/core';
+import { ServedPageLoader } from '../ui/served-page';
 
 type Status = 'loading' | 'ok' | 'error';
 
@@ -45,7 +39,7 @@ type Status = 'loading' | 'ok' | 'error';
   `,
 })
 export class ServedSource {
-  private readonly document = inject(DOCUMENT);
+  private readonly served = inject(ServedPageLoader);
 
   protected readonly url = signal('');
   protected readonly status = signal<Status>('loading');
@@ -57,17 +51,10 @@ export class ServedSource {
   }
 
   private async load(): Promise<void> {
-    const href = this.document.baseURI;
-    this.url.set(href);
-
     try {
-      const response = await fetch(href, { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`${response.status} ${response.statusText}`);
-      }
-      const html = await response.text();
-      const parsed = new DOMParser().parseFromString(html, 'text/html');
-      const protectedEl = parsed.querySelector('[data-veneer-ssr]');
+      const page = await this.served.load();
+      this.url.set(page.url);
+      const protectedEl = page.doc.querySelector('[data-veneer-ssr]');
 
       if (!protectedEl) {
         this.error.set(
