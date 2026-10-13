@@ -330,3 +330,16 @@ test.describe('leak self-check', () => {
     }
   });
 });
+
+test.describe('attack matrix', () => {
+  test('lists who is stopped and who is not, as THREAT_MODEL.md does', async ({ page }) => {
+    await page.goto('./');
+    const rows = page.getByTestId('attack-matrix').locator('tbody tr');
+    await expect(rows).toHaveCount(8);
+    const result = (who: RegExp) => rows.filter({ hasText: who }).locator('.badge');
+    await expect(result(/^\(a\) Crawler/)).toHaveText('Blocked');
+    await expect(result(/^\(b\)/)).toHaveText('Blocked');
+    await expect(result(/^\(c\)/)).toHaveText('Succeeds');
+    await expect(result(/^\(d\)/)).toHaveText('Succeeds');
+  });
+});

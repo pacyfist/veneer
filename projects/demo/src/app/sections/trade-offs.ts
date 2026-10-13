@@ -48,6 +48,48 @@ const COPY_SAMPLE = 'Copy me and paste me: you get these very words back.';
       </div>
     </div>
 
+    <h3 class="mt-14 mb-2 text-2xl font-bold">The attack matrix</h3>
+    <p class="text-base-content/70 mb-4 max-w-2xl text-lg">
+      Measured by the adversary suite, which runs these attacks against this demo on every CI run.
+      You can run (b) and (d) yourself in
+      <a class="link link-primary" href="#try">"Look at what a crawler downloads"</a>.
+    </p>
+    <div class="rounded-box border-base-300 bg-base-100 overflow-x-auto border">
+      <table class="table" data-testid="attack-matrix">
+        <thead>
+          <tr>
+            <th>Attacker</th>
+            <th>Cost</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of attacks; track row.who) {
+            <tr>
+              <td>{{ row.who }}</td>
+              <td class="whitespace-nowrap">{{ row.cost }}</td>
+              <td>
+                <span
+                  class="badge badge-sm mr-2"
+                  [class.badge-primary]="row.stopped"
+                  [class.badge-secondary]="!row.stopped"
+                  >{{ row.result }}</span
+                >{{ row.note }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="text-base-content/70 mt-2 text-sm">
+      The details, and who veneer does not try to stop:
+      <a
+        class="link link-primary"
+        href="https://github.com/pacyfist/veneer/blob/main/THREAT_MODEL.md"
+        >THREAT_MODEL.md</a
+      >.
+    </p>
+
     <div class="card bg-base-100 border-base-300 mt-6 border">
       <div class="card-body">
         <h3 class="card-title">Check this page for leaks</h3>
@@ -135,6 +177,66 @@ export class TradeOffs {
 
   protected readonly copySample = COPY_SAMPLE;
   protected readonly copyFeatures = [withReadableCopy()];
+
+  /** THREAT_MODEL.md's attack matrix, in short. Keep the two in step. */
+  protected readonly attacks = [
+    {
+      who: '(a) Crawler: one GET and an HTML parser',
+      cost: '5 lines, ~1 s',
+      result: 'Blocked',
+      stopped: true,
+      note: 'Gets only what the page prints in the clear outside protected elements.',
+    },
+    {
+      who: "(a') The same, also downloading the page's JavaScript",
+      cost: 'A few more lines',
+      result: 'Succeeds',
+      stopped: false,
+      note: 'For text written in the source, which ships in the bundle.',
+    },
+    {
+      who: '(b) Veneer-aware crawler: regex a seed, rebuild the cipher',
+      cost: '15 lines, <1 s',
+      result: 'Blocked',
+      stopped: true,
+      note: 'There is no seed in the page.',
+    },
+    {
+      who: '(c) Headless browser hooking FontFace',
+      cost: '56 lines, 1-2 s',
+      result: 'Succeeds',
+      stopped: false,
+      note: 'Once JavaScript runs, the forged font is in memory.',
+    },
+    {
+      who: '(d) Font-aware crawler: download both fonts, no JavaScript',
+      cost: '15 lines, 1-2 s',
+      result: 'Succeeds',
+      stopped: false,
+      note: 'The bar veneer sets: a font parser and two downloads.',
+    },
+    {
+      who: 'Brute-forcing a seed',
+      cost: '~225 bits',
+      result: 'Blocked',
+      stopped: true,
+      note: 'Infeasible by default; trivial if the app fixes a seed.',
+    },
+    {
+      who: 'Substitution solver on the ciphertext alone',
+      cost: 'Off the shelf',
+      result: 'Succeeds',
+      stopped: false,
+      note: 'On long passages: spaces and word lengths are kept.',
+    },
+    {
+      who: 'Screenshot plus OCR or a vision model',
+      cost: 'Rendering + inference',
+      result: 'Succeeds',
+      stopped: false,
+      note: 'The pixels are correct by design.',
+    },
+  ];
 
   protected readonly stops = [
     'Crawlers that read your HTML without running JavaScript',
