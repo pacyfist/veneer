@@ -144,12 +144,22 @@ describe('provideVeneerServer', () => {
     expect(prepare({ font: buffer as ArrayBuffer }).urls).toHaveLength(1);
   });
 
-  it('leaves out characters the font cannot draw', () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it("leaves out characters the font cannot draw, with the browser's VNR014 warning once", () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     // ƀ and ƃ: letters Roboto has no glyph for.
     const cipher = prepare({ charset: [...DEFAULT_CHARSET, 0x180, 0x183] });
     expect(cipher.map.forward.has(0x180)).toBe(false);
     expect(cipher.map.forward.has(0x41)).toBe(true);
+    TestBed.resetTestingModule();
+    prepare({ charset: [...DEFAULT_CHARSET, 0x183, 0x180] });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toBe(
+      '[veneer] VNR014: the base font has no glyph for 2 charset character(s): ƀƃ. They are ' +
+        'left out of the cipher and shown as they are, in the fallback font. Narrow `charset` ' +
+        'to silence this, or set `strictCoverage: true` to fail instead. See ' +
+        'https://github.com/pacyfist/veneer/blob/main/projects/pacyfist/veneer/README.md#vnr014',
+    );
   });
 
   it('with strictCoverage, refuses a charset the font cannot draw, listing the characters', () => {

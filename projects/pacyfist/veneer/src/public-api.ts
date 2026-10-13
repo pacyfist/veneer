@@ -56,6 +56,7 @@ export type { ResolvedVeneerConfig as ɵResolvedVeneerConfig } from './lib/venee
 // Internal. Exported only for `@pacyfist/veneer/server`; not covered by
 // semver and may change in any release.
 export { VENEER_SERVER_FORGE as ɵVENEER_SERVER_FORGE } from './lib/veneer-server';
+export { warnUncovered as ɵwarnUncovered } from './lib/veneer-uncovered';
 export type {
   VeneerServerCipher as ɵVeneerServerCipher,
   VeneerServerForge as ɵVeneerServerForge,

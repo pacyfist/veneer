@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_CHARSET, scrambleText } from '@pacyfist/veneer/core';
 import { parseBaseFont } from '@pacyfist/veneer/forge';
 import { VeneerDirective } from './veneer.directive';
-import { VeneerFontService, resetUncoveredWarnings } from './veneer-font.service';
+import { VeneerFontService } from './veneer-font.service';
+import { resetUncoveredWarnings } from './veneer-uncovered';
 import { VeneerConfig, provideVeneer } from './veneer.config';
 
 /**

@@ -17,14 +17,15 @@ import {
   type ɵVeneerServerCipher as VeneerServerCipher,
   type ɵVeneerServerForge as VeneerServerForge,
   ɵVENEER_SERVER_FORGE as VENEER_SERVER_FORGE,
+  ɵwarnUncovered as warnUncovered,
 } from '@pacyfist/veneer';
 import { type ScrambleMap, buildScrambleMap, randomScrambleMap } from '@pacyfist/veneer/core';
 import {
   type BaseFont,
   VeneerFontError,
-  coveredCodepoints,
   forgeScrambledFont,
   parseBaseFontSync,
+  uncoveredCodepoints,
 } from '@pacyfist/veneer/forge';
 import { storeFont } from './font-store';
 
@@ -149,11 +150,6 @@ const byPath = new Map<string, BaseFont>();
 /** Parsed base fonts per byte buffer, by identity. */
 const byBytes = new WeakMap<object, BaseFont>();
 
-/** Dropped-character sets already warned about. */
-const warned = new Set<string>();
-
-declare const ngDevMode: boolean | undefined;
-
 function message(text: string): string {
   return `[veneer] VNR015: ${text} See https://github.com/pacyfist/veneer/blob/main/projects/pacyfist/veneer/README.md#vnr015`;
 }
@@ -241,11 +237,7 @@ function buildMap(config: ResolvedVeneerConfig, bases: readonly BaseFont[]): Scr
     config.seed !== undefined ? buildScrambleMap(config.seed, charset) : randomScrambleMap(charset);
 
   const first = draw(config.charset);
-  const scrambled = [...first.forward.keys()];
-  const covered = new Set(
-    bases.reduce((candidates, base) => coveredCodepoints(base, candidates), scrambled),
-  );
-  const missing = scrambled.filter((cp) => !covered.has(cp));
+  const missing = uncoveredCodepoints(bases, first.forward.keys());
   const chars = (cps: number[]) => cps.map((cp) => String.fromCodePoint(cp));
   if (missing.length && config.strictCoverage) {
     throw new VeneerFontError(
@@ -254,16 +246,8 @@ function buildMap(config: ResolvedVeneerConfig, bases: readonly BaseFont[]): Scr
       chars(missing),
     );
   }
-  if (missing.length && (typeof ngDevMode === 'undefined' || ngDevMode)) {
-    const key = chars(missing).join('');
-    if (!warned.has(key)) {
-      warned.add(key);
-      console.warn(
-        `[veneer] VNR014: the base font${bases.length > 1 ? 's have' : ' has'} no glyph for ` +
-          `${missing.length} charset character(s): ${key}. They are left out of the cipher.`,
-      );
-    }
-  }
+  // The same VNR014 warning, once per character set, as the browser gives.
+  warnUncovered(missing, bases.length);
 
   const dropped = new Set(missing);
   let map = first;
