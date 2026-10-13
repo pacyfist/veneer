@@ -343,3 +343,18 @@ test.describe('attack matrix', () => {
     await expect(result(/^\(d\)/)).toHaveText('Succeeds');
   });
 });
+
+test.describe('server-only options', () => {
+  test('are code samples that point at the runnable example', async ({ page }) => {
+    await openDemo(page);
+    await page.locator('summary', { hasText: 'More for server-rendered apps' }).click();
+    const panel = page.locator('app-server-options');
+    for (const option of ['secret:', 'veneerFontMiddleware', 'shouldProtect', 'verifyCrawler']) {
+      await expect(panel).toContainText(option);
+    }
+    await expect(panel.getByRole('link', { name: 'examples/basic-ssr' })).toHaveAttribute(
+      'href',
+      'https://github.com/pacyfist/veneer/tree/main/examples/basic-ssr',
+    );
+  });
+});

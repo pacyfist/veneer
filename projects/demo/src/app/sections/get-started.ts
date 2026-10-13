@@ -5,6 +5,7 @@ import { VeneerDirective } from '@pacyfist/veneer';
 import { ApplyTabs } from './apply-tabs';
 import { CmsHtml } from './cms-html';
 import { Csp } from './csp';
+import { ServerOptions } from './server-options';
 
 /**
  * Snippets live here rather than inline in the template: an Angular template
@@ -61,7 +62,7 @@ const SERVER_TS = [
 @Component({
   selector: 'app-get-started',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SectionHeading, CodeBlock, ApplyTabs, CmsHtml, Csp, VeneerDirective],
+  imports: [SectionHeading, CodeBlock, ApplyTabs, CmsHtml, Csp, ServerOptions, VeneerDirective],
   template: `
     <app-section-heading eyebrow="Get started" title="Add it to your Angular app in three steps">
       Works with standalone components, signals, server-side rendering and hydration. No stylesheet
@@ -130,6 +131,12 @@ const SERVER_TS = [
         <summary class="collapse-title text-lg font-bold">Strict Content Security Policy</summary>
         <div class="collapse-content">
           <app-csp />
+        </div>
+      </details>
+      <details class="collapse-arrow bg-base-100 border-base-300 collapse border">
+        <summary class="collapse-title text-lg font-bold">More for server-rendered apps</summary>
+        <div class="collapse-content">
+          <app-server-options />
         </div>
       </details>
     </div>
