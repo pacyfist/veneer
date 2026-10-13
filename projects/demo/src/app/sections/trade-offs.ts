@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { VeneerFontService, withReadableCopy } from '@pacyfist/veneer';
 import { SectionHeading } from '../ui/section-heading';
 import { IsolatedInstance } from '../ui/isolated-instance';
+import { LeakCheck } from './leak-check';
 
 const SPOKEN = 'Protect article bodies, not navigation.';
 
@@ -17,7 +18,7 @@ const COPY_SAMPLE = 'Copy me and paste me: you get these very words back.';
 @Component({
   selector: 'app-trade-offs',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SectionHeading, IsolatedInstance],
+  imports: [SectionHeading, IsolatedInstance, LeakCheck],
   template: `
     <app-section-heading eyebrow="The honest part" title="A speed bump, not a vault">
       veneer makes lazy, bulk scraping pointless. It won't stop someone who is specifically after
@@ -44,6 +45,17 @@ const COPY_SAMPLE = 'Copy me and paste me: you get these very words back.';
             }
           </ul>
         </div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 border-base-300 mt-6 border">
+      <div class="card-body">
+        <h3 class="card-title">Check this page for leaks</h3>
+        <p class="text-base-content/70">
+          Runs <code>findVeneerLeaks</code> from <code>&#64;pacyfist/veneer/testing</code> in your
+          browser, over this page's served HTML and every script it loaded.
+        </p>
+        <app-leak-check />
       </div>
     </div>
 

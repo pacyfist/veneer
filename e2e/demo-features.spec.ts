@@ -299,3 +299,34 @@ test.describe('Content Security Policy', () => {
     await expect(page.locator('app-csp')).toContainText("hideWith: 'hidden'");
   });
 });
+
+test.describe('leak self-check', () => {
+  test('finds the served HTML clean and every protected text in the bundle', async ({ page }) => {
+    const lazy: string[] = [];
+    page.on('request', (r) => {
+      if (r.resourceType() === 'script') lazy.push(new URL(r.url()).pathname);
+    });
+    await openDemo(page);
+    const loadedBefore = lazy.length;
+
+    const panel = page.locator('app-leak-check');
+    await panel.getByRole('button', { name: 'Check this page for leaks' }).click();
+    const rows = page.getByTestId('leak-report').locator('tbody tr');
+    await expect(rows.first()).toBeVisible();
+    // The testing entry point arrived as its own lazy chunk, on the click.
+    expect(lazy.length).toBeGreaterThan(loadedBefore);
+
+    const report = await rows.evaluateAll((trs) =>
+      trs.map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent!.trim())),
+    );
+    expect(report.length).toBeGreaterThanOrEqual(5);
+    expect(report.map((r) => r[0])).toContain(HERO.text);
+    for (const [text, html, js] of report) {
+      // The only HTML hit is the demo's own code sample quoting its specimen.
+      expect(html, text).toBe(
+        text === 'Protected by element content.' ? 'quoted in a code sample' : 'clean',
+      );
+      expect(js, text).toMatch(/^found in main-[\w-]+\.js/);
+    }
+  });
+});
