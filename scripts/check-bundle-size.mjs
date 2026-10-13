@@ -63,9 +63,14 @@ import { gzipSync } from 'node:zlib';
  * `./server` raised 2026-10-11 by the SEO work (Next #12): 7,256 B with the
  * per-request `shouldProtect` hook and `verifyCrawler` (reverse and forward
  * DNS, cache, timeouts), most of the growth being their doc comments.
+ *
+ * `.` raised 2026-10-13 by review fixes: 25,102 B, from 22,590 B (one retry
+ * for font and forge requests, VNR016 for every hydrate failure before the
+ * cipher is known, the shared status attribute, forged faces sent with their
+ * descriptors and the dev-only VNR018 and whole-word VNR002 checks).
  */
 const BUDGETS = {
-  '.': 24_400,
+  '.': 27_600,
   './core': 6_100,
   './forge': 11_700,
   './server': 8_000,

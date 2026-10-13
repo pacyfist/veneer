@@ -1181,7 +1181,7 @@ Measured on the demo (`npm run build:pages`, Angular 21, 2026-10-11) and with
 | The font forge, a lazy chunk           | 13.9 KB minified, 5.1 KB transferred, loaded when the font is built                                                         |
 | The base font download                 | Your font's size. Roboto Regular: 124 KB, 74 KB gzip. Shared with the page's own `@font-face` if the URL is the same        |
 | The forged font, server-rendered pages | About the size of the base font (124 KB for Roboto, 74 KB gzip), cached as immutable                                        |
-| Library FESM bundles, before minifying | `.` 22.1 KiB, `./core` 5.4 KiB, `./forge` 10.4 KiB, `./server` 7.1 KiB gzip (CI budgets in `scripts/check-bundle-size.mjs`) |
+| Library FESM bundles, before minifying | `.` 24.5 KiB, `./core` 5.4 KiB, `./forge` 10.4 KiB, `./server` 7.1 KiB gzip (CI budgets in `scripts/check-bundle-size.mjs`) |
 
 With `disabled: true` no font is downloaded and the forge chunk is never loaded.
 
