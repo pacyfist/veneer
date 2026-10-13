@@ -144,6 +144,7 @@ const NEEDLE = 'haystack';
                 role="tab"
                 class="tab"
                 [class.tab-active]="crawlerTab() === t.id"
+                [class.text-base-content/80]="crawlerTab() !== t.id"
                 [attr.aria-selected]="crawlerTab() === t.id"
                 (click)="crawlerTab.set(t.id)"
               >
