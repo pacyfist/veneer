@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Component, TransferState, makeStateKey } from '@angular/core';
+import { Component, PLATFORM_ID, TransferState, makeStateKey } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -15,6 +15,7 @@ import { VeneerDirective } from './veneer.directive';
 import { VeneerFontService } from './veneer-font.service';
 import { VeneerConfig, provideVeneer, withFaces } from './veneer.config';
 import { FontSourceError, clearBaseFontCache, stubForgeImport } from './base-font';
+import { VENEER_SERVER_FORGE, VeneerServerForge, VeneerTransferFont } from './veneer-server';
 
 /**
  * Hydrating a server render without a key in the page: the client fetches the
@@ -100,7 +101,7 @@ async function serveForged(map: ScrambleMap, path: string) {
 /** Render a `veneer` element as a server-rendered page hydrates it. */
 async function hydrate(
   config: Partial<VeneerConfig> = {},
-  fonts = ['veneer/a.ttf'],
+  fonts: VeneerTransferFont[] = ['veneer/a.ttf'],
   ...features: Parameters<typeof withFaces>[]
 ) {
   const serverMap = randomScrambleMap(DEFAULT_CHARSET);
@@ -172,15 +173,26 @@ describe('hydrating a server render', () => {
   });
 
   it('registers every face the server forged, with its descriptors', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { service, serverMap } = await hydrate(
       {},
-      ['veneer/a.ttf', 'veneer/b.ttf'],
+      ['veneer/a.ttf', { url: 'veneer/b.ttf', weight: '700' }],
       [{ src: ROBOTO, weight: 700 }],
     );
     await serveForged(serverMap, 'veneer/b.ttf');
     release();
     await vi.waitFor(() => expect(service.status()).toBe('active'));
     expect(registered.map((f) => f.descriptors)).toEqual([{}, { weight: '700' }]);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('accepts a plain URL list, registering each face with default descriptors', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { service, serverMap } = await hydrate({}, ['veneer/a.ttf', 'veneer/b.ttf']);
+    await serveForged(serverMap, 'veneer/b.ttf');
+    release();
+    await vi.waitFor(() => expect(service.status()).toBe('active'));
+    expect(registered.map((f) => f.descriptors)).toEqual([{}, {}]);
   });
 
   it('fails with VNR016 when the forged font is missing, and stops hiding the text', async () => {
@@ -198,9 +210,56 @@ describe('hydrating a server render', () => {
     expect(el.style.visibility).toBe('');
   });
 
-  it('fails with VNR016 when the server sent fonts for different faces', async () => {
+  describe("registers the server's faces whatever the browser config lists", () => {
+    let warn: ReturnType<typeof vi.spyOn>;
+    beforeEach(() => (warn = vi.spyOn(console, 'warn').mockImplementation(() => {})));
+
+    it('two server faces, one in the browser config', async () => {
+      const { fixture, service, el, serverMap } = await hydrate({}, [
+        'veneer/a.ttf',
+        { url: 'veneer/b.ttf', weight: '700', style: 'italic' },
+      ]);
+      await serveForged(serverMap, 'veneer/b.ttf');
+      release();
+      await vi.waitFor(() => expect(service.status()).toBe('active'));
+      fixture.detectChanges();
+
+      expect(registered.map((f) => f.descriptors)).toEqual([
+        {},
+        { weight: '700', style: 'italic' },
+      ]);
+      expect(scrambleText(el.textContent!, invertScrambleMap(service.map()))).toBe(TEXT);
+      expect(String(warn.mock.calls[0]?.[0])).toMatch(
+        /VNR018: the server rendered this page with 2 face\(s\) \(regular, style italic weight 700\), but the browser config lists 1 \(regular\)/,
+      );
+    });
+
+    it('one server face, two in the browser config', async () => {
+      const { fixture, service, el } = await hydrate(
+        {},
+        ['veneer/a.ttf'],
+        [{ src: ROBOTO, weight: 700 }],
+      );
+      release();
+      await vi.waitFor(() => expect(service.status()).toBe('active'));
+      fixture.detectChanges();
+
+      expect(registered.map((f) => f.descriptors)).toEqual([{}]);
+      expect(scrambleText(el.textContent!, invertScrambleMap(service.map()))).toBe(TEXT);
+      expect(String(warn.mock.calls[0]?.[0])).toContain('VNR018');
+    });
+
+    it('stays quiet when the configs agree', async () => {
+      const { service } = await hydrate();
+      release();
+      await vi.waitFor(() => expect(service.status()).toBe('active'));
+      expect(warn).not.toHaveBeenCalled();
+    });
+  });
+
+  it('fails with VNR016 when the server sent no forged font', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const { service } = await hydrate({}, ['veneer/a.ttf', 'veneer/a.ttf']);
+    const { service } = await hydrate({}, []);
     release();
     await vi.waitFor(() => expect(service.status()).toBe('failed'));
     expect(service.failed()?.code).toBe('VNR016');
@@ -315,6 +374,44 @@ describe('hydrating a server render', () => {
       release();
       await vi.waitFor(() => expect(service.status()).toBe('failed'));
       expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+describe('on the server', () => {
+  it('sends each forged face with its descriptors, the regular face as a bare URL', () => {
+    const forge: VeneerServerForge = {
+      protects: () => true,
+      prepare: (config) => ({
+        map: randomScrambleMap(DEFAULT_CHARSET),
+        familyName: 'Veneer-test',
+        urls: [config.font, ...config.faces.map((f) => f.src)].map((_, i) => `veneer/${i}.ttf`),
+      }),
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: PLATFORM_ID, useValue: 'server' },
+        { provide: VENEER_SERVER_FORGE, useValue: forge },
+        provideVeneer(
+          { font: new ArrayBuffer(0) },
+          withFaces(
+            { src: new ArrayBuffer(0), weight: 700 },
+            { src: new ArrayBuffer(0), style: 'italic', stretch: 'condensed' },
+            { src: new ArrayBuffer(0) },
+          ),
+        ),
+      ],
+    });
+    TestBed.inject(VeneerFontService);
+
+    expect(TestBed.inject(TransferState).get(makeStateKey<unknown>('veneer'), null)).toEqual({
+      family: 'Veneer-test',
+      fonts: [
+        'veneer/0.ttf',
+        { url: 'veneer/1.ttf', weight: '700' },
+        { url: 'veneer/2.ttf', style: 'italic', stretch: 'condensed' },
+        'veneer/3.ttf',
+      ],
     });
   });
 });

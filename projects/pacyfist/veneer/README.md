@@ -350,7 +350,10 @@ provideVeneer(
 ```
 
 Every face must load, or the instance fails open. Characters any face lacks are
-dropped from the cipher (see `strictCoverage`).
+dropped from the cipher (see `strictCoverage`). On a server-rendered page the
+browser registers the faces the server forged, with the server's descriptors,
+even when its own `withFaces()` differs; development builds warn
+([VNR018](#vnr018)).
 
 **`id`** matters only when several `provideVeneer` instances render on one server
 page (for example in lazy routes). Each publishes its forged fonts' URLs for
@@ -1377,6 +1380,14 @@ chunk was blocked, offline, or removed by a redeploy.
 On the server: the `shouldProtect` hook given to `provideVeneerServer()` threw or
 rejected, so the page was rendered **protected**. Logged once per distinct error.
 The server log has the error; a common cause is a DNS lookup in the hook failing.
+
+### VNR018
+
+Dev-mode warning, while hydrating: the browser config lists different faces
+(`font` plus `withFaces()`, by weight, style and stretch) than the server forged
+the page with. The page still decodes: the browser registers the server's faces
+with the server's descriptors. Give `provideVeneer()` the same `withFaces()` in
+`app.config.ts` and `app.config.server.ts`.
 
 ### VNR020
 
