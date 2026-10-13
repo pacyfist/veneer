@@ -4,6 +4,7 @@ import { SectionHeading } from '../ui/section-heading';
 import { Bench } from './bench';
 import { BeyondAngular } from './beyond-angular';
 import { CipherTable } from './cipher-table';
+import { Faces } from './faces';
 
 /**
  * Everything a curious engineer wants and a first-time visitor does not:
@@ -12,7 +13,7 @@ import { CipherTable } from './cipher-table';
 @Component({
   selector: 'app-deep-dive',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SectionHeading, CipherTable, Bench, BeyondAngular, VeneerFontDirective],
+  imports: [SectionHeading, CipherTable, Bench, BeyondAngular, Faces, VeneerFontDirective],
   template: `
     <app-section-heading eyebrow="Under the hood" title="For the curious">
       The nuts and bolts, live. Open whichever you like.
@@ -62,6 +63,13 @@ import { CipherTable } from './cipher-table';
       </details>
 
       <details class="collapse-arrow bg-base-100 border-base-300 collapse border">
+        <summary class="collapse-title text-lg font-bold">Real bold and italic faces</summary>
+        <div class="collapse-content">
+          <app-faces />
+        </div>
+      </details>
+
+      <details class="collapse-arrow bg-base-100 border-base-300 collapse border">
         <summary class="collapse-title text-lg font-bold">Fine print about this demo</summary>
         <div class="collapse-content text-base-content/70 flex max-w-3xl flex-col gap-3">
           <p>
@@ -75,6 +83,15 @@ import { CipherTable } from './cipher-table';
             Angular compiles template text into it. That is true of any text written in an app's
             source; only content that arrives at runtime, from an API or a CMS, stays out of the
             bundle. The evidence for the HTML is the served page in "Try it yourself".
+          </p>
+          <p>
+            Fonts: Roboto Regular (the page's font, a Roboto 2 build) is under the Apache License
+            2.0, <a class="link" href="fonts/Roboto-LICENSE.txt">fonts/Roboto-LICENSE.txt</a>. The
+            bold and italic faces are Roboto Classic 3 under the SIL Open Font License 1.1,
+            <a class="link" href="fonts/faces/Roboto-OFL-LICENSE.txt"
+              >fonts/faces/Roboto-OFL-LICENSE.txt</a
+            >. Both versions share the design and the advance widths, and each covers every
+            character of the Latin presets.
           </p>
           <p>
             Server-scrambled elements carry a <code>data-veneer-ssr</code> attribute. It tells the

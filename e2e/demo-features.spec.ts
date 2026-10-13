@@ -120,3 +120,38 @@ test.describe('Latin presets and NFC on the test bench', () => {
     await expect(sample).toContainText('é');
   });
 });
+
+test.describe('bold and italic faces', () => {
+  test('load only on demand and register weight 700 and italic faces', async ({ page }) => {
+    const faceRequests: string[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/fonts/faces/')) faceRequests.push(new URL(r.url()).pathname);
+    });
+    await openDemo(page);
+    await page.locator('summary', { hasText: 'Real bold and italic faces' }).click();
+    expect(faceRequests).toEqual([]);
+
+    await page.getByRole('button', { name: /Load bold and italic/ }).click();
+    const cards = page.locator('app-faces app-faces-card');
+    await expect(cards).toHaveCount(2);
+    const [regular, faces] = [cards.nth(0), cards.nth(1)];
+
+    await expect(faces.getByTestId('faces').locator('li')).toHaveText([
+      'weight normal, style normal',
+      'weight 700, style normal',
+      'weight normal, style italic',
+    ]);
+    await expect(regular.getByTestId('faces').locator('li')).toHaveText([
+      'weight normal, style normal',
+    ]);
+    expect(faceRequests.sort()).toEqual([
+      '/veneer/fonts/faces/Roboto-Bold.ttf',
+      '/veneer/fonts/faces/Roboto-Italic.ttf',
+    ]);
+
+    // Still protected: the bold words are not in the DOM.
+    const strong = faces.locator('p[veneer] strong');
+    await expect(strong).toHaveCSS('font-weight', '700');
+    expect(await strong.textContent()).not.toBe('bold words');
+  });
+});
