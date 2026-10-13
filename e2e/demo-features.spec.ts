@@ -311,13 +311,17 @@ test.describe('leak self-check', () => {
 
     const panel = page.locator('app-leak-check');
     await panel.getByRole('button', { name: 'Check this page for leaks' }).click();
-    const rows = page.getByTestId('leak-report').locator('tbody tr');
+    const rows = page.getByTestId('leak-report').locator('li');
     await expect(rows.first()).toBeVisible();
     // The testing entry point arrived as its own lazy chunk, on the click.
     expect(lazy.length).toBeGreaterThan(loadedBefore);
 
-    const report = await rows.evaluateAll((trs) =>
-      trs.map((tr) => [...tr.querySelectorAll('td')].map((td) => td.textContent!.trim())),
+    const report = await rows.evaluateAll((items) =>
+      items.map((li) =>
+        ['text', 'html', 'js'].map((field) =>
+          li.querySelector(`[data-field="${field}"]`)!.textContent!.trim(),
+        ),
+      ),
     );
     expect(report.length).toBeGreaterThanOrEqual(5);
     expect(report.map((r) => r[0])).toContain(HERO.text);

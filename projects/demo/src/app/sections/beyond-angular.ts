@@ -15,7 +15,7 @@ const SEED = 12345;
       and in a plain Node script that pre-scrambles static content at build time.
     </p>
 
-    <div class="grid gap-3 md:grid-cols-2">
+    <div class="grid gap-3 md:grid-cols-2 [&>*]:min-w-0">
       <div class="card bg-base-200/60">
         <div class="card-body p-4">
           <h3 class="card-title mb-2 text-xs">node</h3>

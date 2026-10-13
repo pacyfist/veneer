@@ -38,28 +38,23 @@ const fileName = (url: string) => new URL(url).pathname.split('/').pop() ?? url;
         {{ r.rows.length }} texts the server protected in this page, checked against its served HTML
         ({{ r.htmlKb }} KB) and the {{ r.scripts }} script files it loaded ({{ r.scriptKb }} KB).
       </p>
-      <div class="overflow-x-auto">
-        <table class="table-sm table" data-testid="leak-report">
-          <thead>
-            <tr>
-              <th>Protected text</th>
-              <th>Served HTML</th>
-              <th>JavaScript</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of r.rows; track $index) {
-              <tr>
-                <td class="max-w-xs truncate" [title]="row.text">{{ row.text }}</td>
-                <td [class.text-warning]="row.html">{{ row.html || 'clean' }}</td>
-                <td class="font-mono text-xs" [class.text-warning]="row.js.length">
-                  {{ row.js.length ? 'found in ' + row.js.join(', ') : 'clean' }}
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+      <ul class="divide-base-300 flex flex-col divide-y" data-testid="leak-report">
+        @for (row of r.rows; track $index) {
+          <li class="py-2">
+            <p class="truncate" [title]="row.text" data-field="text">{{ row.text }}</p>
+            <p class="text-xs">
+              Served HTML:
+              <span data-field="html" [class.text-warning]="row.html">{{
+                row.html || 'clean'
+              }}</span>
+              · JavaScript:
+              <span class="font-mono" data-field="js" [class.text-warning]="row.js.length">{{
+                row.js.length ? 'found in ' + row.js.join(', ') : 'clean'
+              }}</span>
+            </p>
+          </li>
+        }
+      </ul>
       <p class="mt-3 text-sm">
         The served HTML holds only ciphertext{{
           quoted() ? ', apart from the demo quoting itself' : ''

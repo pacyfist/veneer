@@ -70,7 +70,7 @@ const SERVER_TS = [
     </app-section-heading>
 
     <ol class="flex flex-col gap-10">
-      <li class="grid gap-4 md:grid-cols-[16rem_1fr]">
+      <li class="grid gap-4 md:grid-cols-[16rem_1fr] [&>*]:min-w-0">
         <div>
           <span class="badge badge-primary badge-lg mb-2">Step 1</span>
           <h3 class="text-xl font-bold">Install it</h3>
@@ -82,7 +82,7 @@ const SERVER_TS = [
         <app-code-block prefix="shell" [lines]="install" />
       </li>
 
-      <li class="grid gap-4 md:grid-cols-[16rem_1fr]">
+      <li class="grid gap-4 md:grid-cols-[16rem_1fr] [&>*]:min-w-0">
         <div>
           <span class="badge badge-primary badge-lg mb-2">Step 2</span>
           <h3 class="text-xl font-bold">Point it at your font</h3>
@@ -96,7 +96,7 @@ const SERVER_TS = [
         <app-code-block file="app.config.ts" [lines]="config" />
       </li>
 
-      <li class="grid gap-4 md:grid-cols-[16rem_1fr]">
+      <li class="grid gap-4 md:grid-cols-[16rem_1fr] [&>*]:min-w-0">
         <div>
           <span class="badge badge-primary badge-lg mb-2">Step 3</span>
           <h3 class="text-xl font-bold">Mark your text</h3>
@@ -108,7 +108,7 @@ const SERVER_TS = [
         <app-code-block file="article.component.ts" [lines]="use" />
       </li>
 
-      <li class="grid gap-4 md:grid-cols-[16rem_1fr]">
+      <li class="grid gap-4 md:grid-cols-[16rem_1fr] [&>*]:min-w-0">
         <div>
           <span class="badge badge-outline badge-lg mb-2">Server-rendered apps</span>
           <h3 class="text-xl font-bold">Add the server half</h3>

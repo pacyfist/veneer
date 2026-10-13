@@ -86,3 +86,11 @@ section[id] {
 .card-body :where(p) {
   flex-grow: 0;
 }
+
+/* Grid and flex items default to min-width: auto, so one long code line
+   would widen its column past a phone's screen. Let code blocks shrink and
+   scroll inside themselves instead. */
+app-code-block {
+  display: block;
+  min-width: 0;
+}

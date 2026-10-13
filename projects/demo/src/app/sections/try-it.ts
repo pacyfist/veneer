@@ -48,7 +48,7 @@ const NEEDLE = 'haystack';
       faked.
     </app-section-heading>
 
-    <div class="grid items-start gap-4 md:grid-cols-2">
+    <div class="grid items-start gap-4 md:grid-cols-2 [&>*]:min-w-0">
       <!-- Copy -->
       <div class="card bg-base-100 border-base-300 border">
         <div class="card-body">
