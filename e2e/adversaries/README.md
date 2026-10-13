@@ -52,8 +52,9 @@ carries no seed and that no number in it decodes the hero.
 
 From `../leaks.spec.ts` on the prerendered demo. "Bundle" is `main-*.js`, which holds the demo's
 own code; the other scripts the page loads (a chunk shared with the lazy `testing` entry, holding
-Angular and veneer, and the lazy forge) hold no specimen. No specimen leaks through the title, meta and OG tags, JSON-LD (the demo has none),
-`alt`/`aria-label`/`title` attributes or the ng-state JSON (the demo makes no HttpClient calls).
+Angular and veneer, and the lazy forge) hold no specimen. No specimen leaks through the title, meta and OG tags, JSON-LD (the demo has
+none), `alt`/`aria-label`/`title` attributes or the ng-state JSON (the demo makes no HttpClient
+calls).
 
 | Specimen (form)                                      | Served HTML                                 | Bundle                                      |
 | ---------------------------------------------------- | ------------------------------------------- | ------------------------------------------- |
