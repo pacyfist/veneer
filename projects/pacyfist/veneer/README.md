@@ -497,6 +497,7 @@ when the font is built, and bundlers emit it as a lazy chunk (about 5 KB gzip).
 | `BaseFont`                                  | `/forge`. `{ outlines, unitsPerEm, numGlyphs, familyName, glyphId(cp), codepoints() }` |
 | `forgeScrambledFont(base, map, familyName)` | `/forge`. Produce the font binary whose `cmap` is scrambled                            |
 | `coveredCodepoints(base, candidate)`        | `/forge`. The candidate codepoints the base font has a glyph for                       |
+| `uncoveredCodepoints(bases, candidate)`     | `/forge`. The candidate codepoints at least one of the base fonts has no glyph for     |
 | `charsetFromFont(bytes, candidate?)`        | Async, build time. Covered codepoints that are safe to scramble                        |
 | `VeneerFontError`                           | `/forge`. Thrown on parse failure or missing glyphs; carries `missing: string[]`       |
 
