@@ -61,12 +61,17 @@ export function createStaticServer({ onRequest } = {}) {
       res.end(body);
     } catch {
       // Pages serves 404.html for anything it does not recognise.
+      // Read before writing headers: a build without 404.html (only the deploy
+      // step creates it) must not crash the server with a second writeHead.
+      let page;
       try {
-        res.writeHead(404, { 'content-type': TYPES['.html'] });
-        res.end(await readFile(join(ROOT, '404.html')));
+        page = await readFile(join(ROOT, '404.html'));
       } catch {
         res.writeHead(404).end('not found');
+        return;
       }
+      res.writeHead(404, { 'content-type': TYPES['.html'] });
+      res.end(page);
     }
   });
 }
