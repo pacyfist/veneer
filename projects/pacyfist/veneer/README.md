@@ -251,11 +251,14 @@ provideVeneer(
   withStatusListener(({ status, failure }) => {
     if (status === 'failed') reportToMonitoring(failure!.code, failure!.message);
   }),
-  withStatusAttribute(), // one instance only; written during SSR too
+  withStatusAttribute(), // written during SSR too
 );
 ```
 
-Listeners run in the browser only. Failure codes are listed under
+With `withStatusAttribute()` on several instances, the attribute shows the most
+urgent status among them (`failed`, then `loading`, then `active`, then
+`disabled`) and goes away when the last of them is destroyed. Listeners run in
+the browser only. Failure codes are listed under
 [Error codes](#error-codes).
 
 `revealed` is a demo and debugging switch: flipping it on renders exactly what a
@@ -690,8 +693,8 @@ export const routes: Routes = [
 
 When several instances render on one server page, give each a distinct `id`, or
 they overwrite each other's forged-font state and hydrate with the wrong cipher.
-Put `withStatusAttribute()` on one instance only. A directive uses the nearest
-instance in its injector tree.
+`withStatusAttribute()` may go on several of them; the attribute shows the most
+urgent status. A directive uses the nearest instance in its injector tree.
 
 ### `@defer`
 

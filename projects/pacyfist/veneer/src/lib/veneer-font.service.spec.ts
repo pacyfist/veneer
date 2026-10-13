@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Component } from '@angular/core';
+import {
+  ApplicationRef,
+  Component,
+  EnvironmentInjector,
+  createEnvironmentInjector,
+} from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VeneerFontService } from './veneer-font.service';
@@ -221,6 +226,46 @@ describe('VeneerFontService', () => {
     expect(html.getAttribute('data-veneer-status')).toBe('failed');
 
     TestBed.resetTestingModule();
+    expect(html.hasAttribute('data-veneer-status')).toBe(false);
+  });
+
+  it('shares <html data-veneer-status> between instances, most urgent status first', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const html = document.documentElement;
+    TestBed.configureTestingModule({});
+    const parent = TestBed.inject(EnvironmentInjector);
+    const create = (config: VeneerConfig) => {
+      const injector = createEnvironmentInjector(
+        [provideVeneer(config, withStatusAttribute())],
+        parent,
+      );
+      return { injector, service: injector.get(VeneerFontService) };
+    };
+
+    const healthy = create({ font: new ArrayBuffer(0), disabled: true });
+    expect(html.getAttribute('data-veneer-status')).toBe('disabled');
+
+    let reject!: (error: Error) => void;
+    const failing = create({ font: () => new Promise<ArrayBuffer>((_, r) => (reject = r)) });
+    expect(html.getAttribute('data-veneer-status')).toBe('loading');
+
+    // Destroying one instance leaves the attribute to the others.
+    healthy.injector.destroy();
+    expect(html.getAttribute('data-veneer-status')).toBe('loading');
+
+    TestBed.inject(ApplicationRef).tick();
+    await vi.waitFor(() => expect(reject).toBeTypeOf('function'));
+    reject(new Error('offline'));
+    await vi.waitFor(() => expect(failing.service.status()).toBe('failed'));
+    expect(html.getAttribute('data-veneer-status')).toBe('failed');
+
+    // A healthy instance created later does not hide the failure.
+    const later = create({ font: new ArrayBuffer(0), disabled: true });
+    expect(html.getAttribute('data-veneer-status')).toBe('failed');
+
+    failing.injector.destroy();
+    expect(html.getAttribute('data-veneer-status')).toBe('disabled');
+    later.injector.destroy();
     expect(html.hasAttribute('data-veneer-status')).toBe(false);
   });
 

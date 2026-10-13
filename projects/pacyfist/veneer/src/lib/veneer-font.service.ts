@@ -35,6 +35,7 @@ import { VENEER_SERVER_FORGE, VeneerTransfer } from './veneer-server';
 import type { BaseFont } from '@pacyfist/veneer/forge';
 import { docsUrl, veneerMessage } from './veneer-errors';
 import type { VeneerFailure, VeneerStatus } from './veneer-status';
+import { releaseStatusAttribute, setStatusAttribute } from './veneer-status-attribute';
 
 /**
  * Carries the forged fonts' URLs and family name from the server render to the
@@ -68,9 +69,6 @@ function descriptorsOf(face: VeneerFace): FontFaceDescriptors {
   if (face.stretch !== undefined) descriptors.stretch = face.stretch;
   return descriptors;
 }
-
-/** The attribute `withStatusAttribute()` maintains on `<html>`. */
-const STATUS_ATTRIBUTE = 'data-veneer-status';
 
 /** Which step of `load()` an error came from. */
 type Stage = 'source' | 'forge' | 'face';
@@ -542,9 +540,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     if (status === this.reported) return;
     this.reported = status;
 
-    if (this.config.statusAttribute) {
-      this.document.documentElement?.setAttribute(STATUS_ATTRIBUTE, status);
-    }
+    if (this.config.statusAttribute) setStatusAttribute(this.document, this, status);
     if (!this.isBrowser) return;
 
     const event = { status, failure: untracked(this.failure), familyName: this.familyName };
@@ -561,9 +557,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     this.destroyed = true;
     for (const face of this.faces) this.document.fonts.delete(face);
     this.faces = [];
-    if (this.config.statusAttribute) {
-      this.document.documentElement?.removeAttribute(STATUS_ATTRIBUTE);
-    }
+    if (this.config.statusAttribute) releaseStatusAttribute(this.document, this);
   }
 }
 
