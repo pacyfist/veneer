@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { EnvironmentInjector, PLATFORM_ID, TransferState, makeStateKey } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   VeneerConfig,
   VeneerFontService,
@@ -23,7 +23,7 @@ import {
 import { DEFAULT_CHARSET, scrambleText } from '@pacyfist/veneer/core';
 import { parseBaseFont, readScrambleMap } from '@pacyfist/veneer/forge';
 import { VeneerServerOptions, provideVeneerServer } from './provide-veneer-server';
-import { getVeneerFont, veneerFontMiddleware } from './font-store';
+import { getVeneerFont, setMaxFonts, veneerFontMiddleware } from './font-store';
 
 const FIXTURE = join(__dirname, '../../testing/Roboto-Regular.ttf');
 const FONT_DIR = dirname(FIXTURE);
@@ -323,6 +323,94 @@ describe('provideVeneerServer({ secret })', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('the font cap', () => {
+  let previous: number;
+  beforeEach(() => {
+    // Two configurations of two faces each fill it.
+    previous = setMaxFonts(4);
+  });
+  afterEach(() => {
+    setMaxFonts(previous);
+  });
+
+  /** One provider instance; `charset(n)` is a distinct configuration per n. */
+  function instance(options: Partial<VeneerServerOptions> = {}) {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [provideVeneerServer({ fonts: FONT_DIR, ...options })],
+    });
+    const forge = TestBed.inject(EnvironmentInjector).get(VENEER_SERVER_FORGE);
+    return (n: number) =>
+      forge.prepare({
+        font: FONT_URL,
+        fallbackFontFamily: 'sans-serif',
+        charset: [...DEFAULT_CHARSET].slice(n),
+        hideUntilReady: true,
+        hideWith: 'stylesheet',
+        disabled: false,
+        strictCoverage: false,
+        faces: [{ src: FONT_URL, weight: 700 }],
+        statusListeners: [],
+        statusAttribute: false,
+        a11y: 'none',
+        readableCopy: null,
+      });
+  }
+  const served = (cipher: VeneerServerCipher) =>
+    cipher.urls.every((url) => getVeneerFont(url) !== undefined);
+
+  it('evicts the least recently used cipher together with its fonts, counted per face', () => {
+    const prepare = instance();
+    const one = prepare(1);
+    const two = prepare(2);
+    expect(prepare(1)).toBe(one); // used again: now the most recent
+    const three = prepare(3); // 6 fonts > 4: the least recent cipher goes, both faces
+
+    expect(served(one)).toBe(true);
+    expect(served(three)).toBe(true);
+    expect(two.urls.map((url) => getVeneerFont(url))).toEqual([undefined, undefined]);
+
+    // Every cipher still cached hands out fonts that are still served.
+    expect(prepare(1)).toBe(one);
+    expect(prepare(3)).toBe(three);
+    // The evicted one is forged again when needed, with fonts that are served.
+    const again = prepare(2);
+    expect(again).not.toBe(two);
+    expect(served(again)).toBe(true);
+    expect(again.urls).not.toEqual(two.urls); // no secret: a new random cipher
+  });
+
+  it('with a secret, rebuilds an evicted cipher at the same URLs', () => {
+    const prepare = instance({ secret: 'a test secret of more than sixteen bytes' });
+    const one = prepare(1);
+    prepare(2);
+    prepare(3);
+    expect(served(one)).toBe(false);
+    const again = prepare(1);
+    expect(again).not.toBe(one);
+    expect(again.urls).toEqual(one.urls);
+    expect(again.familyName).toBe(one.familyName);
+    expect(served(again)).toBe(true);
+  });
+
+  it('keeps a font another instance still holds under the same id', () => {
+    const secret = 'a test secret of more than sixteen bytes';
+    const first = instance({ secret });
+    const one = first(1);
+    const second = instance({ secret });
+    expect(second(1).urls).toEqual(one.urls);
+    second(2);
+    second(1); // the second instance's copy is now the most recent
+    // Over the cap: the first instance's cipher goes, then config 2. The
+    // second instance still holds config 1's fonts under the same ids.
+    second(3);
+    expect(served(one)).toBe(true);
+    const again = first(1);
+    expect(again).not.toBe(one);
+    expect(again.urls).toEqual(one.urls);
   });
 });
 

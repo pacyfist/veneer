@@ -5,30 +5,88 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join, resolve } from 'node:path';
 
 /**
- * The forged fonts this process has built, by id, for the middleware to serve.
+ * The forged fonts this process has built, by id, for the middleware to serve,
+ * grouped by the cipher they belong to.
  *
  * Kept on `globalThis` under a registered symbol, so server.ts and the app
  * share one store even if a bundler gives them separate copies of this module.
  */
-const STORE = Symbol.for('@pacyfist/veneer/server:fonts');
+const STORE = Symbol.for('@pacyfist/veneer/server:fonts/v2');
+
+/** One cipher's fonts (one per face). Kept and evicted together. */
+export interface FontGroup {
+  readonly ids: readonly string[];
+  /** Called when the group is evicted, so the cipher is dropped with it. */
+  readonly onEvict: () => void;
+}
+
+interface Store {
+  /** Font bytes by id, with how many groups hold each (a secret repeats ids). */
+  readonly fonts: Map<string, { readonly bytes: Uint8Array; refs: number }>;
+  /** Groups from least to most recently used. */
+  readonly groups: Set<FontGroup>;
+}
 
 /**
  * Fonts are built once per configuration per process (see
- * `provideVeneerServer`), so the store stays small. The cap only guards
- * against an app that creates a new configuration per request.
+ * `provideVeneerServer`), so the store stays small. The cap, counted in fonts
+ * so `withFaces()` cannot get round it, only matters for an app that creates
+ * many configurations, such as a charset per page.
  */
-const MAX_FONTS = 256;
+let maxFonts = 256;
 
-function store(): Map<string, Uint8Array> {
-  const holder = globalThis as { [STORE]?: Map<string, Uint8Array> };
-  return (holder[STORE] ??= new Map());
+function store(): Store {
+  const holder = globalThis as { [STORE]?: Store };
+  return (holder[STORE] ??= { fonts: new Map(), groups: new Set() });
 }
 
-/** @internal */
-export function storeFont(id: string, bytes: Uint8Array): void {
-  const fonts = store();
-  fonts.set(id, bytes);
-  while (fonts.size > MAX_FONTS) fonts.delete(fonts.keys().next().value!);
+/** @internal Tests only: changes the cap and returns the previous one. */
+export function setMaxFonts(max: number): number {
+  const previous = maxFonts;
+  maxFonts = max;
+  return previous;
+}
+
+function evict(fonts: Store, group: FontGroup): void {
+  fonts.groups.delete(group);
+  for (const id of group.ids) {
+    const entry = fonts.fonts.get(id);
+    if (entry && --entry.refs === 0) fonts.fonts.delete(id);
+  }
+  group.onEvict();
+}
+
+/**
+ * Stores one cipher's fonts as a group. While over the cap, the least
+ * recently used groups go first, each with its fonts and its cipher
+ * (`onEvict`), never a font on its own. The new group is never evicted, even
+ * if it alone is over the cap.
+ *
+ * @internal
+ */
+export function storeFonts(
+  fonts: readonly { readonly id: string; readonly bytes: Uint8Array }[],
+  onEvict: () => void,
+): FontGroup {
+  const held = store();
+  for (const { id, bytes } of fonts) {
+    const entry = held.fonts.get(id);
+    if (entry) entry.refs++;
+    else held.fonts.set(id, { bytes, refs: 1 });
+  }
+  const group: FontGroup = { ids: fonts.map((font) => font.id), onEvict };
+  held.groups.add(group);
+  for (const oldest of held.groups) {
+    if (held.fonts.size <= maxFonts || oldest === group) break;
+    evict(held, oldest);
+  }
+  return group;
+}
+
+/** Marks a group as just used, so it is evicted last. @internal */
+export function touchFonts(group: FontGroup): void {
+  const held = store();
+  if (held.groups.delete(group)) held.groups.add(group);
 }
 
 /** `path` without trailing slashes; `'veneer'` when nothing is left. */
@@ -81,7 +139,7 @@ export function getVeneerFont(
 ): Uint8Array | undefined {
   const id = idOf(path);
   if (!id) return undefined;
-  const bytes = store().get(id);
+  const bytes = store().fonts.get(id)?.bytes;
   if (bytes) return bytes;
   const file = fileOf(id, options);
   if (!file) return undefined;
@@ -127,7 +185,7 @@ export function veneerFontMiddleware(
   };
   return (req, res, next) => {
     const id = req.method === 'GET' || req.method === 'HEAD' ? idOf(req.url ?? '') : undefined;
-    const bytes = id && store().get(id);
+    const bytes = id && store().fonts.get(id)?.bytes;
     if (bytes) return send(req, res, bytes);
     const file = id && fileOf(id, options);
     if (!file) return next?.();

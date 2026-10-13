@@ -632,6 +632,14 @@ Without a secret, pick one of:
   process forges its own, so the folder grows by one set per process start.
 - **Prerender** the pages you protect, so the fonts are static files.
 
+**Per-page charsets.** Each distinct configuration is one cipher and one font
+per face. An app that computes `charset: charsetFromText(article)` per page
+forges a font per distinct charset: the process keeps at most 256 forged fonts in
+memory and drops the least recently used configuration together with its fonts
+(re-forged if needed again; with a secret at the same URLs). Prefer a fixed
+charset, or a secret with a shared `emitDir`, so a dropped font can still be
+served.
+
 Also keep cached HTML (a CDN, a service worker) no longer than the fonts it
 references stay available.
 

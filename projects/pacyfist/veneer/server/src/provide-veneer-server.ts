@@ -27,7 +27,7 @@ import {
   parseBaseFontSync,
   uncoveredCodepoints,
 } from '@pacyfist/veneer/forge';
-import { storeFont, trimPath } from './font-store';
+import { type FontGroup, storeFonts, touchFonts, trimPath } from './font-store';
 
 /** Reads a base font on the server, given the source written in `provideVeneer()`. */
 export type VeneerServerFontReader = (source: VeneerFontSource) => ArrayBuffer | Uint8Array;
@@ -450,7 +450,8 @@ function emit(dir: string, id: string, bytes: Uint8Array): void {
  */
 export function provideVeneerServer(options: VeneerServerOptions): EnvironmentProviders {
   const path = trimPath(options.path ?? 'veneer');
-  const ciphers = new Map<string, VeneerServerCipher>();
+  /** Per configuration, its cipher and the stored fonts it hands out. */
+  const ciphers = new Map<string, { cipher: VeneerServerCipher; fonts: FontGroup }>();
   const ids = new WeakMap<object, number>();
   let nextId = 0;
   const idOf = (source: object) => {
@@ -465,7 +466,10 @@ export function provideVeneerServer(options: VeneerServerOptions): EnvironmentPr
     prepare(config) {
       const key = fingerprint(config, idOf);
       const cached = ciphers.get(key);
-      if (cached) return cached;
+      if (cached) {
+        touchFonts(cached.fonts);
+        return cached.cipher;
+      }
 
       const sources = [config.font, ...config.faces.map((face) => face.src)];
       const loaded = sources.map((source) => loadBase(source, options.fonts));
@@ -474,23 +478,29 @@ export function provideVeneerServer(options: VeneerServerOptions): EnvironmentPr
 
       const map = buildMap(config, bases, derived ? () => keyedRandom(derived, 'map') : undefined);
       const familyName = `Veneer-${derived ? derive(derived, 'family', 8) : randomBytes(8).toString('hex')}`;
-      const urls = bases.map((base, i) => {
+      const fonts = bases.map((base, i) => {
         const bytes = new Uint8Array(forgeScrambledFont(base, map, familyName));
         // With a secret the id covers the forged bytes too, so a font URL
         // never changes content, even across library versions.
         const id = derived
           ? derive(derived, `font\0${i}\0${sha256(bytes)}`, 16)
           : randomBytes(16).toString('hex');
-        storeFont(id, bytes);
         if (options.emitDir) emit(join(options.emitDir, path), id, bytes);
-        return `${path}/${id}.ttf`;
+        return { id, bytes };
       });
 
-      const cipher = { map, familyName, urls };
-      ciphers.set(key, cipher);
-      // Only an app that builds a new configuration per request gets here
-      // often; keep its memory bounded (the font store is capped too).
-      if (ciphers.size > 256) ciphers.delete(ciphers.keys().next().value!);
+      const cipher = { map, familyName, urls: fonts.map(({ id }) => `${path}/${id}.ttf`) };
+      // The cipher lives exactly as long as its fonts: when the store evicts
+      // them (least recently used first), the cipher goes too, and the next
+      // render forges it again (with a secret, at the same URLs). So a cached
+      // cipher never hands out a URL whose font is gone.
+      const entry: { cipher: VeneerServerCipher; fonts: FontGroup } = {
+        cipher,
+        fonts: storeFonts(fonts, () => {
+          if (ciphers.get(key) === entry) ciphers.delete(key);
+        }),
+      };
+      ciphers.set(key, entry);
       return cipher;
     },
   };
