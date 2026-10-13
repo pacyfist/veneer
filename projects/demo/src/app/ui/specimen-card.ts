@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
+import { A11yNote } from './a11y-note';
 import { DomProbe } from './dom-probe';
 
 /**
@@ -16,7 +17,7 @@ import { DomProbe } from './dom-probe';
 @Component({
   selector: 'app-specimen-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [VeneerDirective, DomProbe],
+  imports: [VeneerDirective, DomProbe, A11yNote],
   template: `
     <div class="card bg-base-100 border-base-300 border">
       <div class="card-body gap-3">
@@ -40,6 +41,7 @@ import { DomProbe } from './dom-probe';
         <div class="rounded-field border-secondary/30 bot-scan border p-3">
           <p class="text-secondary text-xs font-bold tracking-widest uppercase">A bot reads</p>
           <p class="text-secondary mt-1 font-mono text-sm break-all">{{ botReads() }}</p>
+          <app-a11y-note [hidden]="probe.ariaHidden()" />
           @if (codepoints() && probe.text() !== null) {
             <p class="text-base-content/70 mt-2 text-xs" data-testid="codepoints">
               {{ count(text()) }} code points in the text, {{ count(probe.text()!) }} in the page.

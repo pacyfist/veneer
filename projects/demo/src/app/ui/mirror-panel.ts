@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { VeneerFontDirective, VeneerPipe } from '@pacyfist/veneer';
+import { A11yNote } from './a11y-note';
+import { DomProbe } from './dom-probe';
 
 /**
  * The same text as a person sees it and as a scraper reads it, side by side.
@@ -14,12 +16,17 @@ import { VeneerFontDirective, VeneerPipe } from '@pacyfist/veneer';
 @Component({
   selector: 'app-mirror-panel',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [VeneerFontDirective, VeneerPipe],
+  imports: [VeneerFontDirective, VeneerPipe, DomProbe, A11yNote],
   template: `
     <div class="grid gap-3 sm:grid-cols-2">
       <div class="rounded-box border-primary/30 bg-primary/5 border p-4">
         <p class="text-primary mb-2 text-xs font-bold tracking-widest uppercase">You see</p>
-        <p class="min-h-6 text-lg leading-relaxed break-words" veneerFont>
+        <p
+          class="min-h-6 text-lg leading-relaxed break-words"
+          veneerFont
+          appDomProbe
+          #probe="domProbe"
+        >
           {{ readable() | veneer }}
         </p>
         <p class="sr-only">
@@ -32,6 +39,7 @@ import { VeneerFontDirective, VeneerPipe } from '@pacyfist/veneer';
         <p class="text-secondary min-h-6 font-mono text-base leading-relaxed break-all">
           {{ scrambled() }}
         </p>
+        <app-a11y-note [hidden]="probe.ariaHidden()" />
       </div>
     </div>
   `,

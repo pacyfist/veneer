@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
+import { A11yNote } from '../ui/a11y-note';
+import { DomProbe } from '../ui/dom-probe';
 
 /**
  * Kept in sync with the element content below by hand. The specimen has to be
@@ -25,7 +27,7 @@ const LENS = 90;
 @Component({
   selector: 'app-hero',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [VeneerDirective],
+  imports: [VeneerDirective, DomProbe, A11yNote],
   template: `
     <div class="grid items-center gap-12 pt-16 pb-20 lg:grid-cols-[1.1fr_1fr] lg:pt-24">
       <div>
@@ -92,7 +94,7 @@ const LENS = 90;
             A protected sample paragraph follows. It is stored scrambled and repaired on screen by a
             generated font.
           </p>
-          <p class="text-2xl leading-snug md:text-[1.7rem]" veneer>
+          <p class="text-2xl leading-snug md:text-[1.7rem]" veneer appDomProbe #probe="domProbe">
             This paragraph looks perfectly normal to you. Copy it, search it, or feed it to a
             scraper, and all you get is gibberish.
           </p>
@@ -122,6 +124,7 @@ const LENS = 90;
           <span class="hidden md:inline">Hover the paragraph for bot vision.</span>
           <span class="md:hidden">Drag across the paragraph for bot vision.</span>
         </p>
+        <app-a11y-note [hidden]="probe.ariaHidden()" />
       </div>
     </div>
   `,

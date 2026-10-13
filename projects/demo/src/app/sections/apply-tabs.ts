@@ -14,6 +14,7 @@ import {
   VeneerFontService,
   VeneerPipe,
 } from '@pacyfist/veneer';
+import { A11yNote } from '../ui/a11y-note';
 import { CodeBlock } from '../ui/code-block';
 
 /**
@@ -56,7 +57,7 @@ const SNIPPETS = {
 @Component({
   selector: 'app-apply-tabs',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CodeBlock, VeneerDirective, VeneerFontDirective, VeneerPipe],
+  imports: [CodeBlock, VeneerDirective, VeneerFontDirective, VeneerPipe, A11yNote],
   template: `
     <div role="tablist" class="tabs tabs-lift">
       @for (t of tabs; track t.id) {
@@ -135,6 +136,7 @@ const SNIPPETS = {
           </div>
           @if (hasReadout()) {
             <p class="text-secondary mt-1 min-h-6 font-mono break-all">{{ readout() }}</p>
+            <app-a11y-note [hidden]="ariaHidden()" />
           } @else {
             <div class="skeleton mt-1 h-4 w-48"></div>
           }
@@ -192,6 +194,9 @@ export class ApplyTabs {
    */
   protected readonly readout = signal<string | null>(null);
 
+  /** The specimen's `aria-hidden` state, read with the readout. */
+  protected readonly ariaHidden = signal<boolean | null>(null);
+
   protected readonly hasReadout = computed(() => this.readout() !== null);
   protected readonly isEmpty = computed(() => this.readout() === '');
 
@@ -200,9 +205,11 @@ export class ApplyTabs {
       read: () => {
         this.veneer.fontStack();
         this.veneer.hidden();
+        this.veneer.active();
         this.trap();
         const el = this.specimen()?.nativeElement;
         this.readout.set(el ? el.innerText : null);
+        this.ariaHidden.set(el ? el.getAttribute('aria-hidden') === 'true' : null);
       },
     });
   }

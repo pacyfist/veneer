@@ -216,3 +216,32 @@ test.describe('status events', () => {
     );
   });
 });
+
+test.describe('accessibility mode, made visible', () => {
+  test('specimens say whether screen readers skip them, and flip with readable mode', async ({
+    page,
+  }) => {
+    await openDemo(page);
+    const heroNote = page.locator('app-hero').getByTestId('a11y');
+    const card = page.locator('app-breakage app-specimen-card');
+    await expect(card.locator('.badge')).toHaveText('protected');
+    const cardNote = card.getByTestId('a11y');
+    const tabsNote = page.locator('app-apply-tabs').getByTestId('a11y');
+
+    for (const note of [heroNote, cardNote, tabsNote]) {
+      await expect(note).toContainText('skipped (aria-hidden="true")');
+    }
+    await expect(page.locator('app-hero p[veneer]')).toHaveAttribute('aria-hidden', 'true');
+
+    await page.locator('button[veneerReadableToggle]').click();
+    for (const note of [heroNote, cardNote, tabsNote]) {
+      await expect(note).toContainText('read it, readable mode is on');
+    }
+    await expect(page.locator('app-hero p[veneer]')).not.toHaveAttribute('aria-hidden');
+
+    await page.locator('button[veneerReadableToggle]').click();
+    for (const note of [heroNote, cardNote, tabsNote]) {
+      await expect(note).toContainText('skipped');
+    }
+  });
+});
