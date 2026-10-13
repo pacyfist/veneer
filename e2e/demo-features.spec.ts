@@ -64,3 +64,59 @@ test.describe('cipher table', () => {
     expect(hero.trim()).toBe(scrambled);
   });
 });
+
+test.describe('Latin presets and NFC on the test bench', () => {
+  const SAMPLE =
+    'Rendered with the settings on the left: Zażółć gęślą jaźń, Größe, façade, naïve. And a decomposed café.';
+
+  test('accents scramble in the DOM yet draw as the original letters', async ({ page }) => {
+    await openDemo(page);
+    await page.locator('summary', { hasText: 'Every setting, on a test bench' }).click();
+    const card = page.locator('app-bench app-specimen-card');
+    await expect(card.locator('.badge')).toHaveText('protected');
+    const sample = card.locator('p.leading-relaxed');
+    await expect(sample).toHaveCSS('font-family', /^"?Veneer-/);
+
+    const dom = (await sample.textContent())!;
+    const expected = SAMPLE.normalize('NFC');
+    expect([...dom]).toHaveLength([...expected].length);
+    for (const word of ['Zażółć', 'gęślą', 'Größe', 'façade', 'naïve', 'café']) {
+      expect(dom).not.toContain(word);
+    }
+    // Each accented letter became another accented (non-ASCII) letter.
+    [...expected].forEach((ch, i) => {
+      if (ch.codePointAt(0)! > 0x7f) {
+        expect([...dom][i]).not.toBe(ch);
+        expect([...dom][i].codePointAt(0)!).toBeGreaterThan(0x7f);
+      }
+    });
+    // NFC: e + U+0301 is one letter in the page.
+    await expect(card.getByTestId('codepoints')).toHaveText(
+      `${[...SAMPLE].length} code points in the text, ${[...expected].length} in the page.`,
+    );
+
+    // Drawn as the original: as wide as the readable text in the base font.
+    const widths = await sample.evaluate(async (el, plainText) => {
+      await document.fonts.ready;
+      const plain = document.createElement('span');
+      plain.style.cssText = `font: ${getComputedStyle(el).font}; font-family: Roboto, sans-serif; white-space: pre;`;
+      plain.textContent = plainText;
+      const shown = plain.cloneNode() as HTMLElement;
+      shown.style.fontFamily = getComputedStyle(el).fontFamily;
+      shown.textContent = el.textContent;
+      document.body.append(plain, shown);
+      const result = [plain.getBoundingClientRect().width, shown.getBoundingClientRect().width];
+      plain.remove();
+      shown.remove();
+      return result;
+    }, expected);
+    expect(Math.abs(widths[0] - widths[1])).toBeLessThan(0.5);
+
+    // DEFAULT_CHARSET alone leaves the accented letters as they are.
+    await page.locator('app-bench select').first().selectOption('ascii');
+    await expect(sample).toHaveCSS('font-family', /^"?Veneer-/);
+    await expect(card.locator('.badge')).toHaveText('protected');
+    await expect(sample).toContainText('ż');
+    await expect(sample).toContainText('é');
+  });
+});

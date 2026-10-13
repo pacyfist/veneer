@@ -4,7 +4,9 @@ import {
   Component,
   DestroyRef,
   EnvironmentInjector,
+  Type,
   afterNextRender,
+  computed,
   createEnvironmentInjector,
   effect,
   inject,
@@ -12,17 +14,16 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { VeneerConfig, VeneerFeature, provideVeneer, randomSeed, withA11y } from '@pacyfist/veneer';
+import { VeneerConfig, VeneerFeature, provideVeneer, withA11y } from '@pacyfist/veneer';
 import { SpecimenCard } from './specimen-card';
 
 /**
  * Renders one specimen under its own `provideVeneer`.
  *
  * The child injector is built only in the browser, after the first render -
- * never during prerender. A seed drawn on the server and drawn again on the
- * client would invert the server's ciphertext with the wrong map at
- * hydration, so a server-rendered instance shows nothing until the browser
- * can build and keep its own cipher.
+ * never during prerender. The server forges only the shell's font, so an
+ * instance rendered there would have no font to hydrate with; this one draws
+ * its own cipher from the CSPRNG, with no seed, like any client-only app.
  *
  * `config` is watched with an `effect` rather than derived with `computed`,
  * because building the injector is a side effect: the previous injector, its
@@ -36,9 +37,9 @@ import { SpecimenCard } from './specimen-card';
   template: `
     @if (injector(); as env) {
       <ng-container
-        [ngComponentOutlet]="card"
+        [ngComponentOutlet]="card()"
         [ngComponentOutletEnvironmentInjector]="env"
-        [ngComponentOutletInputs]="{ text: text() }"
+        [ngComponentOutletInputs]="inputs()"
       />
     } @else {
       <div class="card bg-base-100 shadow-sm">
@@ -52,13 +53,21 @@ import { SpecimenCard } from './specimen-card';
   `,
 })
 export class IsolatedInstance {
-  readonly text = input.required<string>();
+  /** The text a `SpecimenCard` protects. Other cards bring their own. */
+  readonly text = input<string>();
   readonly config = input<Partial<VeneerConfig>>({});
   /** Features beyond `withA11y('hide')`, which every instance gets. */
   readonly features = input<readonly VeneerFeature[]>([]);
+  /** The component rendered inside the instance's injector. */
+  readonly card = input<Type<unknown>>(SpecimenCard);
+  /** More inputs for `card`. */
+  readonly cardInputs = input<Record<string, unknown>>({});
 
-  protected readonly card = SpecimenCard;
   protected readonly injector = signal<EnvironmentInjector | null>(null);
+  protected readonly inputs = computed(() => {
+    const text = this.text();
+    return text === undefined ? this.cardInputs() : { text, ...this.cardInputs() };
+  });
 
   private readonly parent = inject(EnvironmentInjector);
 
@@ -89,7 +98,6 @@ export class IsolatedInstance {
             // instance shares the shell's download.
             font: 'fonts/Roboto-Regular.ttf',
             fallbackFontFamily: "'Roboto', sans-serif",
-            seed: randomSeed(),
             ...config,
           },
           withA11y('hide'),

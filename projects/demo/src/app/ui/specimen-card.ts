@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
+import { DomProbe } from './dom-probe';
 
 /**
  * One protected sample plus its own status and scraper readout.
@@ -15,7 +16,7 @@ import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
 @Component({
   selector: 'app-specimen-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [VeneerDirective],
+  imports: [VeneerDirective, DomProbe],
   template: `
     <div class="card bg-base-100 border-base-300 border">
       <div class="card-body gap-3">
@@ -35,10 +36,15 @@ import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
           A protected sample follows. It is stored scrambled and repaired on screen by a generated
           font.
         </p>
-        <p class="text-lg leading-relaxed" [veneer]="text()"></p>
+        <p class="text-lg leading-relaxed" [veneer]="text()" appDomProbe #probe="domProbe"></p>
         <div class="rounded-field border-secondary/30 bot-scan border p-3">
           <p class="text-secondary text-xs font-bold tracking-widest uppercase">A bot reads</p>
           <p class="text-secondary mt-1 font-mono text-sm break-all">{{ botReads() }}</p>
+          @if (codepoints() && probe.text() !== null) {
+            <p class="text-base-content/70 mt-2 text-xs" data-testid="codepoints">
+              {{ count(text()) }} code points in the text, {{ count(probe.text()!) }} in the page.
+            </p>
+          }
         </div>
         @if (veneer.failed(); as failure) {
           <p class="text-warning font-mono text-xs break-all">
@@ -52,6 +58,8 @@ import { VeneerDirective, VeneerFontService } from '@pacyfist/veneer';
 export class SpecimenCard {
   protected readonly veneer = inject(VeneerFontService);
   readonly text = input.required<string>();
+  /** Show how many code points the text has, and how many the DOM holds. */
+  readonly codepoints = input(false);
 
   protected readonly status = computed(() =>
     this.veneer.failed()
@@ -63,4 +71,8 @@ export class SpecimenCard {
 
   /** What `innerText` returns: the scrambled form, or the original once protection is off. */
   protected readonly botReads = computed(() => this.veneer.scramble(this.text()));
+
+  protected count(text: string): number {
+    return [...text].length;
+  }
 }
