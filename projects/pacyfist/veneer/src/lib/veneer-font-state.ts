@@ -40,7 +40,9 @@ export interface VeneerFontState {
   /**
    * Set when the font could not be built: a stable `code`, a `message`, and for
    * missing glyphs the `missing` characters. The library fails open when this
-   * happens. Read `failed()?.message` for the text.
+   * happens, except for `VNR016`: hydrating a server render, the cipher could
+   * not be read and server-rendered text stays unreadable. Read
+   * `failed()?.message` for the text.
    */
   readonly failed: Signal<VeneerFailure | null>;
 

@@ -15,7 +15,8 @@ export type VeneerStatus = 'loading' | 'active' | 'failed' | 'disabled';
 /**
  * Why protection switched off. Each code has a section in the README.
  *
- * - `VNR010`: the base font could not be fetched, or the `font` loader rejected.
+ * - `VNR010`: the base font or the forge code could not be fetched (after one
+ *   retry), or the `font` loader rejected.
  * - `VNR011`: the base font is not a font veneer can read, or forging it failed.
  * - `VNR012`: the base font has no glyph for some charset characters
  *   (only with `strictCoverage: true`; see `missing`).
@@ -23,8 +24,11 @@ export type VeneerStatus = 'loading' | 'active' | 'failed' | 'disabled';
  * - `VNR015`: on the server: the cipher and forged font could not be built
  *   (no `provideVeneerServer()`, or it could not read or forge the font), so
  *   the server rendered protected text readable.
- * - `VNR016`: in the browser: the forged font the server rendered with could
- *   not be fetched, or does not decode against the base font.
+ * - `VNR016`: in the browser, hydrating a server render: the cipher of the
+ *   server-rendered text could not be read, so that text stays unreadable.
+ *   Every failure before the cipher is known has this code (the forged font,
+ *   the base font or the forge code could not be loaded, or they do not
+ *   decode); the message names the underlying code. Alert on it.
  */
 export type VeneerFailureCode = 'VNR010' | 'VNR011' | 'VNR012' | 'VNR013' | 'VNR015' | 'VNR016';
 

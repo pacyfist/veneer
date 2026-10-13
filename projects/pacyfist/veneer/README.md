@@ -251,11 +251,14 @@ provideVeneer(
   withStatusListener(({ status, failure }) => {
     if (status === 'failed') reportToMonitoring(failure!.code, failure!.message);
   }),
-  withStatusAttribute(), // one instance only; written during SSR too
+  withStatusAttribute(), // written during SSR too
 );
 ```
 
-Listeners run in the browser only. Failure codes are listed under
+With `withStatusAttribute()` on several instances, the attribute shows the most
+urgent status among them (`failed`, then `loading`, then `active`, then
+`disabled`) and goes away when the last of them is destroyed. Listeners run in
+the browser only. Failure codes are listed under
 [Error codes](#error-codes).
 
 `revealed` is a demo and debugging switch: flipping it on renders exactly what a
@@ -347,7 +350,10 @@ provideVeneer(
 ```
 
 Every face must load, or the instance fails open. Characters any face lacks are
-dropped from the cipher (see `strictCoverage`).
+dropped from the cipher (see `strictCoverage`). On a server-rendered page the
+browser registers the faces the server forged, with the server's descriptors,
+even when its own `withFaces()` differs; development builds warn
+([VNR018](#vnr018)).
 
 **`id`** matters only when several `provideVeneer` instances render on one server
 page (for example in lazy routes). Each publishes its forged fonts' URLs for
@@ -576,13 +582,15 @@ re-forge it on demand.
 
 ### Load balancers and restarts
 
-A page can only be decoded with the font it was rendered with. Without a
-`secret`, every process draws its own cipher, family name and font ids from the
-CSPRNG and keeps the fonts in its memory, so if a font request reaches another
-instance, or the same instance after a restart or a rolling deploy, it fails and
-the server's ciphertext stays on screen as gibberish ([VNR016](#vnr016)). This is
-the one case veneer cannot fail open from, because the readable text is not in
-the page.
+A page can only be decoded with the font it was rendered with. On a
+server-rendered page the readable text is not in the HTML, so whenever the
+browser cannot get the base font, the forged font or the forge code, the text the
+server rendered stays scrambled: veneer retries once, then reports
+[VNR016](#vnr016) (watch for it with `withStatusListener()`). A missing forged
+font is the case your deployment decides. Without a `secret`, every process draws
+its own cipher, family name and font ids from the CSPRNG and keeps the fonts in
+its memory, so a font request that reaches another instance, or the same
+instance after a restart or a rolling deploy, finds nothing.
 
 **The fix: a secret and a shared font folder.**
 
@@ -759,8 +767,8 @@ export const routes: Routes = [
 
 When several instances render on one server page, give each a distinct `id`, or
 they overwrite each other's forged-font state and hydrate with the wrong cipher.
-Put `withStatusAttribute()` on one instance only. A directive uses the nearest
-instance in its injector tree.
+`withStatusAttribute()` may go on several of them; the attribute shows the most
+urgent status. A directive uses the nearest instance in its injector tree.
 
 ### `@defer`
 
@@ -1251,7 +1259,7 @@ Measured on the demo (`npm run build:pages`, Angular 21, 2026-10-11) and with
 | The font forge, a lazy chunk           | 13.9 KB minified, 5.1 KB transferred, loaded when the font is built                                                         |
 | The base font download                 | Your font's size. Roboto Regular: 124 KB, 74 KB gzip. Shared with the page's own `@font-face` if the URL is the same        |
 | The forged font, server-rendered pages | About the size of the base font (124 KB for Roboto, 74 KB gzip), cached as immutable                                        |
-| Library FESM bundles, before minifying | `.` 22.1 KiB, `./core` 5.4 KiB, `./forge` 10.4 KiB, `./server` 7.1 KiB gzip (CI budgets in `scripts/check-bundle-size.mjs`) |
+| Library FESM bundles, before minifying | `.` 24.5 KiB, `./core` 5.4 KiB, `./forge` 10.4 KiB, `./server` 7.1 KiB gzip (CI budgets in `scripts/check-bundle-size.mjs`) |
 
 With `disabled: true` no font is downloaded and the forge chunk is never loaded.
 
@@ -1263,9 +1271,20 @@ starting `[veneer] disabled (VNRxxx)` is logged, `failed()` holds
 `{ code, message, missing? }`, and the page renders normally. Unreadable content
 is worse than unprotected content. Use `withStatusListener()` to report it.
 
-One case cannot fail open: a server-rendered page whose forged font never arrives
-([VNR016](#vnr016)). The readable text of server-rendered element content is not
-in the page, by design, so it stays as the server rendered it.
+Server-rendered pages are the exception. The readable text of server-rendered
+element content is not in the page, by design: the browser learns the cipher from
+the forged font, read against the base font with the forge code. If it cannot get
+any of the three (a blocker, offline, a redeploy that removed them, a load
+balancer without sticky sessions), that text stays scrambled and the failure is
+[VNR016](#vnr016), whatever the underlying cause. Bound text, `veneerHtml` and the
+pipe still fall back to readable. Requests that fail at the network level or with
+408, 429 or 5xx are retried once after 300 ms first. Alert on `VNR016`:
+
+```ts
+withStatusListener(({ failure }) => {
+  if (failure?.code === 'VNR016') reportError(failure.message); // server text unreadable
+});
+```
 
 A base font without a glyph for some charset characters does not fail by default:
 those characters are left out of the cipher (see `strictCoverage`). The forge
@@ -1361,9 +1380,11 @@ gibberish for people until protection next changes. Use the pipe with
 Dev-mode warning: the `veneer` pipe's output was rendered in an element that is
 not drawn with the forged font, so readers see it scrambled. Put `veneerFont` on
 the element that renders it. A pipe is not told where its result goes, so the
-check looks for the output in the page's text nodes after rendering and checks
-that they sit inside a `veneerFont` or `veneer` element (or an element whose
-`font-family` names the forged font). Output used in an attribute is not checked.
+check looks for the output, as whole words, in the page's text nodes after
+rendering, and warns only when none of the matches sits inside a `veneerFont` or
+`veneer` element (or an element whose `font-family` names the forged font). Output
+with fewer than four non-space characters, and output used in an attribute, is
+not checked.
 
 ### VNR003
 
@@ -1375,10 +1396,13 @@ from `@pacyfist/veneer/testing`.
 ### VNR010
 
 The base font could not be loaded: the request failed (the message names the
-resolved URL and the status) or the `font` loader rejected. Check that the file is
-served at that URL. Use a relative path such as `'fonts/Roboto-Regular.ttf'`: it
-resolves against `<base href>`, while a leading slash ignores it and breaks subpath
-deploys. Protection fails open.
+resolved URL and the status) or the `font` loader rejected. Or the forge code (a
+lazy chunk) could not be loaded. Network errors and 408, 429 and 5xx responses
+are retried once first. Check that the file is served at that URL. Use a relative
+path such as `'fonts/Roboto-Regular.ttf'`: it resolves against `<base href>`,
+while a leading slash ignores it and breaks subpath deploys. Protection fails
+open. On a hydrating server-rendered page this is reported as
+[VNR016](#vnr016) instead, with VNR010 in the message.
 
 ### VNR011
 
@@ -1417,19 +1441,31 @@ forge it. The server log has the reason.
 
 ### VNR016
 
-In the browser: the forged font the server rendered with could not be fetched, or
-does not decode against the base font. The server's ciphertext cannot be decoded
-without it, so server-rendered element content stays unreadable (bound text,
-`veneerHtml` and the pipe fall back to readable). Check that server.ts mounts
-`veneerFontMiddleware()`, that a load balancer sends the font request to the
-instance that rendered the page, or for prerendered pages that the `emitDir`
-folder was copied into the browser output.
+In the browser, hydrating a server render: the cipher of the server-rendered text
+could not be read, so server-rendered element content **stays unreadable** (bound
+text, `veneerHtml` and the pipe fall back to readable). Every failure before the
+cipher is known has this code, so `failed().code === 'VNR016'` always means "the
+server's text was left scrambled"; the message names the underlying failure and
+its own code (for example `VNR010` for the base font or the forge code), and
+`cause` holds the error. The usual causes: the forged font is missing (check that
+server.ts mounts `veneerFontMiddleware()`, that a load balancer sends the font
+request to the instance that rendered the page, or for prerendered pages that the
+`emitDir` folder was copied into the browser output), or the base font or forge
+chunk was blocked, offline, or removed by a redeploy.
 
 ### VNR017
 
 On the server: the `shouldProtect` hook given to `provideVeneerServer()` threw or
 rejected, so the page was rendered **protected**. Logged once per distinct error.
 The server log has the error; a common cause is a DNS lookup in the hook failing.
+
+### VNR018
+
+Dev-mode warning, while hydrating: the browser config lists different faces
+(`font` plus `withFaces()`, by weight, style and stretch) than the server forged
+the page with. The page still decodes: the browser registers the server's faces
+with the server's descriptors. Give `provideVeneer()` the same `withFaces()` in
+`app.config.ts` and `app.config.server.ts`.
 
 ### VNR020
 

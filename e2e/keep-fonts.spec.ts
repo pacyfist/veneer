@@ -48,7 +48,7 @@ async function serve(root: string): Promise<string> {
 const fontsOf = (dir: string): string[] =>
   JSON.parse(
     `[${readFileSync(join(dir, 'index.html'), 'utf8').match(/"fonts":\[([^\]]*)\]/)![1]}]`,
-  );
+  ).map((entry: string | { url: string }) => (typeof entry === 'string' ? entry : entry.url));
 
 test.beforeEach(({ browserName }) => {
   test.skip(browserName !== 'chromium', 'a build script, not a browser: once is enough');
@@ -99,7 +99,7 @@ test('reads fonts from the 404 page too, and skips URLs that are not forged font
   rmSync(join(live, 'index.html'));
   const html = readFileSync(join(live, '404.html'), 'utf8').replace(
     /"fonts":\[/,
-    `"fonts":["../../escape/${'a'.repeat(32)}.ttf","https://evil.example/${'b'.repeat(32)}.ttf","veneer/${'c'.repeat(32)}.ttf",`,
+    `"fonts":["../../escape/${'a'.repeat(32)}.ttf","https://evil.example/${'b'.repeat(32)}.ttf","veneer/${'c'.repeat(32)}.ttf",{"url":"veneer/${'d'.repeat(32)}.ttf","weight":"700"},`,
   );
   writeFileSync(join(live, '404.html'), html);
   const url = await serve(live);
@@ -108,6 +108,8 @@ test('reads fonts from the 404 page too, and skips URLs that are not forged font
   const { stdout } = await keep(url, next);
   expect(stdout).toContain(`kept ${fonts.length} forged font(s)`);
   expect(stdout).toContain(`could not keep veneer/${'c'.repeat(32)}.ttf`);
+  // A face with descriptors is listed as an object, and counts too.
+  expect(stdout).toContain(`could not keep veneer/${'d'.repeat(32)}.ttf`);
   expect(readdirSync(join(next, 'veneer')).sort()).toEqual(
     fonts.map((font) => font.split('/').pop()).sort(),
   );

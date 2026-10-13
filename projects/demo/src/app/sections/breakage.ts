@@ -19,9 +19,11 @@ const UNCOVERED = [0x180, 0x183];
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [SectionHeading, IsolatedInstance],
   template: `
-    <app-section-heading eyebrow="It fails safe" title="Worst case: your text is just text">
+    <app-section-heading eyebrow="When it fails" title="Usually: your text is just text">
       If the decoder font can't be built, protected text quietly turns back into ordinary readable
-      text. Unprotected is the worst case, never unreadable. These buttons really break it.
+      text. One exception: on a server-rendered page, if the browser cannot get the fonts or the
+      forge code, the server's text stays scrambled and veneer reports VNR016. These buttons really
+      break it.
     </app-section-heading>
 
     <div class="mb-4 flex flex-wrap gap-2">

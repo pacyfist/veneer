@@ -64,15 +64,21 @@ import { gzipSync } from 'node:zlib';
  * per-request `shouldProtect` hook and `verifyCrawler` (reverse and forward
  * DNS, cache, timeouts), most of the growth being their doc comments.
  *
- * `./server` raised 2026-10-13 by the review fixes: 8,890 B with `secret`
- * (HMAC-derived cipher, family and font ids), the shared-folder fallback of
- * `veneerFontMiddleware({ dir })` and atomic `emitDir` writes.
+ * `.` raised 2026-10-13 by review fixes: 25,102 B, from 22,590 B (one retry
+ * for font and forge requests, VNR016 for every hydrate failure before the
+ * cipher is known, the shared status attribute, forged faces sent with their
+ * descriptors and the dev-only VNR018 and whole-word VNR002 checks).
+ *
+ * `./server` raised 2026-10-13 by the review fixes: 9,473 B, from 7,256 B,
+ * with `secret` (HMAC-derived cipher, family and font ids), the shared-folder
+ * fallback of `veneerFontMiddleware({ dir })`, atomic `emitDir` writes and
+ * eviction of fonts together with their cipher.
  */
 const BUDGETS = {
-  '.': 24_400,
+  '.': 27_600,
   './core': 6_100,
   './forge': 11_700,
-  './server': 9_800,
+  './server': 10_400,
   './testing': 5_200,
 };
 

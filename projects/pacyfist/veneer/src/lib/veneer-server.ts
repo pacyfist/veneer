@@ -64,4 +64,21 @@ export const VENEER_SERVER_FORGE = new InjectionToken<VeneerServerForge>('VENEER
  * server rendered instead of scrambling it itself. It carries no secret.
  */
 export type VeneerTransfer =
-  { readonly family: string; readonly fonts: readonly string[] } | { readonly protect: false };
+  | { readonly family: string; readonly fonts: readonly VeneerTransferFont[] }
+  | { readonly protect: false };
+
+/**
+ * One forged face in `VeneerTransfer`, in face order (`font` first, then
+ * `withFaces()`): its URL, plus the `FontFace` descriptors the server forged
+ * it for, so the browser registers exactly the server's faces whatever its own
+ * config says. A plain URL is a face with default descriptors (and what older
+ * versions sent for every face).
+ */
+export type VeneerTransferFont =
+  | string
+  | {
+      readonly url: string;
+      readonly weight?: string;
+      readonly style?: string;
+      readonly stretch?: string;
+    };

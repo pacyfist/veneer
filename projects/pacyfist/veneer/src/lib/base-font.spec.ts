@@ -2,10 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BaseFont } from '@pacyfist/veneer/forge';
 import {
   FontSourceError,
+  RETRY_DELAY_MS,
   clearBaseFontCache,
+  fetchForgedFont,
   loadBaseFont,
+  loadForge,
   resolveFontSource,
   resolveFontUrl,
+  stubForgeImport,
 } from './base-font';
 
 const BASE = 'https://example.test/veneer/';
@@ -99,6 +103,69 @@ describe('resolveFontSource', () => {
   });
 });
 
+describe('one retry for a transient failure', () => {
+  it('retries a network error once, after a short delay', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(bytesResponse());
+    vi.stubGlobal('fetch', fetchMock);
+    const started = Date.now();
+    await resolveFontSource('fonts/A.ttf', BASE);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(RETRY_DELAY_MS - 20);
+  });
+
+  it.each([500, 503, 408, 429])('retries a %i once', async (status) => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('', { status }))
+      .mockResolvedValueOnce(bytesResponse());
+    vi.stubGlobal('fetch', fetchMock);
+    await resolveFontSource('fonts/A.ttf', BASE);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up after the second failure, reporting it', async () => {
+    const fetchMock = vi.fn(async () => new Response('', { status: 502 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(resolveFontSource('fonts/A.ttf', BASE)).rejects.toThrow(/502/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([403, 404])('does not retry a %i', async (status) => {
+    const fetchMock = vi.fn(async () => new Response('', { status }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(resolveFontSource('fonts/A.ttf', BASE)).rejects.toThrow(String(status));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a forged font the same way', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(bytesResponse());
+    vi.stubGlobal('fetch', fetchMock);
+    await fetchForgedFont('veneer/a.ttf', BASE);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries the forge chunk once, and does not cache a final failure', async () => {
+    const load = vi.fn(() => Promise.reject(new Error('chunk 404')));
+    const restore = stubForgeImport(load);
+    try {
+      const error = await loadForge().catch((e) => e);
+      expect(error).toBeInstanceOf(FontSourceError);
+      expect(error.message).toContain('VNR010');
+      expect(load).toHaveBeenCalledTimes(2);
+      await loadForge().catch(() => {});
+      expect(load).toHaveBeenCalledTimes(4);
+    } finally {
+      restore();
+    }
+  });
+});
+
 describe('resolveFontSource with a loader that throws FontSourceError', () => {
   it('passes it through unwrapped', async () => {
     const original = new FontSourceError('[veneer] VNR010: custom', 'https://cdn.test/A.ttf');
@@ -141,12 +208,12 @@ describe('loadBaseFont', () => {
   it('drops a failed fetch so the next caller retries', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(new Response('', { status: 503 }))
+      .mockResolvedValueOnce(new Response('', { status: 404 }))
       .mockResolvedValueOnce(bytesResponse());
     vi.stubGlobal('fetch', fetchMock);
     const parse = parser();
 
-    await expect(loadBaseFont('fonts/A.ttf', BASE, parse)).rejects.toThrow(/503/);
+    await expect(loadBaseFont('fonts/A.ttf', BASE, parse)).rejects.toThrow(/404/);
     await expect(loadBaseFont('fonts/A.ttf', BASE, parse)).resolves.toBe(FAKE_FONT);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });

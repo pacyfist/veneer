@@ -208,7 +208,9 @@ export function withFaces(...faces: VeneerFace[]): VeneerFeature<'faces'> {
  * for CSS hooks and for monitoring that reads the DOM. Written during server
  * rendering too.
  *
- * Use it on one instance only: several instances would overwrite each other.
+ * With several instances using it, the attribute shows the most urgent of
+ * their statuses: `failed`, then `loading`, then `active`, then `disabled`.
+ * It is removed when the last of them is destroyed.
  */
 export function withStatusAttribute(): VeneerFeature<'statusAttribute'> {
   return { ɵkind: 'statusAttribute', ɵapply: (config) => ({ ...config, statusAttribute: true }) };

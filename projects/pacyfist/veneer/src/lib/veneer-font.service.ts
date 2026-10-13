@@ -31,11 +31,12 @@ import {
   loadBaseFont,
   loadForge,
 } from './base-font';
-import { VENEER_SERVER_FORGE, VeneerTransfer } from './veneer-server';
+import { VENEER_SERVER_FORGE, VeneerTransfer, VeneerTransferFont } from './veneer-server';
 import type { BaseFont } from '@pacyfist/veneer/forge';
 import { docsUrl, veneerMessage } from './veneer-errors';
 import { warnUncovered } from './veneer-uncovered';
 import type { VeneerFailure, VeneerStatus } from './veneer-status';
+import { releaseStatusAttribute, setStatusAttribute } from './veneer-status-attribute';
 
 /**
  * Carries the forged fonts' URLs and family name from the server render to the
@@ -61,17 +62,52 @@ function randomFamilyName(): string {
   return `Veneer-${[...words].map((w) => w.toString(16).padStart(8, '0')).join('')}`;
 }
 
+/** The descriptors a face can set; the rest keep the browser defaults. */
+type FaceDescriptors = Pick<FontFaceDescriptors, 'weight' | 'style' | 'stretch'>;
+
 /** `FontFace` descriptors for a face; unset ones keep the browser defaults. */
-function descriptorsOf(face: VeneerFace): FontFaceDescriptors {
-  const descriptors: FontFaceDescriptors = {};
+function descriptorsOf(face: VeneerFace): FaceDescriptors {
+  const descriptors: FaceDescriptors = {};
   if (face.weight !== undefined) descriptors.weight = String(face.weight);
   if (face.style !== undefined) descriptors.style = face.style;
   if (face.stretch !== undefined) descriptors.stretch = face.stretch;
   return descriptors;
 }
 
-/** The attribute `withStatusAttribute()` maintains on `<html>`. */
-const STATUS_ATTRIBUTE = 'data-veneer-status';
+/** The descriptors of every configured face, in face order: `font` (defaults) first. */
+function faceDescriptors(faces: readonly VeneerFace[]): FaceDescriptors[] {
+  return [{}, ...faces.map(descriptorsOf)];
+}
+
+/** A forged face as the server sends it: a bare URL when it has no descriptors. */
+function toTransferFont(url: string, descriptors: FaceDescriptors): VeneerTransferFont {
+  return Object.keys(descriptors).length > 0 ? { url, ...descriptors } : url;
+}
+
+/** A forged face as the browser reads it, from either form. */
+function fromTransferFont(font: VeneerTransferFont): ServerFont {
+  if (typeof font === 'string') return { url: font, descriptors: {} };
+  const { url, ...descriptors } = font;
+  return { url, descriptors };
+}
+
+/** One of the server's forged faces, while hydrating. */
+interface ServerFont {
+  readonly url: string;
+  readonly descriptors: FaceDescriptors;
+}
+
+/** `regular, weight 700, style italic`: a face list for a message. */
+function describeFaces(faces: readonly FaceDescriptors[]): string {
+  return faces
+    .map((face) => {
+      const set = Object.entries(face)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, value]) => `${key} ${value}`);
+      return set.length > 0 ? set.join(' ') : 'regular';
+    })
+    .join(', ');
+}
 
 /** Which step of `load()` an error came from. */
 type Stage = 'source' | 'forge' | 'face';
@@ -89,6 +125,14 @@ declare const ngDevMode: boolean | undefined;
 
 /** Server failures already logged, so each is reported once per process. */
 const loggedServerFailures = new Set<string>();
+
+/** `[veneer] VNR010: text. See <url>` without the prefix, the code, the link and the final stop. */
+function bareMessage(message: string): string {
+  return message
+    .replace(/^\[veneer\] (?:VNR\d+: )?/, '')
+    .replace(/ See https:\/\/\S+$/, '')
+    .replace(/\.$/, '');
+}
 
 /** Turn whatever `load()` caught into a structured failure with a stable code. */
 function describeFailure(error: unknown, stage: Stage): VeneerFailure {
@@ -141,8 +185,8 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
    */
   private readonly off: boolean;
 
-  /** When hydrating: the URLs of the server's forged faces. */
-  private readonly serverFonts: readonly string[] = [];
+  /** When hydrating: the server's forged faces, with their descriptors. */
+  private readonly serverFonts: readonly ServerFont[] = [];
 
   private readonly serverMap: WritableSignal<ScrambleMap | null>;
 
@@ -174,7 +218,10 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   /** True once the forged font is registered and text is safe to show. */
   readonly ready = this.isReady.asReadonly();
 
-  /** Set when the font could not be built. The library fails open when this happens. */
+  /**
+   * Set when the font could not be built. The library fails open when this
+   * happens, except that with `VNR016` server-rendered text stays unreadable.
+   */
   readonly failed = this.failure.asReadonly();
 
   /** `loading`, `active`, `failed` or `disabled`. */
@@ -234,7 +281,13 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
           const prepared = forge.prepare(this.config);
           known = prepared.map;
           familyName = prepared.familyName;
-          this.transferState.set(key, { family: familyName, fonts: [...prepared.urls] });
+          // Each face with its descriptors, so the browser registers exactly
+          // these, whatever faces its own config lists.
+          const descriptors = faceDescriptors(this.config.faces);
+          this.transferState.set(key, {
+            family: familyName,
+            fonts: prepared.urls.map((url, i) => toTransferFont(url, descriptors[i] ?? {})),
+          });
         } catch (error) {
           failure = describeServerFailure(error);
         }
@@ -281,7 +334,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
         } else {
           this.mode = 'hydrate';
           familyName = transfer.family;
-          this.serverFonts = transfer.fonts;
+          this.serverFonts = transfer.fonts.map(fromTransferFont);
           known = null;
         }
       } else {
@@ -379,20 +432,17 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     let stage: Stage = 'source';
     try {
       const forge = loadForge();
-      const faces: VeneerFace[] = [{ src: this.config.font }, ...this.config.faces];
-      if (this.serverFonts.length !== faces.length) {
-        throw new ForgedFontError(
-          veneerMessage(
-            'VNR016',
-            `the server sent ${this.serverFonts.length} forged font(s) for ${faces.length} face(s).`,
-          ),
-        );
+      if (this.serverFonts.length === 0) {
+        throw new ForgedFontError(veneerMessage('VNR016', 'the server sent no forged font.'));
       }
+      if (typeof ngDevMode === 'undefined' || ngDevMode) this.warnFaceMismatch();
+      // The server's faces, not the browser's config: the page was rendered
+      // with these, and the map is read from the first (the regular face).
       const [base, ...forged] = await Promise.all([
         loadBaseFont(this.config.font, this.document.baseURI, async (bytes) =>
           (await forge).parseBaseFont(bytes),
         ),
-        ...this.serverFonts.map((url) => fetchForgedFont(url, this.document.baseURI)),
+        ...this.serverFonts.map((font) => fetchForgedFont(font.url, this.document.baseURI)),
       ]);
       stage = 'forge';
       const { parseBaseFont, readScrambleMap } = await forge;
@@ -403,10 +453,10 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
         throw new ForgedFontError(
           veneerMessage(
             'VNR016',
-            `could not read the cipher from the forged font ${this.serverFonts[0]} ` +
+            `could not read the cipher from the forged font ${this.serverFonts[0].url} ` +
               `(${(cause as Error)?.message ?? cause}).`,
           ),
-          this.serverFonts[0],
+          this.serverFonts[0].url,
         );
       }
       if (this.destroyed) return;
@@ -418,7 +468,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
       stage = 'face';
       const loaded = await Promise.all(
         forged.map((bytes, i) =>
-          new FontFace(this.familyName, bytes, descriptorsOf(faces[i])).load(),
+          new FontFace(this.familyName, bytes, this.serverFonts[i].descriptors).load(),
         ),
       );
       if (this.destroyed) return;
@@ -427,17 +477,60 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
       this.isReady.set(true);
     } catch (error) {
       if (this.destroyed) return;
-      this.fail(error, stage);
+      // Before the map is known, any failure leaves the server's ciphertext
+      // on screen: report all of them as VNR016, so monitoring can tell
+      // "server-rendered text stayed unreadable" from a plain fail-open.
+      this.fail(error, stage, untracked(this.serverMap) === null);
     }
     this.report();
   }
 
-  /** Fail open: `active()` flips false and every directive restores readable text. */
-  private fail(error: unknown, stage: Stage): void {
-    const failure = describeFailure(error, stage);
+  /**
+   * VNR018 (dev only): the browser's faces differ from the ones the server
+   * forged. Hydration registers the server's, so the page still decodes, but
+   * the two configs should agree.
+   */
+  private warnFaceMismatch(): void {
+    const browser = faceDescriptors(this.config.faces);
+    const server = this.serverFonts.map((font) => font.descriptors);
+    if (describeFaces(browser) === describeFaces(server)) return;
+    console.warn(
+      veneerMessage(
+        'VNR018',
+        `the server rendered this page with ${server.length} face(s) (${describeFaces(server)}), ` +
+          `but the browser config lists ${browser.length} (${describeFaces(browser)}). The page ` +
+          "registers the server's faces, so it still decodes. Give provideVeneer() the same " +
+          'withFaces() in the browser and server configs.',
+      ),
+    );
+  }
+
+  /**
+   * Fail open: `active()` flips false and every directive restores readable
+   * text. With `serverTextLost` (hydrating, the server's map still unknown)
+   * the server-rendered element text cannot be restored and stays ciphertext,
+   * so the failure is VNR016 whatever caused it; the cause keeps its own code
+   * in the message and the error in `cause`.
+   */
+  private fail(error: unknown, stage: Stage, serverTextLost = false): void {
+    let failure = describeFailure(error, stage);
+    if (serverTextLost && failure.code !== 'VNR016') {
+      failure = {
+        code: 'VNR016',
+        message: veneerMessage(
+          'VNR016',
+          'the cipher of the server-rendered text could not be read, so that text stays ' +
+            `unreadable (${failure.code}: ${bareMessage(failure.message)}).`,
+        ),
+        cause: error,
+      };
+    }
     console.error(
-      `[veneer] disabled (${failure.code}) - could not build the protective font, so text ` +
-        `is shown readable. See ${docsUrl(failure.code)}`,
+      failure.code === 'VNR016'
+        ? `[veneer] disabled (VNR016) - could not read the server's cipher, so server-rendered ` +
+            `text stays unreadable; other protected text is shown readable. See ${docsUrl('VNR016')}`
+        : `[veneer] disabled (${failure.code}) - could not build the protective font, so text ` +
+            `is shown readable. See ${docsUrl(failure.code)}`,
       error,
     );
     this.failure.set(failure);
@@ -478,9 +571,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     if (status === this.reported) return;
     this.reported = status;
 
-    if (this.config.statusAttribute) {
-      this.document.documentElement?.setAttribute(STATUS_ATTRIBUTE, status);
-    }
+    if (this.config.statusAttribute) setStatusAttribute(this.document, this, status);
     if (!this.isBrowser) return;
 
     const event = { status, failure: untracked(this.failure), familyName: this.familyName };
@@ -497,9 +588,7 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
     this.destroyed = true;
     for (const face of this.faces) this.document.fonts.delete(face);
     this.faces = [];
-    if (this.config.statusAttribute) {
-      this.document.documentElement?.removeAttribute(STATUS_ATTRIBUTE);
-    }
+    if (this.config.statusAttribute) releaseStatusAttribute(this.document, this);
   }
 }
 

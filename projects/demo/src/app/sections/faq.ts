@@ -38,7 +38,7 @@ const QUESTIONS: readonly Question[] = [
   },
   {
     q: 'What if the font fails to load?',
-    a: 'It fails open: text turns readable again, an error with a stable code is logged, and a status listener can report it to your monitoring. With JavaScript disabled, visitors see the scrambled text instead of blank space. One case cannot fail open: a server-rendered page whose forged font cannot be fetched at all, because the readable text is not in that page.',
+    a: 'It fails open: text turns readable again, an error with a stable code is logged, and a status listener can report it to your monitoring. With JavaScript disabled, visitors see the scrambled text instead of blank space. One case cannot fail open: on a server-rendered page, if the browser cannot get the base font, the forged font or the forge code (blocked, offline, a redeploy), the server-rendered text stays scrambled, because the readable text is not in that page. veneer retries once and then reports VNR016.',
   },
   {
     q: 'Is it slow?',

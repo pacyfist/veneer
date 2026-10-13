@@ -68,9 +68,34 @@ export function warnCaseStyles(elements: Iterable<Element>): void {
 export type PipeOutputPlacement = 'protected' | 'unprotected' | 'absent';
 
 /**
- * Looks for text nodes containing `output` and reports whether they render
- * in the forged font: inside a `veneerFont` or `veneer` element, or under an
- * element whose computed `font-family` names `familyName`.
+ * Outputs with fewer non-space characters are not checked: a short string
+ * turns up in unrelated text too often to say where the pipe put it.
+ */
+export const MIN_CHECKED_LENGTH = 4;
+
+/** Whether `output` is long enough for `placePipeOutput` to look for it. */
+export function isCheckable(output: string): boolean {
+  return output.replace(/\s/g, '').length >= MIN_CHECKED_LENGTH;
+}
+
+/**
+ * Matches `output` as whole words: not preceded or followed by a letter or
+ * digit, so a short output inside a longer word does not count.
+ */
+function wholeWords(output: string): RegExp {
+  const escaped = output.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u');
+}
+
+/**
+ * Looks for text nodes holding `output` as whole words and reports whether it
+ * renders in the forged font: inside a `veneerFont` or `veneer` element, or
+ * under an element whose computed `font-family` names `familyName`.
+ *
+ * `protected` when any match is, since the same ciphertext may also appear on
+ * purpose elsewhere (a "what a bot reads" readout); `unprotected` only when
+ * every match is. Outputs shorter than `MIN_CHECKED_LENGTH` non-space
+ * characters are never looked for (`absent`).
  */
 export function placePipeOutput(
   document: Document,
@@ -78,31 +103,23 @@ export function placePipeOutput(
   familyName: string,
 ): PipeOutputPlacement {
   const body = document.body;
-  if (!body) return 'absent';
+  if (!body || !isCheckable(output)) return 'absent';
   const view = document.defaultView;
+  const pattern = wholeWords(output);
   let found = false;
   const walker = document.createTreeWalker(body, 4 /* NodeFilter.SHOW_TEXT */);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (!(node as Text).data.includes(output)) continue;
+    if (!pattern.test((node as Text).data)) continue;
     found = true;
-    let protectedHere = false;
     for (let el = node.parentElement; el; el = el.parentElement) {
-      if (hostOf(el)) {
-        protectedHere = true;
-        break;
-      }
+      if (hostOf(el)) return 'protected';
     }
     const parent = node.parentElement;
-    if (
-      !protectedHere &&
-      parent &&
-      view?.getComputedStyle(parent).fontFamily.includes(familyName)
-    ) {
-      protectedHere = true;
+    if (parent && view?.getComputedStyle(parent).fontFamily.includes(familyName)) {
+      return 'protected';
     }
-    if (!protectedHere) return 'unprotected';
   }
-  return found ? 'protected' : 'absent';
+  return found ? 'unprotected' : 'absent';
 }
 
 /**
@@ -161,6 +178,7 @@ export class PipePlacementCheck {
 
   check(output: string): void {
     if (this.state === 'settled') return;
+    if (!isCheckable(output)) return;
     this.output = output;
     if (this.state === 'scheduled') return;
     this.state = 'scheduled';

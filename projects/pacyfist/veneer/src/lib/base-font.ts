@@ -36,6 +36,35 @@ export class ForgedFontError extends Error {
   }
 }
 
+/** How long to wait before the one retry of a request that failed for a transient reason. */
+export const RETRY_DELAY_MS = 300;
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Statuses worth one more try: a timeout, rate limiting, or a server error
+ * (often a deploy or restart in progress). A 404 or 403 will not change.
+ */
+function isTransientStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+/**
+ * `fetch`, retried once after a short delay when the request fails at the
+ * network level or with a transient status. Returns the last response, or
+ * throws the last network error.
+ */
+async function fetchWithRetry(url: string): Promise<Response> {
+  try {
+    const response = await fetch(url);
+    if (!isTransientStatus(response.status)) return response;
+  } catch {
+    // Offline for a moment, a dropped connection: try once more below.
+  }
+  await wait(RETRY_DELAY_MS);
+  return fetch(url);
+}
+
 /** Fetch a forged font the server rendered with. */
 export async function fetchForgedFont(source: string, baseUrl: string): Promise<ArrayBuffer> {
   const url = resolveFontUrl(source, baseUrl);
@@ -45,7 +74,7 @@ export async function fetchForgedFont(source: string, baseUrl: string): Promise<
     "emitted fonts were copied into the browser output (see provideVeneerServer's `emitDir`).";
   let response: Response;
   try {
-    response = await fetch(url);
+    response = await fetchWithRetry(url);
   } catch (cause) {
     const reason = (cause as Error)?.message ?? String(cause);
     throw new ForgedFontError(
@@ -77,7 +106,7 @@ export function resolveFontUrl(source: string, baseUrl: string): string {
 async function fetchFont(url: string): Promise<ArrayBuffer> {
   let response: Response;
   try {
-    response = await fetch(url);
+    response = await fetchWithRetry(url);
   } catch (cause) {
     const reason = (cause as Error)?.message ?? String(cause);
     throw new FontSourceError(
@@ -122,6 +151,9 @@ export async function resolveFontSource(
 /** The `@pacyfist/veneer/forge` module. */
 export type Forge = typeof import('@pacyfist/veneer/forge');
 
+/** The dynamic import of the forge chunk. Swappable in tests. */
+let importForge = (): Promise<Forge> => import('@pacyfist/veneer/forge');
+
 let forge: Promise<Forge> | undefined;
 
 /**
@@ -130,17 +162,37 @@ let forge: Promise<Forge> | undefined;
  * A dynamic import of its own entry point, so bundlers put the forge (and
  * WOFF decoding) in a lazy chunk instead of the app's initial bundle. The
  * cipher stays in the main bundle: it has to run synchronously, on the server
- * too. A failed chunk load is not cached.
+ * too. A failed chunk load is retried once after a short delay (a redeploy
+ * or a dropped connection), and a final failure is not cached.
  */
 export function loadForge(): Promise<Forge> {
-  forge ??= import('@pacyfist/veneer/forge').catch((cause) => {
-    forge = undefined;
-    const reason = (cause as Error)?.message ?? String(cause);
-    throw new FontSourceError(
-      veneerMessage('VNR010', `could not load the font forge (${reason}).`),
-    );
-  });
+  forge ??= importForge()
+    .catch(async () => {
+      await wait(RETRY_DELAY_MS);
+      return importForge();
+    })
+    .catch((cause) => {
+      forge = undefined;
+      const reason = (cause as Error)?.message ?? String(cause);
+      throw new FontSourceError(
+        veneerMessage('VNR010', `could not load the font forge (${reason}).`),
+      );
+    });
   return forge;
+}
+
+/**
+ * Replace how the forge chunk is imported (`loadForge` still retries it once).
+ * Tests only; returns a function that restores the real import.
+ */
+export function stubForgeImport(load: () => Promise<Forge>): () => void {
+  const real = importForge;
+  importForge = load;
+  forge = undefined;
+  return () => {
+    importForge = real;
+    forge = undefined;
+  };
 }
 
 /** Parsed fonts per URL: one fetch and one parse per page, however many instances ask. */

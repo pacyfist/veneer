@@ -35,12 +35,16 @@ function pagesIn(dir) {
     .filter((file) => file.endsWith('.html'));
 }
 
-/** The forged-font URLs a page's ng-state lists (`"fonts":[...]`). */
+/**
+ * The forged-font URLs a page's ng-state lists (`"fonts":[...]`): each entry
+ * a URL, or `{ url, weight?, style?, stretch? }` for a face with descriptors.
+ */
 function fontsIn(html) {
   const urls = [];
   for (const [, list] of html.matchAll(/"fonts":\[([^\]]*)\]/g)) {
     try {
-      urls.push(...JSON.parse(`[${list}]`).filter((url) => typeof url === 'string'));
+      const entries = JSON.parse(`[${list}]`).map((entry) => entry?.url ?? entry);
+      urls.push(...entries.filter((url) => typeof url === 'string'));
     } catch {
       // Not ng-state after all.
     }
