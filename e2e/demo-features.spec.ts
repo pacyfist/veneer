@@ -155,3 +155,37 @@ test.describe('bold and italic faces', () => {
     expect(await strong.textContent()).not.toBe('bold words');
   });
 });
+
+test.describe('[veneerHtml] with CMS HTML', () => {
+  test('strips the unsafe bits, keeps markup, and keeps veneer-skip from SafeHtml', async ({
+    page,
+  }) => {
+    await openDemo(page);
+    const panel = page.locator('app-cms-html');
+    const element = panel.getByTestId('cms-element');
+    const dom = panel.getByTestId('cms-dom');
+
+    // A plain string: sanitized like [innerHTML].
+    await expect(dom).toContainText('<a href="#start">');
+    await expect(dom).toContainText('<strong>');
+    await expect(dom).toContainText('<code>npm test</code>');
+    await expect(dom).not.toContainText('onclick');
+    await expect(dom).not.toContainText('script');
+    expect(await element.locator('script').count()).toBe(0);
+    expect(await element.locator('a').getAttribute('onclick')).toBeNull();
+    await expect(element.locator('a')).not.toHaveText('setup guide');
+    // Angular's sanitizer drops attributes it does not know, veneer-skip
+    // included, so the name is scrambled with the rest. The copy says so; if
+    // this starts failing, veneer-skip survives sanitizing: update the copy.
+    await expect(dom).not.toContainText('veneer-skip');
+    await expect(dom).not.toContainText('Ada Lovelace');
+    await expect(panel.getByTestId('a11y')).toContainText('contains a link');
+
+    // SafeHtml goes in as it is: veneer-skip survives and stays readable.
+    await panel.getByRole('tab', { name: 'SafeHtml' }).click();
+    await expect(dom).toContainText('veneer-skip');
+    await expect(element.locator('[veneer-skip]')).toHaveText('Ada Lovelace');
+    await expect(element.locator('code')).toHaveText('npm test');
+    await expect(element.locator('strong')).not.toHaveText('font');
+  });
+});

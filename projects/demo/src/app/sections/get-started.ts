@@ -3,6 +3,7 @@ import { SectionHeading } from '../ui/section-heading';
 import { CodeBlock } from '../ui/code-block';
 import { VeneerDirective } from '@pacyfist/veneer';
 import { ApplyTabs } from './apply-tabs';
+import { CmsHtml } from './cms-html';
 
 /**
  * Snippets live here rather than inline in the template: an Angular template
@@ -59,7 +60,7 @@ const SERVER_TS = [
 @Component({
   selector: 'app-get-started',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SectionHeading, CodeBlock, ApplyTabs, VeneerDirective],
+  imports: [SectionHeading, CodeBlock, ApplyTabs, CmsHtml, VeneerDirective],
   template: `
     <app-section-heading eyebrow="Get started" title="Add it to your Angular app in three steps">
       Works with standalone components, signals, server-side rendering and hydration. No stylesheet
@@ -144,9 +145,14 @@ const SERVER_TS = [
         </p>
         <p class="text-base-content/70 mt-2 text-sm">
           The attribute rewrites each text node in place and leaves the elements alone.
-          <code>code</code> elements and anything marked <code>veneer-skip</code> stay readable. For
-          HTML from a CMS, bind it with <code>[veneerHtml]</code>, which sanitizes it first.
+          <code>code</code> elements and anything marked <code>veneer-skip</code> stay readable.
         </p>
+
+        <h4 class="mt-6 text-lg font-bold">HTML from a CMS: <code>[veneerHtml]</code></h4>
+        <p class="text-base-content/70 mt-1 mb-3 text-sm">
+          Bind the HTML and veneer sanitizes it first, then protects its text.
+        </p>
+        <app-cms-html />
       </div>
     </div>
   `,

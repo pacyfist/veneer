@@ -32,7 +32,15 @@ export interface Specimen {
   readonly file: string;
   readonly form: SpecimenForm;
   readonly text: string;
+  /** Rendered only after the visitor asks for it (a button), not at page load. */
+  readonly onDemand: boolean;
 }
+
+/**
+ * Components the demo renders only on a click, so their specimens are not on
+ * screen at page load (they still ship in the bundle).
+ */
+const ON_DEMAND = new Set(['sections/faces-card.ts']);
 
 /**
  * Binding site (`file: expression`) -> the declarations holding the strings it
@@ -47,6 +55,11 @@ const BINDINGS: Record<string, readonly { file: string; name: string }[]> = {
     { file: 'sections/bench.ts', name: 'SAMPLE' },
     { file: 'sections/breakage.ts', name: 'SAMPLE' },
     { file: 'sections/trade-offs.ts', name: 'COPY_SAMPLE' },
+  ],
+  // The CMS sample, as a plain string and as SafeHtml (the same post, cleaned).
+  'sections/cms-html.ts: [veneerHtml]="html()"': [
+    { file: 'sections/cms-html.ts', name: 'CMS_HTML' },
+    { file: 'sections/cms-html.ts', name: 'CLEAN_HTML' },
   ],
   // MirrorPanel renders TryIt's typed text, which starts out as this default.
   'ui/mirror-panel.ts: readable() | veneer': [{ file: 'sections/try-it.ts', name: 'text' }],
@@ -75,6 +88,10 @@ function literal(file: string, name: string): string {
 
 const squash = (text: string) => text.replace(/\s+/g, ' ').trim();
 
+/** The text of an HTML string as the sanitizer leaves it: no tags, no script content. */
+const htmlText = (html: string) =>
+  squash(html.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<[^>]*>/g, ''));
+
 function idFor(file: string, form: SpecimenForm, text: string): string {
   const words = text.split(' ');
   const head = words.slice(0, 4).join(' ') + (words.length > 4 ? '…' : '');
@@ -86,7 +103,13 @@ function collect(): Specimen[] {
   const unmapped: string[] = [];
   const add = (file: string, form: SpecimenForm, text: string) => {
     if (!specimens.some((s) => s.text === text)) {
-      specimens.push({ id: idFor(file, form, text), file, form, text });
+      specimens.push({
+        id: idFor(file, form, text),
+        file,
+        form,
+        text,
+        onDemand: ON_DEMAND.has(file),
+      });
     }
   };
 
@@ -127,7 +150,11 @@ function collect(): Specimen[] {
     for (const { form, site } of sites) {
       const sources = BINDINGS[site];
       if (!sources) unmapped.push(site);
-      for (const s of sources ?? []) add(s.file, form, literal(s.file, s.name));
+      for (const s of sources ?? []) {
+        const value = literal(s.file, s.name);
+        // [veneerHtml] binds markup: its specimen is the text, as for element content.
+        add(s.file, form, site.includes('[veneerHtml]') ? htmlText(value) : value);
+      }
     }
   }
 

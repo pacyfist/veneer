@@ -107,9 +107,10 @@ test.describe('adversary (c): FontFace hook in a real browser', () => {
     });
 
     // The hero decodes whole, and so does every specimen on screen at load:
-    // all element-content ones. (Bound ones in inactive tabs are not in the DOM.)
+    // all element-content ones except those behind a button. (Bound ones in
+    // inactive tabs are not in the DOM.)
     expect(leaks.some((l) => l.original === HERO.text && l.whole)).toBe(true);
-    for (const specimen of SPECIMENS.filter((s) => s.form === 'element')) {
+    for (const specimen of SPECIMENS.filter((s) => s.form === 'element' && !s.onDemand)) {
       expect(recovered, specimen.id).toContainEqual(specimen);
     }
   });

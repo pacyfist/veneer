@@ -15,6 +15,8 @@ export class DomProbe {
   readonly ariaHidden = signal<boolean | null>(null);
   /** The element's `textContent`. */
   readonly text = signal<string | null>(null);
+  /** The element's `innerHTML`. */
+  readonly html = signal<string | null>(null);
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -22,12 +24,12 @@ export class DomProbe {
       const read = () => {
         this.ariaHidden.set(this.el.getAttribute('aria-hidden') === 'true');
         this.text.set(this.el.textContent ?? '');
+        this.html.set(this.el.innerHTML);
       };
       read();
       const observer = new MutationObserver(read);
       observer.observe(this.el, {
         attributes: true,
-        attributeFilter: ['aria-hidden'],
         childList: true,
         characterData: true,
         subtree: true,

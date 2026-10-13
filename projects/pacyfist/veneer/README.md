@@ -197,7 +197,9 @@ binding that changes to `''` (or `undefined`) clears the text:
 Bind HTML and the directive renders it sanitized, the way Angular sanitizes
 `[innerHTML]` (scripts, event handlers and unsafe URLs are stripped), then
 protects its text nodes. A `SafeHtml` from `DomSanitizer.bypassSecurityTrustHtml()`
-is rendered as is.
+is rendered as is. Angular's sanitizer also drops attributes it does not know,
+`veneer-skip` included; to keep it, sanitize in your own pipeline and pass
+`SafeHtml`.
 
 ```html
 <div [veneerHtml]="article().bodyHtml"></div>
@@ -801,7 +803,8 @@ export class Post {
 
 Inside protected content, `code` elements stay readable (code is meant to be
 copied), and so does anything marked `veneer-skip`, such as an author's name:
-`<span veneer-skip>Ada Lovelace</span>`. Links get scrambled accessible names
+`<span veneer-skip>Ada Lovelace</span>` (in a `[veneerHtml]` string the
+sanitizer removes `veneer-skip`; it survives only in `SafeHtml`). Links get scrambled accessible names
 (WCAG 2.4.4), and `withA11y('hide')` leaves an element that contains a link
 exposed ([VNR021](#vnr021)): offer readable mode wherever protected content has
 links. Remember the [transfer cache](#where-plaintext-still-leaks) when the HTML
