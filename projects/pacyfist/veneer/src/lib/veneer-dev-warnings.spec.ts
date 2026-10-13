@@ -1,4 +1,4 @@
-import { Component, Type, signal } from '@angular/core';
+import { Component, Type, computed, inject, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildScrambleMap, scrambleText } from '@pacyfist/veneer/core';
@@ -10,6 +10,7 @@ import {
 import { VeneerDirective } from './veneer.directive';
 import { VeneerFontDirective } from './veneer-font.directive';
 import { VeneerPipe } from './veneer.pipe';
+import { placePipeOutput } from './veneer-dev';
 
 const SEED = 31;
 
@@ -55,6 +56,38 @@ class BarePipeHost {
 class ProtectedPipeHost {
   readonly title = signal('Pipe output here');
 }
+
+/** The protected title, plus a readout of the raw ciphertext a bot reads, on purpose unprotected. */
+@Component({
+  template: `
+    <pre>{{ raw() }}</pre>
+    <h1 veneerFont>{{ title() | veneer }}</h1>
+  `,
+  imports: [VeneerPipe, VeneerFontDirective],
+})
+class ReadoutHost {
+  readonly title = signal('Pipe output here');
+  private readonly veneer = inject(VeneerTestingFontService);
+  readonly raw = computed(() => this.veneer.scramble(this.title()));
+}
+
+/** Short output that also occurs inside an unrelated, unprotected word. */
+@Component({
+  template: `
+    <p>{{ word }}s and more</p>
+    <span veneerFont>{{ 'Pipe' | veneer }}</span>
+    <span veneerFont>{{ 'ab' | veneer }}</span>
+  `,
+  imports: [VeneerPipe, VeneerFontDirective],
+})
+class SubstringHost {
+  /** The ciphertext of "Pipe", typed into unrelated text as part of a longer word. */
+  readonly word = inject(VeneerTestingFontService).scramble('Pipe');
+}
+
+/** Output shorter than the minimum, rendered unprotected. */
+@Component({ template: '<b>{{ "Hi!" | veneer }}</b>', imports: [VeneerPipe] })
+class ShortPipeHost {}
 
 @Component({
   template: `
@@ -165,6 +198,50 @@ describe('VNR002: pipe output outside veneerFont', () => {
   it('stays quiet when protection is off', async () => {
     await render(BarePipeHost, { state: 'failed' });
     expect(codes()).toEqual([]);
+  });
+
+  it('stays quiet when the same ciphertext is also shown raw on purpose', async () => {
+    await render(ReadoutHost);
+    expect(codes()).toEqual([]);
+  });
+
+  it('ignores the output inside a longer unprotected word', async () => {
+    await render(SubstringHost);
+    expect(codes()).toEqual([]);
+  });
+
+  it('skips output shorter than four non-space characters', async () => {
+    await render(ShortPipeHost);
+    expect(codes()).toEqual([]);
+  });
+});
+
+describe('placePipeOutput', () => {
+  afterEach(() => (document.body.innerHTML = ''));
+
+  it('matches whole text or whole words only', () => {
+    document.body.innerHTML = '<p>xyzzyabc</p>';
+    expect(placePipeOutput(document, 'zzya', 'F')).toBe('absent');
+    document.body.innerHTML = '<p>Title: zzya.</p>';
+    expect(placePipeOutput(document, 'zzya', 'F')).toBe('unprotected');
+  });
+
+  it('is protected when any match is, unprotected only when every match is', () => {
+    document.body.innerHTML = `<pre>Qwer tyui</pre><p style="font-family: 'Fam', serif">Qwer tyui</p>`;
+    expect(placePipeOutput(document, 'Qwer tyui', 'Fam')).toBe('protected');
+    document.body.innerHTML = '<pre>Qwer tyui</pre><p>Qwer tyui</p>';
+    expect(placePipeOutput(document, 'Qwer tyui', 'Fam')).toBe('unprotected');
+  });
+
+  it('never looks for output under the minimum length', () => {
+    document.body.innerHTML = '<p>a b c</p>';
+    expect(placePipeOutput(document, 'a b c', 'F')).toBe('absent');
+    expect(placePipeOutput(document, 'abc', 'F')).toBe('absent');
+  });
+
+  it('escapes regular expression characters in the output', () => {
+    document.body.innerHTML = '<p>(a+b)*c?</p>';
+    expect(placePipeOutput(document, '(a+b)*c?', 'F')).toBe('unprotected');
   });
 });
 

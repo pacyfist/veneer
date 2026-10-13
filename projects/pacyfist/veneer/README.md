@@ -1299,9 +1299,11 @@ gibberish for people until protection next changes. Use the pipe with
 Dev-mode warning: the `veneer` pipe's output was rendered in an element that is
 not drawn with the forged font, so readers see it scrambled. Put `veneerFont` on
 the element that renders it. A pipe is not told where its result goes, so the
-check looks for the output in the page's text nodes after rendering and checks
-that they sit inside a `veneerFont` or `veneer` element (or an element whose
-`font-family` names the forged font). Output used in an attribute is not checked.
+check looks for the output, as whole words, in the page's text nodes after
+rendering, and warns only when none of the matches sits inside a `veneerFont` or
+`veneer` element (or an element whose `font-family` names the forged font). Output
+with fewer than four non-space characters, and output used in an attribute, is
+not checked.
 
 ### VNR003
 
