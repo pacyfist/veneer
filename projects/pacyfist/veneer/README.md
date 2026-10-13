@@ -1187,9 +1187,20 @@ starting `[veneer] disabled (VNRxxx)` is logged, `failed()` holds
 `{ code, message, missing? }`, and the page renders normally. Unreadable content
 is worse than unprotected content. Use `withStatusListener()` to report it.
 
-One case cannot fail open: a server-rendered page whose forged font never arrives
-([VNR016](#vnr016)). The readable text of server-rendered element content is not
-in the page, by design, so it stays as the server rendered it.
+Server-rendered pages are the exception. The readable text of server-rendered
+element content is not in the page, by design: the browser learns the cipher from
+the forged font, read against the base font with the forge code. If it cannot get
+any of the three (a blocker, offline, a redeploy that removed them, a load
+balancer without sticky sessions), that text stays scrambled and the failure is
+[VNR016](#vnr016), whatever the underlying cause. Bound text, `veneerHtml` and the
+pipe still fall back to readable. Requests that fail at the network level or with
+408, 429 or 5xx are retried once after 300 ms first. Alert on `VNR016`:
+
+```ts
+withStatusListener(({ failure }) => {
+  if (failure?.code === 'VNR016') reportError(failure.message); // server text unreadable
+});
+```
 
 A base font without a glyph for some charset characters does not fail by default:
 those characters are left out of the cipher (see `strictCoverage`). The forge
@@ -1299,10 +1310,13 @@ from `@pacyfist/veneer/testing`.
 ### VNR010
 
 The base font could not be loaded: the request failed (the message names the
-resolved URL and the status) or the `font` loader rejected. Check that the file is
-served at that URL. Use a relative path such as `'fonts/Roboto-Regular.ttf'`: it
-resolves against `<base href>`, while a leading slash ignores it and breaks subpath
-deploys. Protection fails open.
+resolved URL and the status) or the `font` loader rejected. Or the forge code (a
+lazy chunk) could not be loaded. Network errors and 408, 429 and 5xx responses
+are retried once first. Check that the file is served at that URL. Use a relative
+path such as `'fonts/Roboto-Regular.ttf'`: it resolves against `<base href>`,
+while a leading slash ignores it and breaks subpath deploys. Protection fails
+open. On a hydrating server-rendered page this is reported as
+[VNR016](#vnr016) instead, with VNR010 in the message.
 
 ### VNR011
 
@@ -1341,13 +1355,17 @@ forge it. The server log has the reason.
 
 ### VNR016
 
-In the browser: the forged font the server rendered with could not be fetched, or
-does not decode against the base font. The server's ciphertext cannot be decoded
-without it, so server-rendered element content stays unreadable (bound text,
-`veneerHtml` and the pipe fall back to readable). Check that server.ts mounts
-`veneerFontMiddleware()`, that a load balancer sends the font request to the
-instance that rendered the page, or for prerendered pages that the `emitDir`
-folder was copied into the browser output.
+In the browser, hydrating a server render: the cipher of the server-rendered text
+could not be read, so server-rendered element content **stays unreadable** (bound
+text, `veneerHtml` and the pipe fall back to readable). Every failure before the
+cipher is known has this code, so `failed().code === 'VNR016'` always means "the
+server's text was left scrambled"; the message names the underlying failure and
+its own code (for example `VNR010` for the base font or the forge code), and
+`cause` holds the error. The usual causes: the forged font is missing (check that
+server.ts mounts `veneerFontMiddleware()`, that a load balancer sends the font
+request to the instance that rendered the page, or for prerendered pages that the
+`emitDir` folder was copied into the browser output), or the base font or forge
+chunk was blocked, offline, or removed by a redeploy.
 
 ### VNR017
 

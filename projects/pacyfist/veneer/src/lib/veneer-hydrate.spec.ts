@@ -14,6 +14,7 @@ import { forgeScrambledFont, parseBaseFont } from '@pacyfist/veneer/forge';
 import { VeneerDirective } from './veneer.directive';
 import { VeneerFontService } from './veneer-font.service';
 import { VeneerConfig, provideVeneer, withFaces } from './veneer.config';
+import { FontSourceError, clearBaseFontCache, stubForgeImport } from './base-font';
 
 /**
  * Hydrating a server render without a key in the page: the client fetches the
@@ -43,11 +44,14 @@ class FakeFontFace {
 
 let registered: FakeFontFace[];
 let served: Map<string, ArrayBuffer>;
+/** Paths whose next N requests fail at the network level. */
+let flaky: Map<string, number>;
 let release: () => void;
 
 beforeEach(() => {
   registered = [];
   served = new Map();
+  flaky = new Map();
   vi.stubGlobal('FontFace', FakeFontFace);
   // Fonts are held back until `release()`, so a test can look at the page
   // before the server's map is known.
@@ -56,7 +60,13 @@ beforeEach(() => {
     'fetch',
     vi.fn(async (url: string) => {
       await gate;
-      const bytes = served.get(new URL(url).pathname);
+      const path = new URL(url).pathname;
+      const failures = flaky.get(path) ?? 0;
+      if (failures > 0) {
+        flaky.set(path, failures - 1);
+        throw new TypeError('Failed to fetch');
+      }
+      const bytes = served.get(path);
       return bytes
         ? new Response(bytes)
         : new Response('missing', { status: 404, statusText: 'Not Found' });
@@ -73,6 +83,7 @@ beforeEach(() => {
 
 afterEach(() => {
   TestBed.resetTestingModule();
+  clearBaseFontCache();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   delete (document as { fonts?: unknown }).fonts;
@@ -212,5 +223,98 @@ describe('hydrating a server render', () => {
 
     expect(service.failed()?.code).toBe('VNR013');
     expect(el.textContent).toBe(TEXT);
+  });
+
+  describe('any failure before the server map is known is VNR016', () => {
+    /** Hydrate with the base font fetched from a URL rather than handed over as bytes. */
+    async function hydrateFromUrl() {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const page = await hydrate({ font: 'fonts/base.ttf' });
+      release();
+      await vi.waitFor(() => expect(page.service.status()).toBe('failed'));
+      page.fixture.detectChanges();
+      return page;
+    }
+
+    it('when the base font cannot be fetched, keeping VNR010 as the cause', async () => {
+      const { service, el, ciphertext } = await hydrateFromUrl();
+      const failure = service.failed()!;
+      expect(failure.code).toBe('VNR016');
+      expect(failure.message).toMatch(
+        /^\[veneer\] VNR016: .*unreadable \(VNR010: .*fonts\/base\.ttf/,
+      );
+      expect(failure.cause).toBeInstanceOf(FontSourceError);
+      expect(el.textContent).toBe(ciphertext);
+      expect(el.style.visibility).toBe('');
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('disabled (VNR016)'),
+        failure.cause,
+      );
+    });
+
+    it('when the base font is not a font (VNR011)', async () => {
+      served.set('/fonts/base.ttf', new Uint8Array([1, 2, 3, 4]).buffer);
+      const { service } = await hydrateFromUrl();
+      expect(service.failed()?.code).toBe('VNR016');
+      expect(service.failed()?.message).toContain('(VNR011');
+    });
+
+    it('when the forge chunk cannot be loaded, after one retry', async () => {
+      served.set('/fonts/base.ttf', ROBOTO);
+      const load = vi.fn(() => Promise.reject(new Error('chunk 404')));
+      const restore = stubForgeImport(load);
+      try {
+        const { service } = await hydrateFromUrl();
+        expect(service.failed()?.code).toBe('VNR016');
+        expect(service.failed()?.message).toContain('could not load the font forge (chunk 404)');
+        expect(load).toHaveBeenCalledTimes(2);
+      } finally {
+        restore();
+      }
+    });
+  });
+
+  describe('retries a transient failure once', () => {
+    it('for the forged font', async () => {
+      flaky.set('/veneer/a.ttf', 1);
+      const { service } = await hydrate();
+      release();
+      await vi.waitFor(() => expect(service.status()).toBe('active'));
+      expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+    });
+
+    it('for the base font, and for a server error', async () => {
+      served.set('/fonts/base.ttf', ROBOTO);
+      flaky.set('/fonts/base.ttf', 1);
+      const { service } = await hydrate({ font: 'fonts/base.ttf' });
+      release();
+      await vi.waitFor(() => expect(service.status()).toBe('active'));
+      const paths = vi.mocked(fetch).mock.calls.map(([url]) => new URL(String(url)).pathname);
+      expect(paths.filter((p) => p === '/fonts/base.ttf')).toHaveLength(2);
+    });
+
+    it('for the forge chunk', async () => {
+      const load = vi
+        .fn<() => Promise<typeof import('@pacyfist/veneer/forge')>>()
+        .mockRejectedValueOnce(new Error('chunk 503'))
+        .mockImplementation(() => import('@pacyfist/veneer/forge'));
+      const restore = stubForgeImport(load);
+      try {
+        const { service } = await hydrate();
+        release();
+        await vi.waitFor(() => expect(service.status()).toBe('active'));
+        expect(load).toHaveBeenCalledTimes(2);
+      } finally {
+        restore();
+      }
+    });
+
+    it('but not a 404, which will not change', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const { service } = await hydrate({}, ['veneer/gone.ttf']);
+      release();
+      await vi.waitFor(() => expect(service.status()).toBe('failed'));
+      expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+    });
   });
 });

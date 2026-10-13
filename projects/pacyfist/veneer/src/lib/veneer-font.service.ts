@@ -101,6 +101,14 @@ export function resetUncoveredWarnings(): void {
   warnedUncovered.clear();
 }
 
+/** `[veneer] VNR010: text. See <url>` without the prefix, the code, the link and the final stop. */
+function bareMessage(message: string): string {
+  return message
+    .replace(/^\[veneer\] (?:VNR\d+: )?/, '')
+    .replace(/ See https:\/\/\S+$/, '')
+    .replace(/\.$/, '');
+}
+
 /** Turn whatever `load()` caught into a structured failure with a stable code. */
 function describeFailure(error: unknown, stage: Stage): VeneerFailure {
   const message = error instanceof Error ? error.message : String(error);
@@ -185,7 +193,10 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   /** True once the forged font is registered and text is safe to show. */
   readonly ready = this.isReady.asReadonly();
 
-  /** Set when the font could not be built. The library fails open when this happens. */
+  /**
+   * Set when the font could not be built. The library fails open when this
+   * happens, except that with `VNR016` server-rendered text stays unreadable.
+   */
   readonly failed = this.failure.asReadonly();
 
   /** `loading`, `active`, `failed` or `disabled`. */
@@ -438,17 +449,40 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
       this.isReady.set(true);
     } catch (error) {
       if (this.destroyed) return;
-      this.fail(error, stage);
+      // Before the map is known, any failure leaves the server's ciphertext
+      // on screen: report all of them as VNR016, so monitoring can tell
+      // "server-rendered text stayed unreadable" from a plain fail-open.
+      this.fail(error, stage, untracked(this.serverMap) === null);
     }
     this.report();
   }
 
-  /** Fail open: `active()` flips false and every directive restores readable text. */
-  private fail(error: unknown, stage: Stage): void {
-    const failure = describeFailure(error, stage);
+  /**
+   * Fail open: `active()` flips false and every directive restores readable
+   * text. With `serverTextLost` (hydrating, the server's map still unknown)
+   * the server-rendered element text cannot be restored and stays ciphertext,
+   * so the failure is VNR016 whatever caused it; the cause keeps its own code
+   * in the message and the error in `cause`.
+   */
+  private fail(error: unknown, stage: Stage, serverTextLost = false): void {
+    let failure = describeFailure(error, stage);
+    if (serverTextLost && failure.code !== 'VNR016') {
+      failure = {
+        code: 'VNR016',
+        message: veneerMessage(
+          'VNR016',
+          'the cipher of the server-rendered text could not be read, so that text stays ' +
+            `unreadable (${failure.code}: ${bareMessage(failure.message)}).`,
+        ),
+        cause: error,
+      };
+    }
     console.error(
-      `[veneer] disabled (${failure.code}) - could not build the protective font, so text ` +
-        `is shown readable. See ${docsUrl(failure.code)}`,
+      failure.code === 'VNR016'
+        ? `[veneer] disabled (VNR016) - could not read the server's cipher, so server-rendered ` +
+            `text stays unreadable; other protected text is shown readable. See ${docsUrl('VNR016')}`
+        : `[veneer] disabled (${failure.code}) - could not build the protective font, so text ` +
+            `is shown readable. See ${docsUrl(failure.code)}`,
       error,
     );
     this.failure.set(failure);

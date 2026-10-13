@@ -172,12 +172,15 @@ and nobody writes one for a technique almost no site uses.
 (see [Search engines and `shouldProtect`](projects/pacyfist/veneer/README.md#search-engines-and-shouldprotect)).
 **Never:** secrets. This is not encryption.
 
-## It fails safe
+## When it fails
 
 If the font can't be fetched or built, protected text turns back into ordinary
-readable text and an error is logged. The worst case is unprotected, never
-unreadable, with one exception: on a server-rendered page whose forged font
-cannot be fetched at all, the readable text is not in the page to turn back to.
+readable text and an error is logged. Usually the worst case is unprotected text.
+The exception is a server-rendered page: if the browser cannot get the base font,
+the forged font or veneer's forge code (blocked, offline, or gone after a
+redeploy), the text the server rendered stays scrambled, because the readable
+text is not in the page. veneer retries once, then reports `VNR016`. Watch for it
+with `withStatusListener()`.
 
 ## FAQ
 
