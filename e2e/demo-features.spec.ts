@@ -189,3 +189,30 @@ test.describe('[veneerHtml] with CMS HTML', () => {
     await expect(element.locator('strong')).not.toHaveText('font');
   });
 });
+
+test.describe('status events', () => {
+  test('each breakage button shows the code monitoring would receive', async ({ page }) => {
+    await openDemo(page);
+    const section = page.locator('app-breakage');
+    const log = section.getByTestId('status-log');
+    await expect(log.locator('li')).toHaveText([/loading/, /active/]);
+    await expect(section.getByTestId('html-status')).toHaveText(
+      '<html data-veneer-status="active">',
+    );
+
+    await section.getByRole('button', { name: "Font won't load" }).click();
+    await expect(log.locator('li')).toHaveText([/loading/, /failed\s*VNR010/]);
+
+    await section.getByRole('button', { name: 'Strict coverage' }).click();
+    await expect(log.locator('li')).toHaveText([/loading/, /failed\s*VNR012/]);
+
+    await section.getByRole('button', { name: 'Characters the font lacks' }).click();
+    await expect(log.locator('li')).toHaveText([/loading/, /active/]);
+    await expect(section).toContainText('VNR014');
+
+    // The sample's failure never reaches the shell's own status.
+    await expect(section.getByTestId('html-status')).toHaveText(
+      '<html data-veneer-status="active">',
+    );
+  });
+});
