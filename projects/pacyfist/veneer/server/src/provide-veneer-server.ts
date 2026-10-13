@@ -1,6 +1,6 @@
 /// <reference types="node" />
-import { randomBytes } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import {
   EnvironmentProviders,
@@ -27,7 +27,7 @@ import {
   parseBaseFontSync,
   uncoveredCodepoints,
 } from '@pacyfist/veneer/forge';
-import { storeFont } from './font-store';
+import { storeFont, trimPath } from './font-store';
 
 /** Reads a base font on the server, given the source written in `provideVeneer()`. */
 export type VeneerServerFontReader = (source: VeneerFontSource) => ArrayBuffer | Uint8Array;
@@ -63,18 +63,52 @@ export interface VeneerServerOptions {
 
   /**
    * The URL path, relative to the document base URL, the page fetches forged
-   * fonts from: `<path>/<random id>.ttf`. Defaults to `'veneer'`.
+   * fonts from: `<path>/<id>.ttf`. Defaults to `'veneer'`.
    */
   path?: string;
 
   /**
-   * Also write every forged font to `<emitDir>/<path>/<id>.ttf`. For
-   * prerendered (static) output, where no server is left to serve them: copy
-   * the folder's contents into the browser output after the build. Use a
-   * folder outside the build output, because the Angular builder empties its
-   * output after prerendering.
+   * Also write every forged font to `<emitDir>/<path>/<id>.ttf`.
+   *
+   * - Prerendered (static) output, where no server is left to serve them:
+   *   copy the folder's contents into the browser output after the build. Use
+   *   a folder outside the build output, because the Angular builder empties
+   *   its output after prerendering.
+   * - Dynamic SSR with several instances or restarts: point it at storage
+   *   every instance shares and pass the same folder to
+   *   `veneerFontMiddleware({ dir })`, so an instance that never rendered a
+   *   page can still serve its font.
+   *
+   * Each file is written once, atomically (a temporary file, then a rename).
    */
   emitDir?: string;
+
+  /**
+   * A server-side secret that makes the cipher deterministic: the map, the
+   * family name and the font ids become HMAC-SHA256 derivations of the
+   * secret, the base font bytes and the configuration. Every process, every
+   * restart and every replica with the same secret then forges byte-identical
+   * fonts at identical URLs, so a page rendered by one instance decodes with
+   * the font from any other, and a rebuilt static site keeps its font URLs.
+   *
+   * Read it from the environment: `secret: process.env['VENEER_SECRET']`.
+   * Use 32 random bytes (`openssl rand -hex 32`); shorter than 16 bytes
+   * throws. An empty string counts as no secret, so an unset CI secret
+   * builds the random way instead of failing.
+   *
+   * The cipher stays the same until the secret, a base font or the
+   * configuration (charset, faces, seed, strictCoverage) changes: as strong
+   * as one cipher per build, which prerendering has anyway. Rotate the secret
+   * to rotate every cipher; pages rendered before then need the old fonts
+   * (keep them in `emitDir`, or let cached HTML expire first). Keep it out of
+   * the browser bundle: only server code (app.config.server.ts, server.ts)
+   * may read it, and the browser never needs it.
+   *
+   * Without a secret each process draws its cipher, family name and font ids
+   * from the CSPRNG, so a page decodes only with the font of the process that
+   * rendered it: use sticky sessions, or a shared `emitDir`.
+   */
+  secret?: string | Uint8Array;
 
   /**
    * Decide per request whether to protect the page, typically to serve
@@ -145,10 +179,18 @@ async function decide(shouldProtect: VeneerShouldProtect): Promise<void> {
   }
 }
 
+/** A parsed base font and the SHA-256 of its bytes. */
+interface LoadedBase {
+  readonly base: BaseFont;
+  readonly digest: string;
+}
+
 /** Parsed base fonts per absolute path: one read and one parse per process. */
-const byPath = new Map<string, BaseFont>();
-/** Parsed base fonts per byte buffer, by identity. */
-const byBytes = new WeakMap<object, BaseFont>();
+const byPath = new Map<string, LoadedBase>();
+/** Parsed base fonts per content hash. */
+const byDigest = new Map<string, LoadedBase>();
+/** Content hashes per byte buffer, by identity, so a buffer is hashed once. */
+const digests = new WeakMap<object, string>();
 
 function message(text: string): string {
   return `[veneer] VNR015: ${text} See https://github.com/pacyfist/veneer/blob/main/projects/pacyfist/veneer/README.md#vnr015`;
@@ -160,6 +202,27 @@ function toBytes(data: ArrayBuffer | ArrayBufferView): Uint8Array {
     : ArrayBuffer.isView(data)
       ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
       : new Uint8Array(data);
+}
+
+function sha256(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
+/** The SHA-256 of a byte source, cached per object. */
+function digestOf(data: ArrayBuffer | ArrayBufferView): string {
+  let digest = digests.get(data);
+  if (digest === undefined) digests.set(data, (digest = sha256(toBytes(data))));
+  return digest;
+}
+
+function loadBytes(data: ArrayBuffer | ArrayBufferView): LoadedBase {
+  const digest = digestOf(data);
+  let loaded = byDigest.get(digest);
+  if (!loaded) {
+    loaded = { base: parseBaseFontSync(toBytes(data)), digest };
+    byDigest.set(digest, loaded);
+  }
+  return loaded;
 }
 
 /** The file a relative URL names inside `root`, refusing anything outside it. */
@@ -180,19 +243,12 @@ function fileFor(root: string, url: string): string {
   return file;
 }
 
-function loadBase(source: VeneerFontSource, fonts: string | VeneerServerFontReader): BaseFont {
-  if (typeof fonts === 'function') {
-    const bytes = fonts(source);
-    const cached = byBytes.get(bytes);
-    if (cached) return cached;
-    const base = parseBaseFontSync(bytes);
-    byBytes.set(bytes, base);
-    return base;
-  }
+function loadBase(source: VeneerFontSource, fonts: string | VeneerServerFontReader): LoadedBase {
+  if (typeof fonts === 'function') return loadBytes(fonts(source));
   if (typeof source === 'string') {
     const file = fileFor(fonts, source);
-    let base = byPath.get(file);
-    if (!base) {
+    let loaded = byPath.get(file);
+    if (!loaded) {
       let bytes: Uint8Array;
       try {
         bytes = readFileSync(file);
@@ -205,10 +261,10 @@ function loadBase(source: VeneerFontSource, fonts: string | VeneerServerFontRead
           ),
         );
       }
-      base = parseBaseFontSync(bytes);
-      byPath.set(file, base);
+      loaded = { base: parseBaseFontSync(bytes), digest: sha256(bytes) };
+      byPath.set(file, loaded);
     }
-    return base;
+    return loaded;
   }
   if (typeof source === 'function') {
     throw new Error(
@@ -218,23 +274,27 @@ function loadBase(source: VeneerFontSource, fonts: string | VeneerServerFontRead
       ),
     );
   }
-  let base = byBytes.get(source);
-  if (!base) {
-    base = parseBaseFontSync(toBytes(source));
-    byBytes.set(source, base);
-  }
-  return base;
+  return loadBytes(source);
 }
 
 /**
- * The map the server renders with. From the CSPRNG (or the configured seed),
+ * The map the server renders with. From the CSPRNG, a stream derived from
+ * the secret, or the configured seed,
  * over the charset the base fonts can draw, and without two scrambled
  * codepoints on one glyph of the regular face, which the browser could not
  * tell apart when it reads the map back from the font.
  */
-function buildMap(config: ResolvedVeneerConfig, bases: readonly BaseFont[]): ScrambleMap {
+function buildMap(
+  config: ResolvedVeneerConfig,
+  bases: readonly BaseFont[],
+  random?: () => () => number,
+): ScrambleMap {
+  // A fresh stream per draw, so a redraw without some characters is as
+  // reproducible as the first one when the stream comes from the secret.
   const draw = (charset: readonly number[]) =>
-    config.seed !== undefined ? buildScrambleMap(config.seed, charset) : randomScrambleMap(charset);
+    config.seed !== undefined
+      ? buildScrambleMap(config.seed, charset)
+      : randomScrambleMap(charset, random?.());
 
   const first = draw(config.charset);
   const missing = uncoveredCodepoints(bases, first.forward.keys());
@@ -273,10 +333,17 @@ function buildMap(config: ResolvedVeneerConfig, bases: readonly BaseFont[]): Scr
   }
 }
 
-/** A stable key for one configuration, so each is forged once per process. */
+/**
+ * A key for one configuration, so each is forged once per process. Byte
+ * sources count by content, so a fresh copy of the same font is a cache hit.
+ */
 function fingerprint(config: ResolvedVeneerConfig, idOf: (source: object) => number): string {
   const source = (src: VeneerFontSource) =>
-    typeof src === 'string' ? `url:${src}` : `object:${idOf(src)}`;
+    typeof src === 'string'
+      ? `url:${src}`
+      : typeof src === 'function'
+        ? `loader:${idOf(src)}`
+        : `bytes:${digestOf(src)}`;
   return JSON.stringify([
     source(config.font),
     config.faces.map((f) => [source(f.src), f.weight ?? null, f.style ?? null, f.stretch ?? null]),
@@ -286,9 +353,75 @@ function fingerprint(config: ResolvedVeneerConfig, idOf: (source: object) => num
   ]);
 }
 
-function trimPath(path: string): string {
-  const trimmed = path.replace(/\/+$/, '');
-  return trimmed || 'veneer';
+/** Bumped when the derivation changes, so old and new never share a font URL. */
+const DERIVATION = 'veneer/server/v1';
+
+/** The secret as bytes, or undefined when there is none. */
+function secretKey(secret: string | Uint8Array | undefined): Buffer | undefined {
+  if (secret === undefined || secret === null) return undefined;
+  const bytes = typeof secret === 'string' ? Buffer.from(secret, 'utf8') : Buffer.from(secret);
+  if (bytes.byteLength === 0) return undefined;
+  if (bytes.byteLength < 16) {
+    throw new Error(
+      `[veneer] provideVeneerServer({ secret }) needs at least 16 bytes, got ${bytes.byteLength}. ` +
+        'Use 32 random bytes, such as the output of `openssl rand -hex 32`.',
+    );
+  }
+  return bytes;
+}
+
+/**
+ * The per-configuration key: HMAC-SHA256 of the secret over what decides the
+ * forged fonts, by content (base font bytes, not URLs or object identity), so
+ * every process derives the same one.
+ */
+function configKey(secret: Buffer, config: ResolvedVeneerConfig, bases: LoadedBase[]): Buffer {
+  const material = JSON.stringify([
+    bases.map((loaded) => loaded.digest),
+    config.faces.map((f) => [f.weight ?? null, f.style ?? null, f.stretch ?? null]),
+    [...new Set(config.charset)].sort((a, b) => a - b),
+    config.strictCoverage,
+    config.seed ?? null,
+  ]);
+  return createHmac('sha256', secret).update(`${DERIVATION}\0config\0${material}`).digest();
+}
+
+/** The first `bytes` bytes of HMAC-SHA256(key, label), in hex. */
+function derive(key: Buffer, label: string, bytes: number): string {
+  return createHmac('sha256', key)
+    .update(label)
+    .digest('hex')
+    .slice(0, bytes * 2);
+}
+
+/**
+ * Numbers in [0, 1) from HMAC-SHA256(key, label || counter), 32 bits each: a
+ * deterministic stand-in for the CSPRNG that `randomScrambleMap` shuffles with.
+ */
+function keyedRandom(key: Buffer, label: string): () => number {
+  let counter = 0;
+  let block = Buffer.alloc(0);
+  let next = 0;
+  return () => {
+    if (next === block.byteLength) {
+      block = createHmac('sha256', key).update(`${label}\0${counter++}`).digest();
+      next = 0;
+    }
+    const word = block.readUInt32BE(next);
+    next += 4;
+    return word / 4294967296;
+  };
+}
+
+/** Writes a font once, atomically, so a reader never sees half a file. */
+function emit(dir: string, id: string, bytes: Uint8Array): void {
+  const file = join(dir, `${id}.ttf`);
+  // With a secret the id covers the bytes, so an existing file is this font.
+  if (existsSync(file)) return;
+  mkdirSync(dir, { recursive: true });
+  const temporary = `${file}.${randomBytes(6).toString('hex')}.tmp`;
+  writeFileSync(temporary, bytes);
+  renameSync(temporary, file);
 }
 
 /**
@@ -302,16 +435,18 @@ function trimPath(path: string): string {
  *
  * and serve the fonts from server.ts with `veneerFontMiddleware()`.
  *
- * During a render the server draws the cipher from the CSPRNG, forges the
- * font (the base font with only its cmap replaced) and scrambles with it. The
- * page carries only the forged font's URL and a random family name. The
- * browser fetches that font, reads the cipher out of its cmap, and only then
- * recovers the readable text. A crawler that reads the HTML gets ciphertext
- * and no key; it has to fetch and parse the font, as a browser does.
+ * During a render the server draws the cipher from the CSPRNG (or derives it
+ * from `secret`), forges the font (the base font with only its cmap replaced)
+ * and scrambles with it. The page carries only the forged font's URL and the
+ * family name. The browser fetches that font, reads the cipher out of its
+ * cmap, and only then recovers the readable text. A crawler that reads the
+ * HTML gets ciphertext and no key; it has to fetch and parse the font, as a
+ * browser does.
  *
  * Each configuration gets one cipher per server process (per build, when
  * prerendering), shared by every request, so the font is fetched once per
- * visitor and cached. See the README for why not one per request.
+ * visitor and cached. With `secret`, every process and every build derives
+ * the same one. See the README for why not one per request.
  */
 export function provideVeneerServer(options: VeneerServerOptions): EnvironmentProviders {
   const path = trimPath(options.path ?? 'veneer');
@@ -324,6 +459,8 @@ export function provideVeneerServer(options: VeneerServerOptions): EnvironmentPr
     return id;
   };
 
+  const secret = secretKey(options.secret);
+
   const forge: Omit<VeneerServerForge, 'protects'> = {
     prepare(config) {
       const key = fingerprint(config, idOf);
@@ -331,18 +468,21 @@ export function provideVeneerServer(options: VeneerServerOptions): EnvironmentPr
       if (cached) return cached;
 
       const sources = [config.font, ...config.faces.map((face) => face.src)];
-      const bases = sources.map((source) => loadBase(source, options.fonts));
-      const map = buildMap(config, bases);
-      const familyName = `Veneer-${randomBytes(8).toString('hex')}`;
-      const urls = bases.map((base) => {
+      const loaded = sources.map((source) => loadBase(source, options.fonts));
+      const bases = loaded.map((entry) => entry.base);
+      const derived = secret && configKey(secret, config, loaded);
+
+      const map = buildMap(config, bases, derived ? () => keyedRandom(derived, 'map') : undefined);
+      const familyName = `Veneer-${derived ? derive(derived, 'family', 8) : randomBytes(8).toString('hex')}`;
+      const urls = bases.map((base, i) => {
         const bytes = new Uint8Array(forgeScrambledFont(base, map, familyName));
-        const id = randomBytes(16).toString('hex');
+        // With a secret the id covers the forged bytes too, so a font URL
+        // never changes content, even across library versions.
+        const id = derived
+          ? derive(derived, `font\0${i}\0${sha256(bytes)}`, 16)
+          : randomBytes(16).toString('hex');
         storeFont(id, bytes);
-        if (options.emitDir) {
-          const dir = join(options.emitDir, path);
-          mkdirSync(dir, { recursive: true });
-          writeFileSync(join(dir, `${id}.ttf`), bytes);
-        }
+        if (options.emitDir) emit(join(options.emitDir, path), id, bytes);
         return `${path}/${id}.ttf`;
       });
 

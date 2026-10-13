@@ -423,13 +423,13 @@ Exports whose names start with `ɵ` are internal (they exist for
 `@pacyfist/veneer/server`, Node only. See [Server-side rendering](#server-side-rendering)
 and [Search engines](#search-engines-and-shouldprotect).
 
-| Export                                                                          | Description                                                                                   |
-| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `provideVeneerServer({ fonts, path?, emitDir?, shouldProtect? })`               | Forge the font during server rendering; `shouldProtect(request, context)` decides per request |
-| `veneerFontMiddleware()`, `getVeneerFont(path)`                                 | Serve the forged fonts (Express/Connect middleware, or the bytes for any server)              |
-| `verifyCrawler(ip, userAgent?)`                                                 | `Promise<{ name, hostname } \| null>`: a search crawler verified by reverse and forward DNS   |
-| `createCrawlerVerifier(options?)`, `KNOWN_CRAWLERS`                             | A verifier with its own crawler list, resolver, timeout and cache; the default list           |
-| `VeneerShouldProtect`, `VeneerCrawler`, `VerifiedCrawler`, `CrawlerDnsResolver` | Types                                                                                         |
+| Export                                                                                                   | Description                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `provideVeneerServer({ fonts, path?, emitDir?, secret?, shouldProtect? })`                               | Forge the font during server rendering; `secret` makes it the same in every process; `shouldProtect(request, context)` decides per request |
+| `veneerFontMiddleware({ dir?, path? })`, `getVeneerFont(path, { dir?, path? })`                          | Serve the forged fonts (Express/Connect middleware, or the bytes for any server); `dir` also reads a shared `emitDir`                      |
+| `verifyCrawler(ip, userAgent?)`                                                                          | `Promise<{ name, hostname } \| null>`: a search crawler verified by reverse and forward DNS                                                |
+| `createCrawlerVerifier(options?)`, `KNOWN_CRAWLERS`                                                      | A verifier with its own crawler list, resolver, timeout and cache; the default list                                                        |
+| `VeneerShouldProtect`, `VeneerFontDiskOptions`, `VeneerCrawler`, `VerifiedCrawler`, `CrawlerDnsResolver` | Types                                                                                                                                      |
 
 ### Template pieces
 
@@ -549,10 +549,11 @@ app.use(veneerFontMiddleware());
 How it works:
 
 1. During the render the server draws the cipher from the CSPRNG (no seed
-   exists), forges the font (the base font with only its `cmap` replaced) and
-   scrambles the text with it. The page carries only the forged font's URL
-   (`veneer/<random id>.ttf`, relative to `<base href>`) and a random family name,
-   in `TransferState` under a key namespaced by `id`. No seed, no map.
+   exists), or derives it from a server-side `secret`, forges the font (the base
+   font with only its `cmap` replaced) and scrambles the text with it. The page
+   carries only the forged font's URL (`veneer/<id>.ttf`, relative to
+   `<base href>`) and the family name, in `TransferState` under a key namespaced
+   by `id`. No seed, no map, no secret.
 2. In the browser, `initialMap()` stays `null` and protected text stays hidden
    (with `hideUntilReady`) while the service fetches the forged font, reads the
    cipher back out of its `cmap` against the base font (`readScrambleMap`), and
@@ -567,40 +568,68 @@ Once JavaScript runs, the forged font is the key; see what this does not stop be
 ### One cipher per server process
 
 Each `provideVeneer` configuration is forged once per process and shared by every
-request, so visitors fetch and cache the font once (it is served as immutable). A
+request, so visitors fetch and cache the font once (it is served as immutable).
+With a `secret` (below), every process forges the same one. A
 fresh cipher per request would cost every page view a ~124 KB font download, and
 the server would have to keep every page's font in memory until it is fetched, or
 re-forge it on demand.
 
 ### Load balancers and restarts
 
-The forged fonts live in the memory of the process that rendered the page, and a
-page can only be decoded with the font it was rendered with. If its font request
-reaches another instance, or the same instance after a restart, the request
-fails, and the server's ciphertext stays on screen as gibberish
-([VNR016](#vnr016)). This is the one case veneer cannot fail open from, because
-the readable text is not in the page. Pick one:
+A page can only be decoded with the font it was rendered with. Without a
+`secret`, every process draws its own cipher, family name and font ids from the
+CSPRNG and keeps the fonts in its memory, so if a font request reaches another
+instance, or the same instance after a restart or a rolling deploy, it fails and
+the server's ciphertext stays on screen as gibberish ([VNR016](#vnr016)). This is
+the one case veneer cannot fail open from, because the readable text is not in
+the page.
+
+**The fix: a secret and a shared font folder.**
+
+```ts
+// app.config.server.ts
+provideVeneerServer({
+  fonts: join(import.meta.dirname, '../browser'),
+  secret: process.env['VENEER_SECRET'], // openssl rand -hex 32
+  emitDir: '/srv/veneer-fonts', // storage every instance shares
+});
+
+// server.ts: this process's fonts, then any instance's from the shared folder
+app.use(veneerFontMiddleware({ dir: '/srv/veneer-fonts' }));
+```
+
+- **`secret`** makes the cipher deterministic: the map, the family name and the
+  font ids are HMAC-SHA256 derivations of the secret, the base font bytes and
+  the configuration. Every process, restart and replica with the same secret
+  forges byte-identical fonts at identical URLs, so any of them can decode any
+  page. On its own that already covers restarts and replicas that render the
+  same configurations.
+- **`emitDir` with `veneerFontMiddleware({ dir })`** covers the rest: each
+  instance writes the fonts it forges to `<emitDir>/<path>/<id>.ttf` (once,
+  atomically), and the middleware serves a font it does not hold in memory from
+  that folder (`path` defaults to `'veneer'`; pass the same one to both). Only
+  ids of 32 hex digits are looked up, so a request cannot leave the folder. You
+  can also serve the folder as static files or from a CDN.
+
+What the secret means for the protection: the cipher stays the same until the
+secret, a base font or the configuration (charset, faces, `seed`,
+`strictCoverage`) changes. That is as strong as one cipher per build, which
+prerendering has anyway, and the font itself is the key, served to every
+visitor either way. To rotate, change the secret; pages rendered with the old
+one need its fonts until cached HTML expires, so keep the old files in
+`emitDir` for a while. Keep the secret out of the browser: read it only in
+server code (`app.config.server.ts`, `server.ts`), never in `environment.ts` or
+anything the browser bundle imports. Use 32 random bytes; under 16 bytes
+throws, and an empty string counts as no secret (an unset CI secret builds the
+random way).
+
+Without a secret, pick one of:
 
 - **Sticky sessions.** Route a visitor's requests to the instance that rendered
-  their page.
-- **A shared font folder.** `emitDir` also works for dynamic SSR: every instance
-  writes the fonts it forges to `<emitDir>/<path>/<id>.ttf`. Point it at storage
-  all instances share and serve that folder as static files (or upload it to your
-  CDN), so any instance, before or after a restart, can serve any page's font:
-
-  ```ts
-  provideVeneerServer({
-    fonts: join(import.meta.dirname, '../browser'),
-    emitDir: '/srv/veneer-fonts',
-  });
-  ```
-
-  ```ts
-  // server.ts: the fonts of every instance, then this process's own
-  app.use(express.static('/srv/veneer-fonts', { maxAge: '1y', immutable: true }));
-  app.use(veneerFontMiddleware());
-  ```
-
+  their page. A restart still loses the fonts of pages rendered before it.
+- **A shared font folder** alone (`emitDir` and `veneerFontMiddleware({ dir })`
+  as above): any instance can serve any font that was ever forged, but each
+  process forges its own, so the folder grows by one set per process start.
 - **Prerender** the pages you protect, so the fonts are static files.
 
 Also keep cached HTML (a CDN, a service worker) no longer than the fonts it

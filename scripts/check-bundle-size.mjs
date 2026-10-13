@@ -63,12 +63,16 @@ import { gzipSync } from 'node:zlib';
  * `./server` raised 2026-10-11 by the SEO work (Next #12): 7,256 B with the
  * per-request `shouldProtect` hook and `verifyCrawler` (reverse and forward
  * DNS, cache, timeouts), most of the growth being their doc comments.
+ *
+ * `./server` raised 2026-10-13 by the review fixes: 8,890 B with `secret`
+ * (HMAC-derived cipher, family and font ids), the shared-folder fallback of
+ * `veneerFontMiddleware({ dir })` and atomic `emitDir` writes.
  */
 const BUDGETS = {
   '.': 24_400,
   './core': 6_100,
   './forge': 11_700,
-  './server': 8_000,
+  './server': 9_800,
   './testing': 5_200,
 };
 

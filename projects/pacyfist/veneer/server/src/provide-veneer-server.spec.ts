@@ -1,4 +1,12 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { EnvironmentInjector, PLATFORM_ID, TransferState, makeStateKey } from '@angular/core';
@@ -202,6 +210,122 @@ describe('provideVeneerServer', () => {
   });
 });
 
+describe('provideVeneerServer({ secret })', () => {
+  const SECRET = 'a test secret of more than sixteen bytes';
+
+  /** Like a fresh process: a new provider instance with its own cache. */
+  function fresh(
+    config: Partial<ResolvedVeneerConfig> = {},
+    options: Partial<VeneerServerOptions> = {},
+  ) {
+    TestBed.resetTestingModule();
+    return prepare(config, { secret: SECRET, ...options });
+  }
+
+  it('derives the same map, family and font URLs in every instance', () => {
+    const first = fresh();
+    const second = fresh();
+    expect(second).not.toBe(first);
+    expect(second.familyName).toBe(first.familyName);
+    expect(second.urls).toEqual(first.urls);
+    expect([...second.map.forward]).toEqual([...first.map.forward]);
+    expect(second.map.seed).toBeUndefined();
+    expect(first.familyName).toMatch(/^Veneer-[0-9a-f]{16}$/);
+    expect(first.urls[0]).toMatch(/^veneer\/[0-9a-f]{32}\.ttf$/);
+  });
+
+  it('pins the derivation, so a restart on the next release keeps the family and the map', () => {
+    // Changing these values breaks every page rendered before an upgrade: bump
+    // DERIVATION in provide-veneer-server.ts instead, on purpose.
+    const cipher = fresh();
+    expect(cipher.familyName).toBe('Veneer-3539a717a3764839');
+    expect(
+      String.fromCodePoint(
+        ...[...'Hello'].map((ch) => cipher.map.forward.get(ch.codePointAt(0)!)!),
+      ),
+    ).toBe('RSmmU');
+  });
+
+  it('forges byte-identical fonts that read back to the derived map', async () => {
+    const first = fresh({ faces: [{ src: FONT_URL, weight: 700 }] });
+    const bytes = first.urls.map((url) => Buffer.from(getVeneerFont(url)!));
+    const second = fresh({ faces: [{ src: FONT_URL, weight: 700 }] });
+    expect(second.urls).toEqual(first.urls);
+    expect(second.urls.map((url) => Buffer.from(getVeneerFont(url)!))).toEqual(bytes);
+    expect(new Map([...(await readBack(second))].sort())).toEqual(
+      new Map([...second.map.forward].sort()),
+    );
+  });
+
+  it('derives a different cipher for another secret, charset or base font', () => {
+    const base = fresh();
+    const other = fresh({}, { secret: 'another secret, also long enough' });
+    const charset = fresh({ charset: [...DEFAULT_CHARSET].slice(10) });
+    const bytes = readFileSync(FIXTURE);
+    const changed = fresh({}, { fonts: () => Buffer.concat([bytes, Buffer.alloc(4)]) });
+    for (const cipher of [other, charset, changed]) {
+      expect(cipher.familyName).not.toBe(base.familyName);
+      expect(cipher.urls[0]).not.toBe(base.urls[0]);
+    }
+    expect([...other.map.forward]).not.toEqual([...base.map.forward]);
+  });
+
+  it('counts byte sources by content, not by object', () => {
+    const bytes = readFileSync(FIXTURE);
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [provideVeneerServer({ fonts: FONT_DIR, secret: SECRET })],
+    });
+    const forge = TestBed.inject(EnvironmentInjector).get(VENEER_SERVER_FORGE);
+    const config = (font: ArrayBuffer) =>
+      ({
+        font,
+        fallbackFontFamily: 'sans-serif',
+        charset: DEFAULT_CHARSET,
+        hideUntilReady: true,
+        hideWith: 'stylesheet',
+        disabled: false,
+        strictCoverage: false,
+        faces: [],
+        statusListeners: [],
+        statusAttribute: false,
+        a11y: 'none',
+        readableCopy: null,
+      }) as ResolvedVeneerConfig;
+    const copy = () =>
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const first = forge.prepare(config(copy()));
+    expect(forge.prepare(config(copy()))).toBe(first);
+    // The same font by URL or by bytes is the same font.
+    expect(fresh().urls).toEqual(first.urls);
+  });
+
+  it('treats an empty secret as none, and refuses a short one', () => {
+    const a = fresh({}, { secret: '' });
+    const b = fresh({}, { secret: '' });
+    expect(b.familyName).not.toBe(a.familyName);
+    TestBed.resetTestingModule();
+    expect(() => provideVeneerServer({ fonts: FONT_DIR, secret: 'short' })).toThrow(
+      /at least 16 bytes, got 5/,
+    );
+    expect(fresh({}, { secret: new Uint8Array(32).fill(7) }).urls).toHaveLength(1);
+  });
+
+  it('writes each font to emitDir once, atomically', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'veneer-emit-'));
+    try {
+      const first = fresh({}, { emitDir: dir });
+      const file = join(dir, first.urls[0]);
+      const written = statSync(file).mtimeMs;
+      fresh({}, { emitDir: dir });
+      expect(statSync(file).mtimeMs).toBe(written);
+      expect(readdirSync(join(dir, 'veneer'))).toEqual([first.urls[0].split('/').pop()]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('server rendering with provideVeneerServer', () => {
   it('scrambles with the forged map and puts no seed or map into TransferState', () => {
     const { service, state } = serverInstance();
@@ -283,6 +407,60 @@ describe('veneerFontMiddleware', () => {
     const cipher = prepare();
     const { res } = call('HEAD', `/${cipher.urls[0]}`);
     expect(res.end).toHaveBeenCalledWith(undefined);
+  });
+
+  it('with dir, serves a font this process never built from the shared folder', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'veneer-shared-'));
+    try {
+      const id = 'ab'.repeat(16);
+      const bytes = Buffer.from('a font another instance forged');
+      mkdirSync(join(dir, 'fonts/v'), { recursive: true });
+      writeFileSync(join(dir, `fonts/v/${id}.ttf`), bytes);
+      const url = `/app/fonts/v/${id}.ttf`;
+
+      expect(getVeneerFont(url)).toBeUndefined();
+      expect(Buffer.from(getVeneerFont(url, { dir, path: 'fonts/v/' })!)).toEqual(bytes);
+
+      const res = { writeHead: vi.fn(), end: vi.fn() };
+      const sent = new Promise((done) => res.end.mockImplementation(done));
+      const next = vi.fn();
+      veneerFontMiddleware({ dir, path: 'fonts/v' })(
+        { method: 'GET', url } as never,
+        res as never,
+        next,
+      );
+      expect(Buffer.from((await sent) as Uint8Array)).toEqual(bytes);
+      expect(res.writeHead).toHaveBeenCalledWith(
+        200,
+        expect.objectContaining({ 'Content-Type': 'font/ttf' }),
+      );
+      expect(next).not.toHaveBeenCalled();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('with dir, passes on fonts the folder lacks and never leaves it', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'veneer-shared-'));
+    try {
+      writeFileSync(join(dir, 'secret.ttf'), 'not a font');
+      for (const url of [
+        `/veneer/${'cd'.repeat(16)}.ttf`,
+        '/veneer/../secret.ttf',
+        `/veneer/..%2F${'cd'.repeat(16)}.ttf`,
+        `/veneer/${'CD'.repeat(16)}.ttf`,
+      ]) {
+        expect(getVeneerFont(url, { dir })).toBeUndefined();
+        const next = vi.fn();
+        const passed = new Promise((done) => next.mockImplementation(done));
+        const res = { writeHead: vi.fn(), end: vi.fn() };
+        veneerFontMiddleware({ dir })({ method: 'GET', url } as never, res as never, next);
+        await passed;
+        expect(res.writeHead).not.toHaveBeenCalled();
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('passes on everything else', () => {

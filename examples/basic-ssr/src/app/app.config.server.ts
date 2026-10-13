@@ -13,6 +13,13 @@ const serverConfig: ApplicationConfig = {
     // the browser build output, next to the server bundle.
     provideVeneerServer({
       fonts: join(import.meta.dirname, '../browser'),
+      // Optional. With a secret every instance and every restart forges the
+      // same fonts at the same URLs; with a folder they all share, any
+      // instance can serve a font another one forged (veneerFontMiddleware
+      // in server.ts reads it). Server-only env vars: the browser never sees
+      // them. Without them, one random cipher per process (sticky sessions).
+      secret: process.env['VENEER_SECRET'],
+      emitDir: process.env['VENEER_FONT_DIR'],
       // Verified search crawlers (server.ts passes the verifyCrawler() result
       // as the request context) get readable text. Dynamic SSR only.
       shouldProtect: (_request, context) => !(context as { crawler?: unknown } | null)?.crawler,

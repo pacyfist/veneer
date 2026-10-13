@@ -35,7 +35,7 @@ export interface CrawlerVerifierOptions {
 export function createCrawlerVerifier(options?: CrawlerVerifierOptions): CrawlerVerifier;
 
 // @public
-export function getVeneerFont(path: string): Uint8Array | undefined;
+export function getVeneerFont(path: string, options?: VeneerFontDiskOptions): Uint8Array | undefined;
 
 // @public
 export const KNOWN_CRAWLERS: readonly VeneerCrawler[];
@@ -51,7 +51,13 @@ export interface VeneerCrawler {
 }
 
 // @public
-export function veneerFontMiddleware(): (req: IncomingMessage, res: ServerResponse, next?: (error?: unknown) => void) => void;
+export interface VeneerFontDiskOptions {
+    dir?: string;
+    path?: string;
+}
+
+// @public
+export function veneerFontMiddleware(options?: VeneerFontDiskOptions): (req: IncomingMessage, res: ServerResponse, next?: (error?: unknown) => void) => void;
 
 // @public
 export type VeneerServerFontReader = (source: VeneerFontSource) => ArrayBuffer | Uint8Array;
@@ -61,6 +67,7 @@ export interface VeneerServerOptions {
     emitDir?: string;
     fonts: string | VeneerServerFontReader;
     path?: string;
+    secret?: string | Uint8Array;
     shouldProtect?: VeneerShouldProtect;
 }
 

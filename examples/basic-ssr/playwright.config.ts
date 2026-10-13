@@ -30,6 +30,24 @@ const variants = [
   },
 ];
 
+/**
+ * Two more instances of the `ssr` build, as replicas behind a load balancer
+ * without sticky sessions: one secret, one shared font folder. No project of
+ * their own; e2e/replicas.spec.ts talks to them directly. Ready once the port
+ * is open, so no readiness request renders a page on them first.
+ */
+const replicas = [PORT + 3, PORT + 4].map((port) => ({
+  command: `node ${join(APP, 'dist/ssr/server/server.mjs')}`,
+  port,
+  env: {
+    PORT: String(port),
+    VENEER_SECRET: 'example replicas share this secret, 32+ bytes',
+    VENEER_FONT_DIR: join(APP, 'replica-fonts'),
+  },
+  reuseExistingServer: false,
+  timeout: 30_000,
+}));
+
 export default defineConfig({
   testDir: './e2e',
   forbidOnly: !!process.env['CI'],
@@ -44,12 +62,19 @@ export default defineConfig({
   })),
 
   // Never reuse a server: a stray one on the port would test something else.
-  webServer: variants.map(({ port, command, root }) => ({
-    command,
-    url: `http://127.0.0.1:${port}/`,
-    // VENEER_EXAMPLE_TEST_CRAWLER: test-only crawler header, see src/server.ts.
-    env: { PORT: String(port), VENEER_EXAMPLE_TEST_CRAWLER: '1', ...(root ? { ROOT: root } : {}) },
-    reuseExistingServer: false,
-    timeout: 30_000,
-  })),
+  webServer: [
+    ...variants.map(({ port, command, root }) => ({
+      command,
+      url: `http://127.0.0.1:${port}/`,
+      // VENEER_EXAMPLE_TEST_CRAWLER: test-only crawler header, see src/server.ts.
+      env: {
+        PORT: String(port),
+        VENEER_EXAMPLE_TEST_CRAWLER: '1',
+        ...(root ? { ROOT: root } : {}),
+      },
+      reuseExistingServer: false,
+      timeout: 30_000,
+    })),
+    ...replicas,
+  ],
 });

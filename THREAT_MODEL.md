@@ -12,11 +12,11 @@ Protected text is stored in the DOM as a substitution cipher: each letter is
 swapped for another letter, each digit for another digit, and so on. A font
 forged from your normal font draws each swapped codepoint with the glyph of the
 original character, so people read the real words. With server rendering and
-`provideVeneerServer()`, the server draws the cipher from the CSPRNG, forges the
-font, and writes ciphertext into the HTML. The page carries only the forged
-font's URL. There is no seed and no map in the HTML. **The forged font is the
-key**: anyone who has it and the public base font can read the cipher out of
-their `cmap` tables.
+`provideVeneerServer()`, the server draws the cipher from the CSPRNG (or derives
+it from a server-side `secret`), forges the font, and writes ciphertext into the
+HTML. The page carries only the forged font's URL. There is no seed and no map
+in the HTML. **The forged font is the key**: anyone who has it and the public
+base font can read the cipher out of their `cmap` tables.
 
 ## What is protected, and for how long
 
@@ -24,6 +24,7 @@ their `cmap` tables.
 | ------------------------------------- | ------------------------------------------------------------- | ------------------------------------ |
 | SSR with `provideVeneerServer()`      | One per server process and `provideVeneer` config             | No, only the forged font's URL       |
 | Prerendered (SSG)                     | One per build, shared by every visitor until the next build   | No, only the forged font's URL       |
+| SSR or SSG with a `secret`            | One per secret, base font and config, across processes/builds | No, only the forged font's URL       |
 | Client-only rendering (no SSR)        | One per page load, drawn in the browser                       | No text in the HTML at all           |
 | SSR, `shouldProtect` returned `false` | None for that response: rendered **readable** on purpose      | Not applicable, the text is readable |
 | SSR without `provideVeneerServer()`   | None: protected text is rendered **readable** (VNR015)        | Not applicable, the text is readable |
