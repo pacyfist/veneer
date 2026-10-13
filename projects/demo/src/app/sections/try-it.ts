@@ -13,11 +13,13 @@ import { SectionHeading } from '../ui/section-heading';
 import { MirrorPanel } from '../ui/mirror-panel';
 import { ServedSource } from './served-source';
 import { Keyless } from './keyless';
+import { NoJs } from './no-js';
 
 /** What the "what a crawler downloads" card can show from the served page. */
 const CRAWLER_TABS = [
   { id: 'paragraph', label: 'The paragraph' },
   { id: 'key', label: 'Is the key in it?' },
+  { id: 'no-js', label: 'Without JavaScript' },
 ] as const;
 
 type CrawlerTab = (typeof CRAWLER_TABS)[number]['id'];
@@ -38,7 +40,7 @@ const NEEDLE = 'haystack';
 @Component({
   selector: 'app-try-it',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SectionHeading, VeneerDirective, MirrorPanel, ServedSource, Keyless],
+  imports: [SectionHeading, VeneerDirective, MirrorPanel, ServedSource, Keyless, NoJs],
   host: { '(document:keydown)': 'onKey($event)' },
   template: `
     <app-section-heading eyebrow="Try it yourself" title="Don't take our word for it">
@@ -158,6 +160,9 @@ const NEEDLE = 'haystack';
             }
             @case ('key') {
               <app-keyless />
+            }
+            @case ('no-js') {
+              <app-no-js />
             }
           }
         </div>

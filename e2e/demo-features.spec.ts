@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { type Page, expect, test } from '@playwright/test';
 import { HERO } from './support/demo-specimens';
 
@@ -243,5 +244,42 @@ test.describe('accessibility mode, made visible', () => {
     for (const note of [heroNote, cardNote, tabsNote]) {
       await expect(note).toContainText('skipped');
     }
+  });
+});
+
+test.describe('without JavaScript', () => {
+  test('a script-less frame of this page shows the scrambled hero, not blank space', async ({
+    page,
+  }) => {
+    await openDemo(page);
+    const card = page.locator('app-try-it');
+    await card.getByRole('tab', { name: 'Without JavaScript' }).click();
+    await card.getByRole('button', { name: 'Load this page with JavaScript off' }).click();
+
+    const frame = page.frameLocator('app-no-js iframe');
+    const hero = frame.locator('app-hero p[veneer]');
+    await expect(hero).toBeVisible();
+    await expect(hero).toHaveCSS('visibility', 'visible');
+    // No script ran in the frame, not even veneer's inline one.
+    await expect(frame.locator('html')).not.toHaveClass(/veneer-js/);
+    await expect(frame.locator('html')).toHaveAttribute('data-veneer-status', 'loading');
+
+    const readout = page.locator('app-no-js').getByTestId('no-js-hero');
+    await expect(readout).toContainText('visible');
+    const text = (await hero.textContent())!.replace(/\s+/g, ' ').trim();
+    expect(text).toHaveLength(HERO.text.length);
+    expect(text).not.toBe(HERO.text);
+    await expect(readout).toContainText(text);
+
+    // axe cannot run inside a frame that blocks scripts; it still checks the
+    // frame element itself (frame-title and the rest).
+    const { violations } = await new AxeBuilder({ page })
+      .include('app-no-js')
+      .options({ iframes: false })
+      .setLegacyMode()
+      .analyze();
+    expect(violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(', ')}`)).toEqual(
+      [],
+    );
   });
 });
