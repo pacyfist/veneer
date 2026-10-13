@@ -13,8 +13,10 @@ const browserDistFolder = join(import.meta.dirname, '../browser');
 const app = express();
 const angularApp = new AngularNodeAppEngine();
 
-// The fonts veneer forges while rendering, which the pages reference.
-app.use(veneerFontMiddleware());
+// The fonts veneer forges while rendering, which the pages reference: this
+// process's own, then (with VENEER_FONT_DIR) those any instance wrote to the
+// shared folder.
+app.use(veneerFontMiddleware({ dir: process.env['VENEER_FONT_DIR'] }));
 
 app.use(express.static(browserDistFolder, { maxAge: '1y', index: false, redirect: false }));
 

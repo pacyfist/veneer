@@ -75,6 +75,41 @@ describe('createCrawlerVerifier', () => {
     }
   });
 
+  it("rejects Google's special-case and user-triggered fetchers under google.com", async () => {
+    for (const host of [
+      'rate-limited-proxy-66-249-90-1.google.com',
+      'google-proxy-66-249-81-1.google.com',
+    ]) {
+      const ip = '66.249.90.1';
+      const dns = fakeDns({ ptr: { [ip]: [host] }, a: { [host]: [ip] } });
+      await expect(verifier(dns)(ip, GOOGLE_UA)).resolves.toBeNull();
+      await expect(verifier(dns)(ip)).resolves.toBeNull();
+      expect(dns.resolve4).not.toHaveBeenCalled();
+    }
+  });
+
+  it('verifies a geo-distributed Googlebot', async () => {
+    const ip = '66.249.70.1';
+    const host = 'geo-crawl-66-249-70-1.geo.googlebot.com';
+    const dns = fakeDns({ ptr: { [ip]: [host] }, a: { [host]: [ip] } });
+    await expect(verifier(dns)(ip, GOOGLE_UA)).resolves.toEqual({
+      name: 'Googlebot',
+      hostname: host,
+    });
+  });
+
+  it('accepts google.com again through a custom list', async () => {
+    const ip = '66.249.90.1';
+    const host = 'rate-limited-proxy-66-249-90-1.google.com';
+    const dns = fakeDns({ ptr: { [ip]: [host] }, a: { [host]: [ip] } });
+    const verify = verifier(dns, {
+      crawlers: [{ name: 'AdsBot', userAgent: /AdsBot-Google/, domains: ['google.com'] }],
+    });
+    await expect(verify(ip, 'AdsBot-Google (+http://www.google.com/adsbot.html)')).resolves.toEqual(
+      { name: 'AdsBot', hostname: host },
+    );
+  });
+
   it('rejects a spoofed PTR record whose name does not resolve back to the IP', async () => {
     // The attacker controls the PTR record for their own IP, not googlebot.com.
     const dns = fakeDns({
@@ -203,7 +238,7 @@ describe('createCrawlerVerifier', () => {
 
   it('knows Google, Bing and Apple by their documented domains', () => {
     expect(Object.fromEntries(KNOWN_CRAWLERS.map((c) => [c.name, c.domains]))).toEqual({
-      Googlebot: ['googlebot.com', 'google.com'],
+      Googlebot: ['googlebot.com'],
       Bingbot: ['search.msn.com'],
       Applebot: ['applebot.apple.com'],
     });

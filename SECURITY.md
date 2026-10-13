@@ -37,8 +37,11 @@ A break of something veneer claims to do. For example:
   appearing anywhere in the server-rendered or prerendered HTML while the
   server reports success, except through the channels listed as limitations
   below.
-- **A predictable cipher.** A cipher that is not drawn from the CSPRNG when no
-  `seed` is set, or one that repeats across server processes or builds.
+- **A predictable cipher.** A cipher that is not drawn from the CSPRNG when
+  neither `seed` nor `secret` is set, or one that repeats across server
+  processes or builds without a `secret`. With a `secret`, a cipher, family
+  name or font id that someone without the secret can predict, or that reveals
+  the secret.
 - **Silent fail-open.** Protection switching off, or readable text reaching a
   protected element in the browser, without `status()` becoming `failed` or
   `disabled` and without an error being logged (other than readable mode and

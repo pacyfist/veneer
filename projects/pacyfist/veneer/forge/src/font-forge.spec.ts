@@ -14,6 +14,7 @@ import {
   parseBaseFont,
   parseBaseFontSync,
   readScrambleMap,
+  uncoveredCodepoints,
 } from './font-forge';
 import {
   DEFAULT_CHARSET,
@@ -422,6 +423,25 @@ describe('coveredCodepoints', async () => {
     const wanted = [0x61, 0x62, 0x63, 0x4e2d];
     const map = buildScrambleMap(9, coveredCodepoints(base, wanted));
     expect(() => forgeScrambledFont(base, map, 'Veneer-narrow')).not.toThrow();
+  });
+});
+
+describe('uncoveredCodepoints', async () => {
+  const base = await parseBaseFont(loadFixture());
+
+  it('lists what any face cannot draw, once each, in candidate order', () => {
+    expect(uncoveredCodepoints([base], [0x62, 0x4e2d, 0x61, 0x4e2d, 0x1f600])).toEqual([
+      0x4e2d, 0x1f600,
+    ]);
+    expect(uncoveredCodepoints([base, base], DEFAULT_CHARSET)).toEqual([]);
+    expect(uncoveredCodepoints([], [0x61])).toEqual([]);
+  });
+
+  it('is the complement of coveredCodepoints', () => {
+    const wanted = [...DEFAULT_CHARSET, 0x180, 0x183];
+    const covered = coveredCodepoints(base, wanted);
+    const uncovered = uncoveredCodepoints([base], wanted);
+    expect([...covered, ...uncovered].sort()).toEqual([...wanted].sort());
   });
 });
 

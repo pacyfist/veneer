@@ -24,16 +24,21 @@ export interface VeneerCrawler {
 
 /**
  * The crawlers `verifyCrawler()` knows, with the domains their operators
- * document for reverse DNS verification: Google (googlebot.com, google.com),
- * Bing (search.msn.com) and Apple (applebot.apple.com). Kept short on purpose;
- * pass your own list to `createCrawlerVerifier({ crawlers })`.
+ * document for reverse DNS verification: Google's common crawlers
+ * (googlebot.com: `crawl-*.googlebot.com`, `geo-crawl-*.geo.googlebot.com`),
+ * Bing (search.msn.com) and Apple (applebot.apple.com).
+ *
+ * Not google.com: Google's special-case crawlers and user-triggered fetchers
+ * (AdsBot, `rate-limited-proxy-*.google.com`, `google-proxy-*.google.com`)
+ * resolve there, and those fetch on behalf of ads checks or of whoever asked,
+ * not for the search index. Kept short on purpose; pass your own list to
+ * `createCrawlerVerifier({ crawlers })` to accept more.
  */
 export const KNOWN_CRAWLERS: readonly VeneerCrawler[] = [
   {
     name: 'Googlebot',
-    userAgent:
-      /Googlebot|Google-InspectionTool|GoogleOther|Storebot-Google|AdsBot-Google|Mediapartners-Google/i,
-    domains: ['googlebot.com', 'google.com'],
+    userAgent: /Googlebot|Google-InspectionTool|GoogleOther|Storebot-Google/i,
+    domains: ['googlebot.com'],
   },
   {
     name: 'Bingbot',
@@ -223,7 +228,7 @@ let shared: CrawlerVerifier | undefined;
 /**
  * Whether a request comes from a search crawler, verified the way Google and
  * Bing document it: the IP's reverse DNS name must end in one of the
- * crawler's domains (googlebot.com or google.com; search.msn.com; ...), and
+ * crawler's domains (googlebot.com, search.msn.com, applebot.apple.com), and
  * that name must resolve forward to the same IP. A user-agent alone is never
  * trusted. Server only (`node:dns/promises`).
  *

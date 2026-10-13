@@ -34,6 +34,7 @@ import {
 import { VENEER_SERVER_FORGE, VeneerTransfer, VeneerTransferFont } from './veneer-server';
 import type { BaseFont } from '@pacyfist/veneer/forge';
 import { docsUrl, veneerMessage } from './veneer-errors';
+import { warnUncovered } from './veneer-uncovered';
 import type { VeneerFailure, VeneerStatus } from './veneer-status';
 import { releaseStatusAttribute, setStatusAttribute } from './veneer-status-attribute';
 
@@ -124,18 +125,6 @@ declare const ngDevMode: boolean | undefined;
 
 /** Server failures already logged, so each is reported once per process. */
 const loggedServerFailures = new Set<string>();
-
-/** Dropped-character sets already warned about, so each is reported once per page. */
-const warnedUncovered = new Set<string>();
-
-/**
- * Forget which dropped-character sets were warned about. Tests only: the set is
- * module-level, so specs that drop the same characters would otherwise depend on
- * the order they run in. Not exported from the package.
- */
-export function resetUncoveredWarnings(): void {
-  warnedUncovered.clear();
-}
 
 /** `[veneer] VNR010: text. See <url>` without the prefix, the code, the link and the final stop. */
 function bareMessage(message: string): string {
@@ -397,11 +386,11 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
         ),
       );
       stage = 'forge';
-      const { coveredCodepoints, forgeScrambledFont } = await forge;
+      const { uncoveredCodepoints, forgeScrambledFont } = await forge;
       const initial = this.currentMap();
       const map = this.config.strictCoverage
         ? initial
-        : this.narrow(coveredCodepoints, bases, initial);
+        : this.narrow(uncoveredCodepoints, bases, initial);
       // One map, one family: every face is forged from the same map, and the
       // descriptors let the browser pick the right one for bold or italic text.
       const forged = bases.map((base) => forgeScrambledFont(base, map, this.familyName));
@@ -556,41 +545,22 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
    * cipher.
    */
   private narrow(
-    coveredCodepoints: Forge['coveredCodepoints'],
+    uncoveredCodepoints: Forge['uncoveredCodepoints'],
     bases: BaseFont[],
     initial: ScrambleMap,
   ): ScrambleMap {
-    const scrambled = [...initial.forward.keys()];
-    const covered = new Set(
-      bases.reduce((candidates, base) => coveredCodepoints(base, candidates), scrambled),
-    );
-    const dropped = scrambled
-      .filter((cp) => !covered.has(cp))
-      .map((cp) => String.fromCodePoint(cp));
-    if (dropped.length === 0) return initial;
+    const missing = uncoveredCodepoints(bases, initial.forward.keys());
+    if (missing.length === 0) return initial;
+    warnUncovered(missing, bases.length);
 
-    if (typeof ngDevMode === 'undefined' || ngDevMode) {
-      const key = dropped.join('');
-      if (!warnedUncovered.has(key)) {
-        warnedUncovered.add(key);
-        console.warn(
-          veneerMessage(
-            'VNR014',
-            `the base font${bases.length > 1 ? 's have' : ' has'} no glyph for ${dropped.length} charset character(s): ${key}. ` +
-              'They are left out of the cipher and shown as they are, in the fallback font. ' +
-              'Narrow `charset` to silence this, or set `strictCoverage: true` to fail instead.',
-          ),
-        );
-      }
-    }
-
-    const charset = this.config.charset.filter((cp) => covered.has(cp) || !initial.forward.has(cp));
+    const dropped = new Set(missing);
+    const charset = this.config.charset.filter((cp) => !dropped.has(cp));
     try {
       return this.drawMap(charset);
     } catch {
       throw Object.assign(
         new Error(`[veneer] the base font covers too little of the charset to scramble anything.`),
-        { missing: dropped },
+        { missing: missing.map((cp) => String.fromCodePoint(cp)) },
       );
     }
   }

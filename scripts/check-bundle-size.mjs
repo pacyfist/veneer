@@ -68,12 +68,17 @@ import { gzipSync } from 'node:zlib';
  * for font and forge requests, VNR016 for every hydrate failure before the
  * cipher is known, the shared status attribute, forged faces sent with their
  * descriptors and the dev-only VNR018 and whole-word VNR002 checks).
+ *
+ * `./server` raised 2026-10-13 by the review fixes: 9,473 B, from 7,256 B,
+ * with `secret` (HMAC-derived cipher, family and font ids), the shared-folder
+ * fallback of `veneerFontMiddleware({ dir })`, atomic `emitDir` writes and
+ * eviction of fonts together with their cipher.
  */
 const BUDGETS = {
   '.': 27_600,
   './core': 6_100,
   './forge': 11_700,
-  './server': 8_000,
+  './server': 10_400,
   './testing': 5_200,
 };
 

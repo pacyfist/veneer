@@ -429,13 +429,13 @@ Exports whose names start with `ɵ` are internal (they exist for
 `@pacyfist/veneer/server`, Node only. See [Server-side rendering](#server-side-rendering)
 and [Search engines](#search-engines-and-shouldprotect).
 
-| Export                                                                          | Description                                                                                   |
-| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `provideVeneerServer({ fonts, path?, emitDir?, shouldProtect? })`               | Forge the font during server rendering; `shouldProtect(request, context)` decides per request |
-| `veneerFontMiddleware()`, `getVeneerFont(path)`                                 | Serve the forged fonts (Express/Connect middleware, or the bytes for any server)              |
-| `verifyCrawler(ip, userAgent?)`                                                 | `Promise<{ name, hostname } \| null>`: a search crawler verified by reverse and forward DNS   |
-| `createCrawlerVerifier(options?)`, `KNOWN_CRAWLERS`                             | A verifier with its own crawler list, resolver, timeout and cache; the default list           |
-| `VeneerShouldProtect`, `VeneerCrawler`, `VerifiedCrawler`, `CrawlerDnsResolver` | Types                                                                                         |
+| Export                                                                                                   | Description                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `provideVeneerServer({ fonts, path?, emitDir?, secret?, shouldProtect? })`                               | Forge the font during server rendering; `secret` makes it the same in every process; `shouldProtect(request, context)` decides per request |
+| `veneerFontMiddleware({ dir?, path? })`, `getVeneerFont(path, { dir?, path? })`                          | Serve the forged fonts (Express/Connect middleware, or the bytes for any server); `dir` also reads a shared `emitDir`                      |
+| `verifyCrawler(ip, userAgent?)`                                                                          | `Promise<{ name, hostname } \| null>`: a search crawler verified by reverse and forward DNS                                                |
+| `createCrawlerVerifier(options?)`, `KNOWN_CRAWLERS`                                                      | A verifier with its own crawler list, resolver, timeout and cache; the default list                                                        |
+| `VeneerShouldProtect`, `VeneerFontDiskOptions`, `VeneerCrawler`, `VerifiedCrawler`, `CrawlerDnsResolver` | Types                                                                                                                                      |
 
 ### Template pieces
 
@@ -555,10 +555,11 @@ app.use(veneerFontMiddleware());
 How it works:
 
 1. During the render the server draws the cipher from the CSPRNG (no seed
-   exists), forges the font (the base font with only its `cmap` replaced) and
-   scrambles the text with it. The page carries only the forged font's URL
-   (`veneer/<random id>.ttf`, relative to `<base href>`) and a random family name,
-   in `TransferState` under a key namespaced by `id`. No seed, no map.
+   exists), or derives it from a server-side `secret`, forges the font (the base
+   font with only its `cmap` replaced) and scrambles the text with it. The page
+   carries only the forged font's URL (`veneer/<id>.ttf`, relative to
+   `<base href>`) and the family name, in `TransferState` under a key namespaced
+   by `id`. No seed, no map, no secret.
 2. In the browser, `initialMap()` stays `null` and protected text stays hidden
    (with `hideUntilReady`) while the service fetches the forged font, reads the
    cipher back out of its `cmap` against the base font (`readScrambleMap`), and
@@ -573,41 +574,79 @@ Once JavaScript runs, the forged font is the key; see what this does not stop be
 ### One cipher per server process
 
 Each `provideVeneer` configuration is forged once per process and shared by every
-request, so visitors fetch and cache the font once (it is served as immutable). A
+request, so visitors fetch and cache the font once (it is served as immutable).
+With a `secret` (below), every process forges the same one. A
 fresh cipher per request would cost every page view a ~124 KB font download, and
 the server would have to keep every page's font in memory until it is fetched, or
 re-forge it on demand.
 
 ### Load balancers and restarts
 
-The forged fonts live in the memory of the process that rendered the page, and a
-page can only be decoded with the font it was rendered with. If its font request
-reaches another instance, or the same instance after a restart, the request
-fails, and the server's ciphertext stays on screen as gibberish
-([VNR016](#vnr016)). This is the one case veneer cannot fail open from, because
-the readable text is not in the page. Pick one:
+A page can only be decoded with the font it was rendered with. On a
+server-rendered page the readable text is not in the HTML, so whenever the
+browser cannot get the base font, the forged font or the forge code, the text the
+server rendered stays scrambled: veneer retries once, then reports
+[VNR016](#vnr016) (watch for it with `withStatusListener()`). A missing forged
+font is the case your deployment decides. Without a `secret`, every process draws
+its own cipher, family name and font ids from the CSPRNG and keeps the fonts in
+its memory, so a font request that reaches another instance, or the same
+instance after a restart or a rolling deploy, finds nothing.
+
+**The fix: a secret and a shared font folder.**
+
+```ts
+// app.config.server.ts
+provideVeneerServer({
+  fonts: join(import.meta.dirname, '../browser'),
+  secret: process.env['VENEER_SECRET'], // openssl rand -hex 32
+  emitDir: '/srv/veneer-fonts', // storage every instance shares
+});
+
+// server.ts: this process's fonts, then any instance's from the shared folder
+app.use(veneerFontMiddleware({ dir: '/srv/veneer-fonts' }));
+```
+
+- **`secret`** makes the cipher deterministic: the map, the family name and the
+  font ids are HMAC-SHA256 derivations of the secret, the base font bytes and
+  the configuration. Every process, restart and replica with the same secret
+  forges byte-identical fonts at identical URLs, so any of them can decode any
+  page. On its own that already covers restarts and replicas that render the
+  same configurations.
+- **`emitDir` with `veneerFontMiddleware({ dir })`** covers the rest: each
+  instance writes the fonts it forges to `<emitDir>/<path>/<id>.ttf` (once,
+  atomically), and the middleware serves a font it does not hold in memory from
+  that folder (`path` defaults to `'veneer'`; pass the same one to both). Only
+  ids of 32 hex digits are looked up, so a request cannot leave the folder. You
+  can also serve the folder as static files or from a CDN.
+
+What the secret means for the protection: the cipher stays the same until the
+secret, a base font or the configuration (charset, faces, `seed`,
+`strictCoverage`) changes. That is as strong as one cipher per build, which
+prerendering has anyway, and the font itself is the key, served to every
+visitor either way. To rotate, change the secret; pages rendered with the old
+one need its fonts until cached HTML expires, so keep the old files in
+`emitDir` for a while. Keep the secret out of the browser: read it only in
+server code (`app.config.server.ts`, `server.ts`), never in `environment.ts` or
+anything the browser bundle imports. Use 32 random bytes; under 16 bytes
+throws, and an empty string counts as no secret (an unset CI secret builds the
+random way).
+
+Without a secret, pick one of:
 
 - **Sticky sessions.** Route a visitor's requests to the instance that rendered
-  their page.
-- **A shared font folder.** `emitDir` also works for dynamic SSR: every instance
-  writes the fonts it forges to `<emitDir>/<path>/<id>.ttf`. Point it at storage
-  all instances share and serve that folder as static files (or upload it to your
-  CDN), so any instance, before or after a restart, can serve any page's font:
-
-  ```ts
-  provideVeneerServer({
-    fonts: join(import.meta.dirname, '../browser'),
-    emitDir: '/srv/veneer-fonts',
-  });
-  ```
-
-  ```ts
-  // server.ts: the fonts of every instance, then this process's own
-  app.use(express.static('/srv/veneer-fonts', { maxAge: '1y', immutable: true }));
-  app.use(veneerFontMiddleware());
-  ```
-
+  their page. A restart still loses the fonts of pages rendered before it.
+- **A shared font folder** alone (`emitDir` and `veneerFontMiddleware({ dir })`
+  as above): any instance can serve any font that was ever forged, but each
+  process forges its own, so the folder grows by one set per process start.
 - **Prerender** the pages you protect, so the fonts are static files.
+
+**Per-page charsets.** Each distinct configuration is one cipher and one font
+per face. An app that computes `charset: charsetFromText(article)` per page
+forges a font per distinct charset: the process keeps at most 256 forged fonts in
+memory and drops the least recently used configuration together with its fonts
+(re-forged if needed again; with a secret at the same URLs). Prefer a fixed
+charset, or a secret with a shared `emitDir`, so a dropped font can still be
+served.
 
 Also keep cached HTML (a CDN, a service worker) no longer than the fonts it
 references stay available.
@@ -645,6 +684,38 @@ if (process.argv[2] === 'copy' && existsSync(EMIT)) cpSync(EMIT, BROWSER, { recu
 ```
 
 Forgetting the copy shows up in the browser as [VNR016](#vnr016).
+
+**Redeploys.** A deploy that replaces the whole site removes the previous
+build's fonts, while browsers and CDNs may still hold its HTML (GitHub Pages
+sends `max-age=600`), which then cannot be decoded. Two fixes, best together:
+
+- **A build secret.** `secret: process.env['VENEER_SECRET']` in
+  `provideVeneerServer()` (in `app.config.server.ts`, which only the
+  prerendering server reads) makes a build whose base fonts and configuration
+  did not change forge the same fonts at the same URLs as the last one. Store
+  it as a CI secret and pass it to the build step only; check that it is not in
+  the browser output (`grep -rF "$VENEER_SECRET" dist/my-app/browser` finds
+  nothing). The build still works without it.
+- **Keep the live fonts.** Before publishing, read the pages that are live now,
+  take the font URLs out of their `ng-state` (`"fonts":[...]`) and download the
+  fonts the new build lacks into it. The demo's
+  [`scripts/demo-veneer-fonts.mjs`](https://github.com/pacyfist/veneer/blob/main/scripts/demo-veneer-fonts.mjs)
+  `keep <live base URL>` does this, and adds nothing, without failing, on a
+  first deploy or when the site is unreachable:
+
+  ```yaml
+  # GitHub Actions
+  - run: npm run build
+    env:
+      VENEER_SECRET: ${{ secrets.VENEER_SECRET }}
+  - run: node scripts/veneer-fonts.mjs keep https://example.github.io/my-app/
+  - uses: actions/upload-pages-artifact@v3
+    with:
+      path: dist/my-app/browser
+  ```
+
+  It only keeps the fonts of the deploy just before, which covers HTML cached
+  for less than one deploy interval.
 
 ### Without `provideVeneerServer()`
 
@@ -1026,9 +1097,14 @@ provideVeneerServer({
 
 **Verifying crawlers.** Never trust the user-agent: anyone can send `Googlebot`.
 `verifyCrawler(ip, userAgent?)` does what Google and Bing document: the IP's
-reverse DNS name must end in the crawler's domain (`googlebot.com` or
-`google.com`, `search.msn.com`, `applebot.apple.com`) and that name must resolve
-forward to the same IP. The user-agent only skips the lookups for requests that
+reverse DNS name must end in the crawler's domain (`googlebot.com`,
+`search.msn.com`, `applebot.apple.com`) and that name must resolve forward to
+the same IP. For Google that is its common crawlers (Googlebot,
+Google-InspectionTool, GoogleOther, Storebot-Google), which reverse-resolve to
+`crawl-*.googlebot.com` or `geo-crawl-*.geo.googlebot.com`. Names under
+`google.com` are not accepted: Google's special-case crawlers (AdsBot) and
+user-triggered fetchers and proxies resolve there, and they fetch for ads checks
+or on someone's behalf, not for the search index. The user-agent only skips the lookups for requests that
 do not claim to be a known crawler. Results are cached per IP for an hour; a
 lookup that fails or takes over two seconds counts as "not a crawler" and is
 not cached. It never rejects. The Fetch `Request` Angular renders has no client
@@ -1053,7 +1129,9 @@ app.use(async (req, res, next) => {
 
 `createCrawlerVerifier({ crawlers?, resolver?, timeout?, ttl?, maxEntries? })`
 builds one with its own cache, list (`KNOWN_CRAWLERS` is the default) or DNS
-resolver (inject a fake one in tests).
+resolver (inject a fake one in tests). To accept more, such as `google.com`,
+pass your own list:
+`crawlers: [...KNOWN_CRAWLERS, { name: 'AdsBot', userAgent: /AdsBot-Google/, domains: ['google.com'] }]`.
 
 **Cloaking: verify with your SEO team.** Search engines penalise serving
 crawlers different content from users. Here people and verified crawlers get

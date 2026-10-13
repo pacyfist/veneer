@@ -190,6 +190,18 @@ export function coveredCodepoints(base: BaseFont, candidate: Iterable<number>): 
 }
 
 /**
+ * The codepoints of `candidate` that at least one of `bases` has no glyph for,
+ * once each, in candidate order. A map over several faces of one family can
+ * only scramble what every face can draw; these are the rest.
+ */
+export function uncoveredCodepoints(
+  bases: readonly BaseFont[],
+  candidate: Iterable<number>,
+): number[] {
+  return [...new Set(candidate)].filter((cp) => bases.some((base) => base.glyphId(cp) === 0));
+}
+
+/**
  * Produce a font binary whose cmap is the scrambled one.
  *
  * The base cmap is kept, except that each charset codepoint `scrambled` now

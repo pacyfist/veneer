@@ -209,6 +209,9 @@ export interface ɵVeneerServerForge {
     protects(): boolean;
 }
 
+// @public
+export function ɵwarnUncovered(dropped: readonly number[], faces: number): void;
+
 
 export * from "@pacyfist/veneer/core";
 

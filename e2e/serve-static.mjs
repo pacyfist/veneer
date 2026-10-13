@@ -33,8 +33,11 @@ const TYPES = {
  * Responses carry the caching headers GitHub Pages sends (`max-age=600` and
  * `Last-Modified`), so the browser's HTTP cache behaves as it does in
  * production: a file requested twice is fetched once.
+ *
+ * `root` serves another folder than the build output, such as a copy of a
+ * previous build standing in for the deployed site.
  */
-export function createStaticServer({ onRequest } = {}) {
+export function createStaticServer({ onRequest, root = ROOT } = {}) {
   return createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     onRequest?.(url.pathname);
@@ -48,7 +51,7 @@ export function createStaticServer({ onRequest } = {}) {
     if (rel.endsWith('/')) rel += 'index.html';
 
     // normalize collapses any ../ before it can escape the served directory.
-    const file = join(ROOT, normalize(rel).replace(/^(\.\.[/\\])+/, ''));
+    const file = join(root, normalize(rel).replace(/^(\.\.[/\\])+/, ''));
 
     try {
       const [body, info] = await Promise.all([readFile(file), stat(file)]);
@@ -61,17 +64,13 @@ export function createStaticServer({ onRequest } = {}) {
       res.end(body);
     } catch {
       // Pages serves 404.html for anything it does not recognise.
-      // Read before writing headers: a build without 404.html (only the deploy
-      // step creates it) must not crash the server with a second writeHead.
-      let page;
       try {
-        page = await readFile(join(ROOT, '404.html'));
+        const body = await readFile(join(root, '404.html'));
+        res.writeHead(404, { 'content-type': TYPES['.html'] });
+        res.end(body);
       } catch {
         res.writeHead(404).end('not found');
-        return;
       }
-      res.writeHead(404, { 'content-type': TYPES['.html'] });
-      res.end(page);
     }
   });
 }

@@ -228,7 +228,9 @@ function cryptoRandom(): () => number {
  * letters of `DEFAULT_CHARSET` alone). What the server and the client agree on
  * is then the forged font, not a seed.
  *
- * `random` replaces the CSPRNG (numbers in [0, 1)). Tests only.
+ * `random` replaces the CSPRNG: numbers in [0, 1), each from 32 uniform bits.
+ * For tests, or a deterministic stream keyed by a secret, which is how
+ * `provideVeneerServer({ secret })` derives the same map in every process.
  *
  * @throws if no class has at least 2 codepoints, or there is no CSPRNG.
  */
