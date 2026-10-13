@@ -66,9 +66,9 @@ import { CipherTable } from './cipher-table';
         <div class="collapse-content text-base-content/70 flex max-w-3xl flex-col gap-3">
           <p>
             This site is prerendered to static files, so the page's own cipher is fixed at build
-            time and every visitor sees the same one. A server-rendered app draws one cipher per
-            server process. The cipher table above runs its own instance in your browser, with a
-            cipher of its own.
+            time and every visitor sees the same one: the cipher table above. A server-rendered app
+            draws one cipher per server process. The samples on the test bench and in "When it
+            fails" run their own instances in your browser, each with a cipher of its own.
           </p>
           <p>
             The demo sentences also ship readable inside this page's JavaScript bundle, because
