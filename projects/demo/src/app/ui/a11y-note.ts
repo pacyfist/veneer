@@ -11,22 +11,22 @@ import { VeneerFontService } from '@pacyfist/veneer';
   selector: 'app-a11y-note',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (hidden() !== null) {
-      <p class="text-base-content/70 mt-2 text-xs" data-testid="a11y">
-        @if (hidden()) {
-          Screen readers: skipped (<code>aria-hidden="true"</code>) while it is scrambled.
-        } @else if (veneer.readable()) {
-          Screen readers: read it, readable mode is on.
-        } @else if (!veneer.active()) {
-          Screen readers: read it, the text is readable.
-        } @else if (focusable()) {
-          Screen readers: read it scrambled. It contains a link, which
-          <code>aria-hidden</code> must not hide.
-        } @else {
-          Screen readers: read it scrambled.
-        }
-      </p>
-    }
+    <!-- Always there, so the line does not appear (and shift the layout) on hydration. -->
+    <p class="text-base-content/70 mt-2 min-h-4 text-xs" data-testid="a11y">
+      @if (hidden() === null) {
+      } @else if (hidden()) {
+        Screen readers: skipped (<code>aria-hidden="true"</code>) while it is scrambled.
+      } @else if (veneer.readable()) {
+        Screen readers: read it, readable mode is on.
+      } @else if (!veneer.active()) {
+        Screen readers: read it, the text is readable.
+      } @else if (focusable()) {
+        Screen readers: read it scrambled. It contains a link, which
+        <code>aria-hidden</code> must not hide.
+      } @else {
+        Screen readers: read it scrambled.
+      }
+    </p>
   `,
 })
 export class A11yNote {
