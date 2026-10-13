@@ -1020,9 +1020,14 @@ provideVeneerServer({
 
 **Verifying crawlers.** Never trust the user-agent: anyone can send `Googlebot`.
 `verifyCrawler(ip, userAgent?)` does what Google and Bing document: the IP's
-reverse DNS name must end in the crawler's domain (`googlebot.com` or
-`google.com`, `search.msn.com`, `applebot.apple.com`) and that name must resolve
-forward to the same IP. The user-agent only skips the lookups for requests that
+reverse DNS name must end in the crawler's domain (`googlebot.com`,
+`search.msn.com`, `applebot.apple.com`) and that name must resolve forward to
+the same IP. For Google that is its common crawlers (Googlebot,
+Google-InspectionTool, GoogleOther, Storebot-Google), which reverse-resolve to
+`crawl-*.googlebot.com` or `geo-crawl-*.geo.googlebot.com`. Names under
+`google.com` are not accepted: Google's special-case crawlers (AdsBot) and
+user-triggered fetchers and proxies resolve there, and they fetch for ads checks
+or on someone's behalf, not for the search index. The user-agent only skips the lookups for requests that
 do not claim to be a known crawler. Results are cached per IP for an hour; a
 lookup that fails or takes over two seconds counts as "not a crawler" and is
 not cached. It never rejects. The Fetch `Request` Angular renders has no client
@@ -1047,7 +1052,9 @@ app.use(async (req, res, next) => {
 
 `createCrawlerVerifier({ crawlers?, resolver?, timeout?, ttl?, maxEntries? })`
 builds one with its own cache, list (`KNOWN_CRAWLERS` is the default) or DNS
-resolver (inject a fake one in tests).
+resolver (inject a fake one in tests). To accept more, such as `google.com`,
+pass your own list:
+`crawlers: [...KNOWN_CRAWLERS, { name: 'AdsBot', userAgent: /AdsBot-Google/, domains: ['google.com'] }]`.
 
 **Cloaking: verify with your SEO team.** Search engines penalise serving
 crawlers different content from users. Here people and verified crawlers get
