@@ -28,8 +28,23 @@ jobs:
 
       - run: npm ci
 
+      # VENEER_SECRET is optional: with it, a build whose base font, config and
+      # library are unchanged forges the same font at the same URL as the last
+      # one. Without it every build gets a new cipher, which the `keep` step
+      # below makes safe. Only the prerendering server code reads it.
       - name: Build library and static site
         run: npm run build:pages
+        env:
+          VENEER_SECRET: ${{ secrets.VENEER_SECRET }}
+
+      - name: Check the secret did not reach the published files
+        run: |
+          if [ -n "$VENEER_SECRET" ] && grep -rqF -- "$VENEER_SECRET" dist/demo/browser; then
+            echo "VENEER_SECRET appears in dist/demo/browser" >&2
+            exit 1
+          fi
+        env:
+          VENEER_SECRET: ${{ secrets.VENEER_SECRET }}
 
       # A build that ships readable text must fail here rather than publish.
       # Chromium is enough for that guard; validate (ci.yml) covers the other
@@ -43,6 +58,14 @@ jobs:
         run: |
           cp dist/demo/browser/index.html dist/demo/browser/404.html
           touch dist/demo/browser/.nojekyll
+
+      # The deploy replaces the whole site, but browsers and the Pages CDN
+      # (max-age=600) may still hold HTML from the live one, which references
+      # its forged fonts. Carry those fonts over so that HTML still decodes.
+      # Adds nothing, and never fails, on the first deploy or when the site is
+      # unreachable.
+      - name: Keep the forged fonts of the live site
+        run: node scripts/demo-veneer-fonts.mjs keep https://pacyfist.github.io/veneer/
 
       # dist/demo/browser only — `outputMode: static` still emits dist/demo/server
       # as a prerender byproduct, and publishing it would ship the server bundles.

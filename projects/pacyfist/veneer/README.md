@@ -677,6 +677,38 @@ if (process.argv[2] === 'copy' && existsSync(EMIT)) cpSync(EMIT, BROWSER, { recu
 
 Forgetting the copy shows up in the browser as [VNR016](#vnr016).
 
+**Redeploys.** A deploy that replaces the whole site removes the previous
+build's fonts, while browsers and CDNs may still hold its HTML (GitHub Pages
+sends `max-age=600`), which then cannot be decoded. Two fixes, best together:
+
+- **A build secret.** `secret: process.env['VENEER_SECRET']` in
+  `provideVeneerServer()` (in `app.config.server.ts`, which only the
+  prerendering server reads) makes a build whose base fonts and configuration
+  did not change forge the same fonts at the same URLs as the last one. Store
+  it as a CI secret and pass it to the build step only; check that it is not in
+  the browser output (`grep -rF "$VENEER_SECRET" dist/my-app/browser` finds
+  nothing). The build still works without it.
+- **Keep the live fonts.** Before publishing, read the pages that are live now,
+  take the font URLs out of their `ng-state` (`"fonts":[...]`) and download the
+  fonts the new build lacks into it. The demo's
+  [`scripts/demo-veneer-fonts.mjs`](https://github.com/pacyfist/veneer/blob/main/scripts/demo-veneer-fonts.mjs)
+  `keep <live base URL>` does this, and adds nothing, without failing, on a
+  first deploy or when the site is unreachable:
+
+  ```yaml
+  # GitHub Actions
+  - run: npm run build
+    env:
+      VENEER_SECRET: ${{ secrets.VENEER_SECRET }}
+  - run: node scripts/veneer-fonts.mjs keep https://example.github.io/my-app/
+  - uses: actions/upload-pages-artifact@v3
+    with:
+      path: dist/my-app/browser
+  ```
+
+  It only keeps the fonts of the deploy just before, which covers HTML cached
+  for less than one deploy interval.
+
 ### Without `provideVeneerServer()`
 
 The server cannot scramble without putting the

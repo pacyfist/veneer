@@ -12,7 +12,16 @@ const serverConfig: ApplicationConfig = {
     // base font is read from the source folder, and the forged fonts are
     // written outside dist/demo (the builder empties that after prerendering)
     // for scripts/demo-veneer-fonts.mjs to copy into the browser output.
-    provideVeneerServer({ fonts: 'projects/demo/public', emitDir: 'dist/demo-veneer' }),
+    // VENEER_SECRET (optional, a CI secret) keeps the cipher and font URLs the
+    // same from build to build while nothing else changes, so HTML a browser
+    // or the CDN still caches from the last deploy finds its font. It is read
+    // while prerendering, in this server-only file, and never reaches the
+    // browser bundle.
+    provideVeneerServer({
+      fonts: 'projects/demo/public',
+      emitDir: 'dist/demo-veneer',
+      secret: process.env['VENEER_SECRET'],
+    }),
   ],
 };
 
