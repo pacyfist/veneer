@@ -4,6 +4,7 @@ import { CodeBlock } from '../ui/code-block';
 import { VeneerDirective } from '@pacyfist/veneer';
 import { ApplyTabs } from './apply-tabs';
 import { CmsHtml } from './cms-html';
+import { Csp } from './csp';
 
 /**
  * Snippets live here rather than inline in the template: an Angular template
@@ -60,7 +61,7 @@ const SERVER_TS = [
 @Component({
   selector: 'app-get-started',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SectionHeading, CodeBlock, ApplyTabs, CmsHtml, VeneerDirective],
+  imports: [SectionHeading, CodeBlock, ApplyTabs, CmsHtml, Csp, VeneerDirective],
   template: `
     <app-section-heading eyebrow="Get started" title="Add it to your Angular app in three steps">
       Works with standalone components, signals, server-side rendering and hydration. No stylesheet
@@ -122,6 +123,16 @@ const SERVER_TS = [
         </div>
       </li>
     </ol>
+
+    <!-- Outside the <ol>: e2e/snippets.spec.ts compares the code blocks in it with the README. -->
+    <div class="mt-10 flex flex-col gap-3">
+      <details class="collapse-arrow bg-base-100 border-base-300 collapse border">
+        <summary class="collapse-title text-lg font-bold">Strict Content Security Policy</summary>
+        <div class="collapse-content">
+          <app-csp />
+        </div>
+      </details>
+    </div>
 
     <div class="mt-16">
       <h3 class="text-2xl font-bold">Which form do I use?</h3>

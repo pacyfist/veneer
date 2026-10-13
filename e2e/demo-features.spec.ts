@@ -283,3 +283,19 @@ test.describe('without JavaScript', () => {
     );
   });
 });
+
+test.describe('Content Security Policy', () => {
+  test('the exported hashes match the inline elements of the served page', async ({ page }) => {
+    await openDemo(page);
+    await page.locator('summary', { hasText: 'Strict Content Security Policy' }).click();
+    const table = page.getByTestId('csp-hashes');
+    await expect(table.locator('tbody tr')).toHaveCount(2);
+    for (const row of await table.locator('tbody tr').all()) {
+      const exported = row.locator('td').nth(1);
+      await expect(exported).toHaveText(/^'sha256-[A-Za-z0-9+/]+=*'$/);
+      await expect(row.locator('td').nth(2)).toHaveText((await exported.textContent())!);
+      await expect(row.locator('td').nth(3)).toHaveText('matches');
+    }
+    await expect(page.locator('app-csp')).toContainText("hideWith: 'hidden'");
+  });
+});
