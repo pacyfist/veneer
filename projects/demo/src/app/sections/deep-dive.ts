@@ -82,7 +82,8 @@ import { Faces } from './faces';
             The demo sentences also ship readable inside this page's JavaScript bundle, because
             Angular compiles template text into it. That is true of any text written in an app's
             source; only content that arrives at runtime, from an API or a CMS, stays out of the
-            bundle. The evidence for the HTML is the served page in "Try it yourself".
+            bundle. The evidence for the HTML is the served page in "Try it yourself", and
+            <a class="link" href="#limits">"Check this page for leaks"</a> finds both.
           </p>
           <p>
             Fonts: Roboto Regular (the page's font, a Roboto 2 build) is under the Apache License

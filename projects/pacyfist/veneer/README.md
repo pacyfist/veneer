@@ -1032,6 +1032,9 @@ bundle, as the suite expects:
 | try-it "My secret sauce recipe" (pipe)               | leaks: an `<input value>` pre-fills it      | leaks                                       |
 | bench "Rendered with the settings…" (bound)          | clean (rendered in the browser only)        | leaks                                       |
 | breakage "The page stays usable…" (bound)            | clean (rendered in the browser only)        | leaks                                       |
+| cms-html "Posted by Ada Lovelace…" (bound)           | clean (`code` text readable by design)      | leaks                                       |
+| faces-card "Drawn from the forged…" (element)        | clean (rendered on a click only)            | leaks                                       |
+| trade-offs "Copy me and paste…" (bound)              | clean (rendered in the browser only)        | leaks                                       |
 
 No specimen leaks through the title, meta and OG tags, `alt`/`aria-label`/`title`
 attributes or the `ng-state` JSON (the demo makes no HttpClient calls and has no
