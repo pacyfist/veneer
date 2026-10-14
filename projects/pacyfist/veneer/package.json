@@ -20,6 +20,7 @@
     "cmap"
   ],
   "license": "AGPL-3.0-only",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/pacyfist/veneer.git",
