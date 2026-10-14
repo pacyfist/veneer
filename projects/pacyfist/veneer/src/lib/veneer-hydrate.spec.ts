@@ -318,7 +318,7 @@ describe('hydrating a server render', () => {
       expect(service.failed()?.message).toContain('(VNR011');
     });
 
-    it('when the forge chunk cannot be loaded, after one retry', async () => {
+    it('when the forge chunk cannot be loaded (not retried: browsers cache the failure)', async () => {
       served.set('/fonts/base.ttf', ROBOTO);
       const load = vi.fn(() => Promise.reject(new Error('chunk 404')));
       const restore = stubForgeImport(load);
@@ -326,7 +326,7 @@ describe('hydrating a server render', () => {
         const { service } = await hydrateFromUrl();
         expect(service.failed()?.code).toBe('VNR016');
         expect(service.failed()?.message).toContain('could not load the font forge (chunk 404)');
-        expect(load).toHaveBeenCalledTimes(2);
+        expect(load).toHaveBeenCalledTimes(1);
       } finally {
         restore();
       }
@@ -350,22 +350,6 @@ describe('hydrating a server render', () => {
       await vi.waitFor(() => expect(service.status()).toBe('active'));
       const paths = vi.mocked(fetch).mock.calls.map(([url]) => new URL(String(url)).pathname);
       expect(paths.filter((p) => p === '/fonts/base.ttf')).toHaveLength(2);
-    });
-
-    it('for the forge chunk', async () => {
-      const load = vi
-        .fn<() => Promise<typeof import('@pacyfist/veneer/forge')>>()
-        .mockRejectedValueOnce(new Error('chunk 503'))
-        .mockImplementation(() => import('@pacyfist/veneer/forge'));
-      const restore = stubForgeImport(load);
-      try {
-        const { service } = await hydrate();
-        release();
-        await vi.waitFor(() => expect(service.status()).toBe('active'));
-        expect(load).toHaveBeenCalledTimes(2);
-      } finally {
-        restore();
-      }
     });
 
     it('but not a 404, which will not change', async () => {

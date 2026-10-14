@@ -179,7 +179,8 @@ readable text and an error is logged. Usually the worst case is unprotected text
 The exception is a server-rendered page: if the browser cannot get the base font,
 the forged font or veneer's forge code (blocked, offline, or gone after a
 redeploy), the text the server rendered stays scrambled, because the readable
-text is not in the page. veneer retries once, then reports `VNR016`. Watch for it
+text is not in the page. veneer retries the font requests once (a failed code
+chunk cannot be retried in a browser), then reports `VNR016`. Watch for it
 with `withStatusListener()`.
 
 ## FAQ

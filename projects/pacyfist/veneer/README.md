@@ -588,7 +588,7 @@ re-forge it on demand.
 A page can only be decoded with the font it was rendered with. On a
 server-rendered page the readable text is not in the HTML, so whenever the
 browser cannot get the base font, the forged font or the forge code, the text the
-server rendered stays scrambled: veneer retries once, then reports
+server rendered stays scrambled: veneer retries the font requests once, then reports
 [VNR016](#vnr016) (watch for it with `withStatusListener()`). A missing forged
 font is the case your deployment decides. Without a `secret`, every process draws
 its own cipher, family name and font ids from the CSPRNG and keeps the fonts in
@@ -1284,8 +1284,10 @@ the forged font, read against the base font with the forge code. If it cannot ge
 any of the three (a blocker, offline, a redeploy that removed them, a load
 balancer without sticky sessions), that text stays scrambled and the failure is
 [VNR016](#vnr016), whatever the underlying cause. Bound text, `veneerHtml` and the
-pipe still fall back to readable. Requests that fail at the network level or with
-408, 429 or 5xx are retried once after 300 ms first. Alert on `VNR016`:
+pipe still fall back to readable. Font requests that fail at the network level or
+with 408, 429 or 5xx are retried once after 300 ms first. The forge code is not:
+a browser remembers a failed module load for the rest of the page's life, so a
+second import would fail at once. Alert on `VNR016`:
 
 ```ts
 withStatusListener(({ failure }) => {
@@ -1404,8 +1406,9 @@ from `@pacyfist/veneer/testing`.
 
 The base font could not be loaded: the request failed (the message names the
 resolved URL and the status) or the `font` loader rejected. Or the forge code (a
-lazy chunk) could not be loaded. Network errors and 408, 429 and 5xx responses
-are retried once first. Check that the file is served at that URL. Use a relative
+lazy chunk) could not be loaded. For the font, network errors and 408, 429 and
+5xx responses are retried once first; the chunk is not (browsers cache a failed
+module load). Check that the file is served at that URL. Use a relative
 path such as `'fonts/Roboto-Regular.ttf'`: it resolves against `<base href>`,
 while a leading slash ignores it and breaks subpath deploys. Protection fails
 open. On a hydrating server-rendered page this is reported as

@@ -150,16 +150,16 @@ describe('one retry for a transient failure', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it('retries the forge chunk once, and does not cache a final failure', async () => {
+  it('does not retry the forge chunk (browsers cache a failed module), nor cache the failure', async () => {
     const load = vi.fn(() => Promise.reject(new Error('chunk 404')));
     const restore = stubForgeImport(load);
     try {
       const error = await loadForge().catch((e) => e);
       expect(error).toBeInstanceOf(FontSourceError);
       expect(error.message).toContain('VNR010');
-      expect(load).toHaveBeenCalledTimes(2);
+      expect(load).toHaveBeenCalledTimes(1);
       await loadForge().catch(() => {});
-      expect(load).toHaveBeenCalledTimes(4);
+      expect(load).toHaveBeenCalledTimes(2);
     } finally {
       restore();
     }

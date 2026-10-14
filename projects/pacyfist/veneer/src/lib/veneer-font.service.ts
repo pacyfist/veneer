@@ -431,10 +431,12 @@ export class VeneerFontService implements VeneerFontState, OnDestroy {
   private async hydrate(): Promise<void> {
     let stage: Stage = 'source';
     try {
-      const forge = loadForge();
       if (this.serverFonts.length === 0) {
         throw new ForgedFontError(veneerMessage('VNR016', 'the server sent no forged font.'));
       }
+      // Started only once there is something to decode, so a failed chunk
+      // load is never left without a handler.
+      const forge = loadForge();
       if (typeof ngDevMode === 'undefined' || ngDevMode) this.warnFaceMismatch();
       // The server's faces, not the browser's config: the page was rendered
       // with these, and the map is read from the first (the regular face).

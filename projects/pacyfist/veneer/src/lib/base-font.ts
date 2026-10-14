@@ -162,27 +162,26 @@ let forge: Promise<Forge> | undefined;
  * A dynamic import of its own entry point, so bundlers put the forge (and
  * WOFF decoding) in a lazy chunk instead of the app's initial bundle. The
  * cipher stays in the main bundle: it has to run synchronously, on the server
- * too. A failed chunk load is retried once after a short delay (a redeploy
- * or a dropped connection), and a final failure is not cached.
+ * too.
+ *
+ * A failed chunk load is not retried: browsers keep a failed module fetch in
+ * the page's module map, so importing the same chunk again rejects at once
+ * without a new request. It is not cached here either, which only matters for
+ * environments without that rule (tests, some bundler runtimes).
  */
 export function loadForge(): Promise<Forge> {
-  forge ??= importForge()
-    .catch(async () => {
-      await wait(RETRY_DELAY_MS);
-      return importForge();
-    })
-    .catch((cause) => {
-      forge = undefined;
-      const reason = (cause as Error)?.message ?? String(cause);
-      throw new FontSourceError(
-        veneerMessage('VNR010', `could not load the font forge (${reason}).`),
-      );
-    });
+  forge ??= importForge().catch((cause) => {
+    forge = undefined;
+    const reason = (cause as Error)?.message ?? String(cause);
+    throw new FontSourceError(
+      veneerMessage('VNR010', `could not load the font forge (${reason}).`),
+    );
+  });
   return forge;
 }
 
 /**
- * Replace how the forge chunk is imported (`loadForge` still retries it once).
+ * Replace how the forge chunk is imported.
  * Tests only; returns a function that restores the real import.
  */
 export function stubForgeImport(load: () => Promise<Forge>): () => void {
