@@ -11,9 +11,9 @@ import { VeneerDirective } from '@pacyfist/veneer';
 import { DomProbe } from '../ui/dom-probe';
 import { A11yNote } from '../ui/a11y-note';
 
-/** What a CMS might send: markup worth keeping, a readable name, and two unsafe bits. */
+/** What a CMS might send: markup worth keeping, a readable name (class form, which survives sanitizing), and two unsafe bits. */
 const CMS_HTML =
-  '<p>Posted by <span veneer-skip>Ada Lovelace</span>. Run <code>npm test</code>, then follow the <a href="#start" onclick="alert(1)">setup guide</a>. The <strong>font</strong> does the decoding.</p><script>alert(2)</script>';
+  '<p>Posted by <span class="veneer-skip">Ada Lovelace</span>. Run <code>npm test</code>, then follow the <a href="#start" onclick="alert(1)">setup guide</a>. The <strong>font</strong> does the decoding.</p><script>alert(2)</script>';
 
 /** The same post after your own pipeline sanitized it with an allowlist that keeps veneer-skip. */
 const CLEAN_HTML =
@@ -88,12 +88,12 @@ type Source = 'string' | 'trusted';
       @if (source() === 'string') {
         A string is sanitized like <code>[innerHTML]</code>: the <code>onclick</code> and the
         <code>&lt;script&gt;</code> are gone, links, <code>&lt;strong&gt;</code> and
-        <code>&lt;code&gt;</code> stay. Angular's sanitizer keeps only attributes it knows, so it
-        drops <code>veneer-skip</code> too, and the name is scrambled.
+        <code>&lt;code&gt;</code> stay. The sanitizer drops attributes it does not know but keeps
+        <code>class</code>, so the name marked <code>class="veneer-skip"</code> stays readable.
       } @else {
         <code>SafeHtml</code> from <code>bypassSecurityTrustHtml()</code> goes in as it is, so only
-        pass HTML your own pipeline has already sanitized. Here <code>veneer-skip</code> survives
-        and the name stays readable.
+        pass HTML your own pipeline has already sanitized. Here the attribute form,
+        <code>veneer-skip</code>, survives too.
       }
     </p>
   `,

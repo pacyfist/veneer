@@ -57,6 +57,12 @@ class RichHost {}
 class SkipHost {}
 
 @Component({
+  template: `<p veneer>Written by <span class="byline veneer-skip">Plain Name</span>.</p>`,
+  imports: [VeneerDirective],
+})
+class ClassSkipHost {}
+
+@Component({
   template: `<article veneer>
     Body text. <span veneerFont>{{ title() | veneer }}</span>
     <span veneer>Inner text</span>
@@ -147,6 +153,12 @@ describe('VeneerDirective text-node walker', () => {
     expect(el.querySelector('textarea')?.value).toBe('draft');
     expect(el.querySelector('pre')?.textContent).toBe(scramble('a poem'));
     expect(el.textContent).toContain(scramble('Run'));
+  });
+
+  it('also skips an element marked with the veneer-skip class', () => {
+    const { el } = setup(ClassSkipHost);
+    expect(el.querySelector('.veneer-skip')?.textContent).toBe('Plain Name');
+    expect(el.textContent).toContain(scramble('Written'));
   });
 
   it('draws veneer-skip subtrees in the fallback font, not the forged one', () => {
@@ -298,6 +310,21 @@ describe('VeneerDirective text-node walker', () => {
       expect(link.textContent).toBe(scramble('here'));
       expect(el.querySelector('b')?.textContent).toBe(scramble('now'));
       expect(decodeVeneer(el)).toBe('Click here now');
+    });
+
+    it('keeps a class="veneer-skip" span readable, since the sanitizer keeps class', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const { el, fixture } = setup(HtmlHost);
+      fixture.componentInstance.html.set(
+        'Posted by <span class="veneer-skip">Ada Lovelace</span> <span veneer-skip>Dropped</span>',
+      );
+      fixture.detectChanges();
+
+      // The attribute form does not survive sanitizing; the class form does.
+      expect(el.querySelector('[veneer-skip]')).toBeNull();
+      expect(el.querySelector('.veneer-skip')?.textContent).toBe('Ada Lovelace');
+      expect(el.textContent).toContain(scramble('Dropped'));
+      expect(decodeVeneer(el)).toBe('Posted by Ada Lovelace Dropped');
     });
 
     it('accepts SafeHtml from bypassSecurityTrustHtml', () => {

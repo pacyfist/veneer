@@ -52,8 +52,20 @@ export function hostOf(el: Element): ProtectedHost | undefined {
  */
 const SKIPPED_TAGS = new Set(['script', 'style', 'template', 'code', 'textarea', 'noscript']);
 
-/** The opt-out attribute: `<span veneer-skip>` keeps its subtree readable. */
+/**
+ * The opt-out marker: `<span veneer-skip>` or `<span class="veneer-skip">`
+ * keeps its subtree readable. The class form is for `[veneerHtml]` strings:
+ * Angular's sanitizer keeps `class` but drops attributes it does not know.
+ */
 export const SKIP_ATTRIBUTE = 'veneer-skip';
+
+/** Whether `el` carries the opt-out marker, as an attribute or a class. */
+export function hasSkipMarker(el: Element): boolean {
+  return (
+    el.hasAttribute(SKIP_ATTRIBUTE) ||
+    (el.getAttribute('class') ?? '').split(/\s+/).includes(SKIP_ATTRIBUTE)
+  );
+}
 
 /**
  * Whether the walker leaves `el` and its subtree readable.
@@ -61,7 +73,7 @@ export const SKIP_ATTRIBUTE = 'veneer-skip';
  * @internal Exported as `ɵisSkippedElement` for the testing entry point only.
  */
 export function isSkippedElement(el: Element): boolean {
-  return SKIPPED_TAGS.has(el.localName) || el.hasAttribute(SKIP_ATTRIBUTE);
+  return SKIPPED_TAGS.has(el.localName) || hasSkipMarker(el);
 }
 
 /** What the walker found under a `[veneer]` host. */
@@ -94,7 +106,7 @@ export function walkTextNodes(root: Element): Walk {
         const el = child as Element;
         if (hosts.has(el)) continue;
         if (isSkippedElement(el)) {
-          if (el.hasAttribute(SKIP_ATTRIBUTE)) optedOut.push(el);
+          if (hasSkipMarker(el)) optedOut.push(el);
           continue;
         }
         visit(el);
