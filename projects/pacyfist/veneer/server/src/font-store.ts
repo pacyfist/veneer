@@ -109,6 +109,34 @@ export interface VeneerFontDiskOptions {
   path?: string;
 }
 
+/**
+ * Fonts read from the disk fallback, kept so a repeat request is served from
+ * memory instead of the (possibly network) filesystem. A font id never changes
+ * content, so a cached copy cannot go stale. Bounded, least recently used out.
+ */
+const DISK_CACHE_SIZE = 32;
+const diskCache = new Map<string, Uint8Array>();
+
+function cachedFromDisk(id: string): Uint8Array | undefined {
+  const bytes = diskCache.get(id);
+  if (bytes) {
+    diskCache.delete(id);
+    diskCache.set(id, bytes);
+  }
+  return bytes;
+}
+
+function rememberFromDisk(id: string, bytes: Uint8Array): Uint8Array {
+  diskCache.set(id, bytes);
+  while (diskCache.size > DISK_CACHE_SIZE) diskCache.delete(diskCache.keys().next().value!);
+  return bytes;
+}
+
+/** @internal Tests only. */
+export function clearDiskCache(): void {
+  diskCache.clear();
+}
+
 /** A forged-font file name: 128 bits in hex, nothing else. */
 const FILE = /\/([0-9a-f]{32})\.ttf$/;
 
@@ -130,7 +158,7 @@ function fileOf(id: string, options: VeneerFontDiskOptions): string | undefined 
 /**
  * The bytes of a forged font by the path or URL the page references
  * (`.../veneer/<id>.ttf`), or undefined: from this process's memory, or with
- * `dir` from that folder (a synchronous read). For servers that are not
+ * `dir` from that folder (a synchronous read, cached for repeats). For servers that are not
  * Express or Connect: serve the bytes as `font/ttf`.
  */
 export function getVeneerFont(
@@ -139,12 +167,12 @@ export function getVeneerFont(
 ): Uint8Array | undefined {
   const id = idOf(path);
   if (!id) return undefined;
-  const bytes = store().fonts.get(id)?.bytes;
+  const bytes = store().fonts.get(id)?.bytes ?? cachedFromDisk(id);
   if (bytes) return bytes;
   const file = fileOf(id, options);
   if (!file) return undefined;
   try {
-    return readFileSync(file);
+    return rememberFromDisk(id, readFileSync(file));
   } catch {
     return undefined;
   }
@@ -185,12 +213,12 @@ export function veneerFontMiddleware(
   };
   return (req, res, next) => {
     const id = req.method === 'GET' || req.method === 'HEAD' ? idOf(req.url ?? '') : undefined;
-    const bytes = id && store().fonts.get(id)?.bytes;
+    const bytes = id && (store().fonts.get(id)?.bytes ?? cachedFromDisk(id));
     if (bytes) return send(req, res, bytes);
     const file = id && fileOf(id, options);
     if (!file) return next?.();
     readFile(file).then(
-      (data) => send(req, res, data),
+      (data) => send(req, res, rememberFromDisk(id, data)),
       () => next?.(),
     );
   };

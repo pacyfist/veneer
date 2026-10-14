@@ -23,7 +23,7 @@ import {
 import { DEFAULT_CHARSET, scrambleText } from '@pacyfist/veneer/core';
 import { parseBaseFont, readScrambleMap } from '@pacyfist/veneer/forge';
 import { VeneerServerOptions, provideVeneerServer } from './provide-veneer-server';
-import { getVeneerFont, setMaxFonts, veneerFontMiddleware } from './font-store';
+import { clearDiskCache, getVeneerFont, setMaxFonts, veneerFontMiddleware } from './font-store';
 
 const FIXTURE = join(__dirname, '../../testing/Roboto-Regular.ttf');
 const FONT_DIR = dirname(FIXTURE);
@@ -524,6 +524,29 @@ describe('veneerFontMiddleware', () => {
       );
       expect(next).not.toHaveBeenCalled();
     } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('with dir, keeps a font it read from disk, so a repeat does not read again', async () => {
+    clearDiskCache();
+    const dir = mkdtempSync(join(tmpdir(), 'veneer-shared-'));
+    try {
+      const id = 'ef'.repeat(16);
+      const bytes = Buffer.from('another forged font');
+      mkdirSync(join(dir, 'veneer'), { recursive: true });
+      writeFileSync(join(dir, `veneer/${id}.ttf`), bytes);
+      const url = `/veneer/${id}.ttf`;
+      expect(Buffer.from(getVeneerFont(url, { dir })!)).toEqual(bytes);
+
+      // Gone from disk: served from memory, by both entry points.
+      rmSync(join(dir, `veneer/${id}.ttf`));
+      expect(Buffer.from(getVeneerFont(url, { dir })!)).toEqual(bytes);
+      const res = { writeHead: vi.fn(), end: vi.fn() };
+      veneerFontMiddleware({ dir })({ method: 'GET', url } as never, res as never, vi.fn());
+      expect(Buffer.from(res.end.mock.calls[0][0] as Uint8Array)).toEqual(bytes);
+    } finally {
+      clearDiskCache();
       rmSync(dir, { recursive: true, force: true });
     }
   });
