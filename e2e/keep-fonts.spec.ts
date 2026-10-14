@@ -132,3 +132,43 @@ test('succeeds quietly when the site has no veneer fonts or cannot be reached', 
   expect(down.stdout).toContain('unreachable');
   expect(existsSync(join(next, 'veneer'))).toBe(false);
 });
+
+test('keeps fonts retired by earlier deploys until they expire, via veneer-fonts.json', async () => {
+  // The live site is the second deploy in a row: its pages use font B, and its
+  // manifest still carries font A (retired a minute ago) and font C (retired
+  // two days ago, past the keep window).
+  const [a] = fontsOf(live);
+  const b = a.replace(/[0-9a-f]{32}/, 'b'.repeat(32));
+  const c = a.replace(/[0-9a-f]{32}/, 'c'.repeat(32));
+  // ng-state escapes the slash (\u002F), so swap the id rather than the URL.
+  const id = (url: string) => url.match(/[0-9a-f]{32}/)![0];
+  for (const page of ['index.html', '404.html']) {
+    const file = join(live, page);
+    writeFileSync(file, readFileSync(file, 'utf8').replaceAll(id(a), id(b)));
+  }
+  cpSync(join(live, a), join(live, b));
+  cpSync(join(live, a), join(live, c));
+  const minuteAgo = new Date(Date.now() - 60_000).toISOString();
+  const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+  writeFileSync(
+    join(live, 'veneer-fonts.json'),
+    JSON.stringify({ fonts: { [a]: minuteAgo, [c]: twoDaysAgo } }),
+  );
+
+  // The new build forged its own font D.
+  const next = nextBuild();
+  const d = a.replace(/[0-9a-f]{32}/, 'd'.repeat(32));
+  for (const page of readdirSync(next).filter((file) => file.endsWith('.html'))) {
+    const file = join(next, page);
+    writeFileSync(file, readFileSync(file, 'utf8').replaceAll(id(a), id(d)));
+  }
+  const url = await serve(live);
+  await keep(url, next);
+
+  expect(existsSync(join(next, b))).toBe(true);
+  expect(existsSync(join(next, a))).toBe(true);
+  expect(existsSync(join(next, c))).toBe(false);
+  const manifest = JSON.parse(readFileSync(join(next, 'veneer-fonts.json'), 'utf8'));
+  expect(Object.keys(manifest.fonts).sort()).toEqual([a, b].sort());
+  expect(manifest.fonts[a]).toBe(minuteAgo);
+});

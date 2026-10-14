@@ -705,7 +705,10 @@ sends `max-age=600`), which then cannot be decoded. Two fixes, best together:
   fonts the new build lacks into it. The demo's
   [`scripts/demo-veneer-fonts.mjs`](https://github.com/pacyfist/veneer/blob/main/scripts/demo-veneer-fonts.mjs)
   `keep <live base URL>` does this, and adds nothing, without failing, on a
-  first deploy or when the site is unreachable:
+  first deploy or when the site is unreachable. It also writes
+  `veneer-fonts.json`, listing the fonts it kept and when they retired, so the
+  next deploy keeps them for a day too: HTML cached across several quick
+  deploys still finds its font:
 
   ```yaml
   # GitHub Actions

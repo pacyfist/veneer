@@ -19,6 +19,10 @@
  * downloads each font that [dir] (default dist/demo/browser) lacks. It never
  * fails the deploy: an unreachable site, or one without veneer fonts (the
  * first deploy), adds nothing.
+ *
+ * Fonts kept this way are listed in `veneer-fonts.json` with the time they
+ * stopped being current, so the next deploy keeps them too while HTML that
+ * references them may still be cached (KEEP_FOR), not only for one deploy.
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
@@ -64,6 +68,15 @@ const isFont = (bytes) =>
   bytes.byteLength > 12 &&
   ['00010000', '4f54544f', '74727565'].includes(bytes.subarray(0, 4).toString('hex'));
 
+/** The manifest of kept fonts, at the site root: `{ fonts: { url: retiredAt } }`. */
+const MANIFEST = 'veneer-fonts.json';
+
+/**
+ * How long a retired font is kept. HTML on GitHub Pages is cacheable for 10
+ * minutes; a day also covers a tab left open and a slow CDN edge.
+ */
+const KEEP_FOR = 24 * 60 * 60 * 1000;
+
 async function get(url) {
   try {
     const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
@@ -102,6 +115,25 @@ async function keep(live, target) {
     return;
   }
 
+  // The live pages' fonts retire now. Fonts the live site was itself still
+  // keeping stay until KEEP_FOR has passed since they retired.
+  const now = Date.now();
+  const retired = new Map([...fonts].map((url) => [url, new Date(now).toISOString()]));
+  const previous = await get(new URL(MANIFEST, base));
+  if (previous.status === 200 && previous.body) {
+    try {
+      const listed = JSON.parse(previous.body.toString('utf8'))?.fonts ?? {};
+      for (const [url, when] of Object.entries(listed)) {
+        const at = Date.parse(String(when));
+        if (!FONT_URL.test(url) || !(now - at < KEEP_FOR) || retired.has(url)) continue;
+        retired.set(url, new Date(at).toISOString());
+        fonts.add(url);
+      }
+    } catch {
+      // Not our manifest; keep what the pages reference.
+    }
+  }
+
   const missing = [...fonts].filter((url) => !existsSync(join(target, url)));
   let kept = 0;
   for (const url of missing) {
@@ -114,6 +146,16 @@ async function keep(live, target) {
     await writeFile(join(target, url), body);
     kept++;
   }
+
+  // Record every retired font now in the build, for the next deploy's `keep`.
+  // The new build's own fonts are current, not retired: its pages list them.
+  const current = new Set(
+    pagesIn(target).flatMap((page) => fontsIn(readFileSync(join(target, page), 'utf8'))),
+  );
+  const listed = Object.fromEntries(
+    [...retired].filter(([url]) => !current.has(url) && existsSync(join(target, url))).sort(),
+  );
+  await writeFile(join(target, MANIFEST), `${JSON.stringify({ fonts: listed }, null, 2)}\n`);
   console.log(
     fonts.size === 0
       ? `veneer: ${base} references no forged fonts; nothing to keep.`
