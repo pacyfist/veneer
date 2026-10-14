@@ -30,7 +30,7 @@ jobs:
     name: check the tag
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check the tag matches the library version
         run: |
@@ -54,9 +54,9 @@ jobs:
       # so no NPM_TOKEN secret is needed and the package gets provenance.
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           registry-url: https://registry.npmjs.org
@@ -69,7 +69,7 @@ jobs:
           npm install -g "$npm_spec"
           npm --version
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: library
           path: dist/pacyfist/veneer
